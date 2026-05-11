@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!221 &22100000
+AnimatorOverrideController:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_Name: doll_monkey_full_ani
+  m_Controller: {fileID: 9100000, guid: 35eb57e588d7df14288a654f7f0adb5d, type: 2}
+  m_Clips:
+  - m_OriginalClip: {fileID: 7400000, guid: c4f33ae0fb9ab9842902f84b416f16e0, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: 15f621fdc55359b40b6b736fc9249162, type: 3}
+  - m_OriginalClip: {fileID: 7400000, guid: 9d702e0249e9f26448eb9d4ef2ec4f1e, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: 3a3e14fd9a03cee439d0538e01e33712, type: 3}
+  - m_OriginalClip: {fileID: 7400000, guid: c8df4a8a73d05f543aae90a18f761b4a, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: ec3f40c6f9a80684792dad33943d7397, type: 3}
+  - m_OriginalClip: {fileID: 7400000, guid: d99622107798c2a4dbfb5a204d3bde4d, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: 8a0bb811beef8fc40987ec0c881d7acb, type: 3}
