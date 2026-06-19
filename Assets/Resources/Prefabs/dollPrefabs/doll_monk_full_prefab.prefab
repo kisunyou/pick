@@ -10,7 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 4000011734341728}
   - component: {fileID: 3423374239880478782}
-  m_Layer: 8
+  - component: {fileID: 6621871926281204516}
+  m_Layer: 9
   m_Name: doll_monk_full_prefab
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -60,7 +61,19 @@ Rigidbody:
   m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 0
-  m_CollisionDetection: 1
+  m_CollisionDetection: 2
+--- !u!114 &6621871926281204516
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000014118341788}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e87be4c519b656c42a0062715e1502ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1041716918757422
 GameObject:
   m_ObjectHideFlags: 0
@@ -71,7 +84,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4644141360518972}
   - component: {fileID: 64844290300111238}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 11
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -100,7 +113,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1041716918757422}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -125,7 +138,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4512781589587710}
   - component: {fileID: 64833913298340932}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 5
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -154,7 +167,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1054640944399902}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -178,7 +191,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4422147806918502}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone005(mirrored)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -210,7 +223,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4145271076200844}
   - component: {fileID: 64979043777263402}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 3
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -239,7 +252,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1155523148210266}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -263,7 +276,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4706431632470858}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone006_eye_L
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -295,7 +308,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4313568008632910}
   - component: {fileID: 64406260441313150}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 14
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -324,7 +337,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1202776526505462}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -349,7 +362,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4529726017615656}
   - component: {fileID: 64737250269275266}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -378,7 +391,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1204136239162520}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -403,7 +416,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4654562204242050}
   - component: {fileID: 64320915481564504}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 16
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -432,7 +445,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1235503017291348}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -456,7 +469,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4068997704979046}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone006_eye_L(mirrored)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -487,7 +500,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4973263102307634}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone005
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -519,7 +532,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4611066556945508}
   - component: {fileID: 64235944574828330}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 15
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -548,7 +561,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1320468021886576}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -572,7 +585,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4488346367066706}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone003
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -603,7 +616,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4435923539366100}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone002_head
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -640,7 +653,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4220561091363082}
   - component: {fileID: 95078085789665938}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: doll_monkey_full
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -697,7 +710,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4157760423888824}
   - component: {fileID: 64013362644565296}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 9
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -726,7 +739,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1389963181437668}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -750,7 +763,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4568070425364390}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone003(mirrored)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -781,7 +794,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4609479954813912}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone004_ear_L
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -814,7 +827,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4915774031297782}
   - component: {fileID: 64498793774496970}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 19
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -843,7 +856,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1483036151801748}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -870,7 +883,7 @@ GameObject:
   - component: {fileID: 33471182375974076}
   - component: {fileID: 23499408599456966}
   - component: {fileID: 114441043247712314}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: doll_monkey_col
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1027,7 +1040,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4110392309241282}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone001
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1064,7 +1077,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4976437734707518}
   - component: {fileID: 64959455123949182}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 7
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1093,7 +1106,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1531624619946576}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -1118,7 +1131,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4984612641355772}
   - component: {fileID: 64030260038813184}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 12
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1147,7 +1160,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1548514877007748}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -1172,7 +1185,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4092488872018520}
   - component: {fileID: 64037117902853728}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 10
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1201,7 +1214,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1604686321493144}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -1226,7 +1239,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4094722513602130}
   - component: {fileID: 64698937087628878}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 6
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1255,7 +1268,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1621876653972432}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -1280,7 +1293,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4592497953974966}
   - component: {fileID: 64179879334001876}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 8
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1309,7 +1322,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1652922956922124}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -1334,7 +1347,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4586574257477818}
   - component: {fileID: 64282673568363460}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 4
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1363,7 +1376,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1663896925701634}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -1387,7 +1400,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4554010903923252}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone007
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1419,7 +1432,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4939976744337126}
   - component: {fileID: 64368353664946192}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 0
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1448,7 +1461,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1715019120916322}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -1473,7 +1486,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4861730564933784}
   - component: {fileID: 64074632462110694}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1502,7 +1515,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1723694214072340}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -1526,7 +1539,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4754099219226346}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone006_mouth
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1558,7 +1571,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4105882637832244}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone002(mirrored)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1590,7 +1603,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4666603880124040}
   - component: {fileID: 64230137915463604}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 17
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1619,7 +1632,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1777155913774672}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -1643,7 +1656,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4949809120998486}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone004_ear_L(mirrored)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1676,7 +1689,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4639071428658760}
   - component: {fileID: 64018864194359582}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 18
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1705,7 +1718,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1865444650913302}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -1729,7 +1742,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4580482935507000}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: joint_anchor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1761,7 +1774,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4866829476243338}
   - component: {fileID: 137787704729563578}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: doll_monkey_full
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1862,7 +1875,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4781684654388996}
   - component: {fileID: 64534919998670078}
-  m_Layer: 19
+  m_Layer: 9
   m_Name: Hull 13
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1891,7 +1904,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1881927105936044}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 5742320779cb7f94abd79cd2aa47b878, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -1915,7 +1928,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4760755958726740}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone002
   m_TagString: Untagged
   m_Icon: {fileID: 0}

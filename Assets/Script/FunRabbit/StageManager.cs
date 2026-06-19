@@ -1,0 +1,90 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace FunRabbit
+{
+    public class StageManager
+    {
+        [System.Serializable]
+        public class StageData
+        {
+            public int stageKey;
+            public Vector3[] positions;
+            public Vector3[] scales;
+            public Vector3[] rotations;
+            public string[] prefabNames;
+        }
+
+        private const string KEY_PREFIX = "StageData_";
+
+        // actor 보관 리스트
+        private static readonly List<Actor> actors = new List<Actor>();
+
+        // actor 보관 리스트에 actor를 추가한다.
+        public static void AddActor(Actor actor)
+        {
+            if (actor == null)
+                return;
+
+            if (!actors.Contains(actor))
+                actors.Add(actor);
+        }
+
+        // actor 보관 리스트에서 actor를 삭제한다.
+        public static void RemoveActor(Actor actor)
+        {
+            if (actor == null)
+                return;
+
+            actors.Remove(actor);
+        }
+
+        // actor 보관 리스트의 모든 actor 정보를 stage 키로 json 저장한다.
+        public static void Save(int stage)
+        {
+            int count = actors.Count;
+
+            StageData data = new StageData
+            {
+                stageKey = stage,
+                positions = new Vector3[count],
+                scales = new Vector3[count],
+                rotations = new Vector3[count],
+                prefabNames = new string[count],
+            };
+
+            for (int i = 0; i < count; i++)
+            {
+                Actor actor = actors[i];
+                if (actor == null)
+                    continue;
+
+                Transform t = actor.transform;
+                data.positions[i] = t.position;
+                data.scales[i] = t.localScale;
+                data.rotations[i] = t.eulerAngles;
+                data.prefabNames[i] = actor.gameObject.name;
+            }
+
+            string json = JsonUtility.ToJson(data);
+            PlayerPrefs.SetString(KEY_PREFIX + stage, json);
+            PlayerPrefs.Save();
+
+            Debug.Log($"[StageManager] Save stage {stage} ({count} actors)\n{json}");
+        }
+
+        // stage 키로 저장된 json 데이터를 얻어 반환한다.
+        public static StageData GetStage(int stage)
+        {
+            string key = KEY_PREFIX + stage;
+            if (!PlayerPrefs.HasKey(key))
+                return null;
+
+            string json = PlayerPrefs.GetString(key);
+            if (string.IsNullOrEmpty(json))
+                return null;
+
+            return JsonUtility.FromJson<StageData>(json);
+        }
+    }
+}

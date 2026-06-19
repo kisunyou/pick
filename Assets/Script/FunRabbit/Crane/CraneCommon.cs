@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,19 +7,19 @@ namespace FunRabbit
     public class CraneBodyType
     {
         /// <summary>
-        /// Å©·¹ÀÎ ¹Ùµğ
+        /// í¬ë ˆì¸ ë°”ë””
         /// </summary>
         public static int CENTER_BODY = 0;
         /// <summary>
-        /// Áı°Ô 0
+        /// ì§‘ê²Œ 0
         /// </summary>
         public static int FINGER_0 = 1;
         /// <summary>
-        /// Áı°Ô 1
+        /// ì§‘ê²Œ 1
         /// </summary>
         public static int FINGER_1 = 2;
         /// <summary>
-        /// Áı°Ô 2
+        /// ì§‘ê²Œ 2
         /// </summary>
         public static int FINGER_2 = 3;
     }

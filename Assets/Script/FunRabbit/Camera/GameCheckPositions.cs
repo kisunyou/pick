@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI.Extensions;
@@ -8,6 +8,7 @@ namespace FunRabbit
     public class GameCheckPositions : InstanceSetter<GameCheckPositions>
     {
         [SerializeField] Transform[] cameraPositions;
+        [SerializeField] Transform returnPosition;
         [SerializeField] BoxCollider craneLimitBoxCollider;
         [SerializeField] Transform[] dollCreatePositions;
 
@@ -21,15 +22,20 @@ namespace FunRabbit
             get { return dollCreatePositions; }
         }
 
+        public Transform ReturnPosition
+        {
+            get { return returnPosition; }
+        }
+
         /// <summary>
-        /// Å©·¡ÀÎÀÇ À§Ä¡¸¦ BoxCollider À§Ä¡·Î Á¦ÇÑ.
+        /// í¬ë˜ì¸ì˜ ìœ„ì¹˜ë¥¼ BoxCollider ìœ„ì¹˜ë¡œ ì œí•œ.
         /// </summary>
         /// <param name="cranePos"></param>
         public bool ClampPositionToBoxCollider(ref Vector3 cranePos)
         {
             Bounds bounds = craneLimitBoxCollider.bounds;
 
-            // ClosestPoint ´ë½Å Á÷Á¢ °¢ ÃàÀ» Å¬·¥ÇÁ
+            // ClosestPoint ëŒ€ì‹  ì§ì ‘ ê° ì¶•ì„ í´ë¨í”„
             cranePos.x = Mathf.Clamp(cranePos.x, bounds.min.x, bounds.max.x);
             cranePos.y = Mathf.Clamp(cranePos.y, bounds.min.y, bounds.max.y);
             cranePos.z = Mathf.Clamp(cranePos.z, bounds.min.z, bounds.max.z);

@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -13,7 +13,7 @@ namespace FunRabbit
         {
             if(IsLoadedScene(sceneName))
             {
-                Debug.Log($"ÀÌ¹Ì {sceneName} ¾ÀÀÌ ·Îµå µÇ¾î ÀÖ½À´Ï´Ù.");
+                Debug.Log($"ì´ë¯¸ {sceneName} ì”¬ì´ ë¡œë“œ ë˜ì–´ ìˆìŠµë‹ˆë‹¤.");
                 return false;
             }
 
@@ -24,24 +24,24 @@ namespace FunRabbit
 
         IEnumerator LoadSceneWithEmptyTransition(string sceneName, System.Action onFinishLoad)
         {
-            // ·Îµù È­¸éÀ» È°¼ºÈ­
+            // ë¡œë”© í™”ë©´ì„ í™œì„±í™”
             //loadingScreen.SetActive(true);
 
-            // ºó ¾ÀÀ» ºñµ¿±âÀûÀ¸·Î ·Îµå
+            // ë¹ˆ ì”¬ì„ ë¹„ë™ê¸°ì ìœ¼ë¡œ ë¡œë“œ
             AsyncOperation emptySceneLoad = SceneManager.LoadSceneAsync("Empty");
             while (!emptySceneLoad.isDone)
             {
                 yield return null;
             }
 
-            // ¸Ş¸ğ¸® ÇØÁ¦
+            // ë©”ëª¨ë¦¬ í•´ì œ
             System.GC.Collect();
             Resources.UnloadUnusedAssets();
 
-            // ¿ø·¡ ·ÎµåÇÏ·Á´Â ¾ÀÀ» ºñµ¿±âÀûÀ¸·Î ·Îµå
+            // ì›ë˜ ë¡œë“œí•˜ë ¤ëŠ” ì”¬ì„ ë¹„ë™ê¸°ì ìœ¼ë¡œ ë¡œë“œ
             AsyncOperation asyncOperation = SceneManager.LoadSceneAsync(sceneName);
 
-            // ¾ÀÀÌ ·ÎµåµÇ´Â µ¿¾È ½½¶óÀÌ´õ ¾÷µ¥ÀÌÆ®
+            // ì”¬ì´ ë¡œë“œë˜ëŠ” ë™ì•ˆ ìŠ¬ë¼ì´ë” ì—…ë°ì´íŠ¸
             while (!asyncOperation.isDone)
             {
                 float progress = Mathf.Clamp01(asyncOperation.progress / 0.9f);                
@@ -49,7 +49,7 @@ namespace FunRabbit
             }
 
             onFinishLoad?.Invoke();
-            // ¾À ·Îµå ¿Ï·á ÈÄ ·Îµù È­¸é ºñÈ°¼ºÈ­
+            // ì”¬ ë¡œë“œ ì™„ë£Œ í›„ ë¡œë”© í™”ë©´ ë¹„í™œì„±í™”
             //loadingScreen.SetActive(false);
         }
 

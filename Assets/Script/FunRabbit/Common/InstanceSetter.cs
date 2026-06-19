@@ -1,12 +1,12 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace FunRabbit
 {
     /// <summary>
-    /// ½Ì±ÛÅæ ÆĞÅÏÀÌ ¾Æ´Ï¶ó, MonoBehaviour¿¡¼­ »ı¼ºµÉ ¶§¸¸ _instance°¡ ¼³Á¤µÇ´Â Å¬·¡½º
-    /// ¸ğ³ë¿¡¼­ ¿ÀºêÁ§Æ® »ı¼º ½Ã ¸¶´Ù »õ·Ó°Ô °»½Å µÊ.
+    /// ì‹±ê¸€í†¤ íŒ¨í„´ì´ ì•„ë‹ˆë¼, MonoBehaviourì—ì„œ ìƒì„±ë  ë•Œë§Œ _instanceê°€ ì„¤ì •ë˜ëŠ” í´ë˜ìŠ¤
+    /// ëª¨ë…¸ì—ì„œ ì˜¤ë¸Œì íŠ¸ ìƒì„± ì‹œ ë§ˆë‹¤ ìƒˆë¡­ê²Œ ê°±ì‹  ë¨.
     /// </summary>
     /// <typeparam name="T"></typeparam>
     public class InstanceSetter<T> : MonoBehaviour where T : MonoBehaviour
@@ -34,6 +34,65 @@ namespace FunRabbit
         {
             if (_instance == this)
                 _instance = null;
+        }
+    }
+
+    public class Default<T> where T : new()
+    {
+        static private T _default;
+
+        static public bool IsDefault()
+        {
+            return _default != null;
+        }
+
+        /// <summary>
+        /// ê¸°ë³¸ ì¸ìŠ¤í„´ìŠ¤
+        /// ì—†ìœ¼ë©´ ìƒì„± í•¨.
+        /// </summary>
+        static public T getDefault
+        {
+            get
+            {
+                if (_default == null)
+                {
+                    _default = new T();
+                    if (_default is Default<T> def)
+                        def.OnStart();
+                }
+
+                return _default;
+            }
+        }
+
+        static public void ReleaseDefault()
+        {
+            if (_default != null)
+            {
+                if (_default is Default<T> def)
+                    def.OnDestroy();
+
+                _default = default(T);
+            }
+
+        }
+
+        public Default()
+        {
+            if (_default != null)
+            {
+                throw new System.InvalidOperationException($"Default : Cannot create more than one instance of {typeof(T).Name}");
+            }
+        }
+
+        protected virtual void OnStart()
+        {
+
+        }
+
+        protected virtual void OnDestroy()
+        {
+
         }
     }
 }

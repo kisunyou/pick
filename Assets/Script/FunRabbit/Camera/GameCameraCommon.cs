@@ -6,7 +6,8 @@ namespace FunRabbit
 {
     public class CameraStatus
     {
-        public static int PLAY = 0;
+        public static int LOBBY = 0;
+        public static int INGAME = 1;
     }
 }
 

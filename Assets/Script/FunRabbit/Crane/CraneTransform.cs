@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -13,12 +13,17 @@ namespace FunRabbit
 
         private Vector3 _startPivotPosition;
 
+        public Vector3 PivotPosition => _pivotRigidbody.position;
+
+        // 시작(중간) 위치 - READY 상태에서 이동 목표
+        public Vector3 StartPivotPosition => _startPivotPosition;
+
         public CraneTransform(Rigidbody[] craneRigidbodys, Rigidbody pivotRigidbodys)
         {
             this._craneRigidbodys = craneRigidbodys;
             this._pivotRigidbody = pivotRigidbodys;
 
-            _startPivotPosition = this._pivotRigidbody.transform.position;
+            _startPivotPosition = this._pivotRigidbody.position;
 
             _craneHingeJoints = new HingeJoint[3];
             _craneHingeJoints[0] = craneRigidbodys[1].GetComponent<HingeJoint>();
@@ -26,31 +31,34 @@ namespace FunRabbit
             _craneHingeJoints[2] = craneRigidbodys[3].GetComponent<HingeJoint>();
         }
 
-        public void MoveLeft()
+        public void MoveLeft(float multiplier = 1f)
         {
-            Vector3 moveValue = Vector3.zero;
-            moveValue = -Vector3.right * Time.deltaTime * GameMain.Instance.HorizontalSpeed;
+            Vector3 moveValue = -Vector3.right * Time.deltaTime * GameMain.Instance.HorizontalSpeed * multiplier;
+
+            Debug.Log($"[MOVE] MoveLeft - moveValue : {moveValue}, multiplier : {multiplier}");
             MoveXZ(moveValue);
         }
 
-        public void MoveRight()
+        public void MoveRight(float multiplier = 1f)
         {
-            Vector3 moveValue = Vector3.zero;
-            moveValue = Vector3.right * Time.deltaTime * GameMain.Instance.HorizontalSpeed;
+            Vector3 moveValue = Vector3.right * Time.deltaTime * GameMain.Instance.HorizontalSpeed * multiplier;
+
+            Debug.Log($"[MOVE] MoveRight - moveValue : {moveValue}, multiplier : {multiplier}");
             MoveXZ(moveValue);
         }
 
-        public void MoveFront()
+        public void MoveFront(float multiplier = 1f)
         {
-            Vector3 moveValue = Vector3.zero;
-            moveValue = Vector3.forward * Time.deltaTime * GameMain.Instance.HorizontalSpeed;
+            Vector3 moveValue = Vector3.forward * Time.deltaTime * GameMain.Instance.HorizontalSpeed * multiplier;
+            Debug.Log($"[MOVE] MoveFront - moveValue : {moveValue}, multiplier : {multiplier}");
             MoveXZ(moveValue);
         }
 
-        public void MoveBack()
+        public void MoveBack(float multiplier = 1f)
         {
-            Vector3 moveValue = Vector3.zero;
-            moveValue = -Vector3.forward * Time.deltaTime * GameMain.Instance.HorizontalSpeed;
+            Vector3 moveValue = -Vector3.forward * Time.deltaTime * GameMain.Instance.HorizontalSpeed * multiplier;
+
+            Debug.Log($"[MOVE] MoveBack - moveValue : {moveValue}, multiplier : {multiplier}");
             MoveXZ(moveValue);
         }
 
@@ -93,7 +101,7 @@ namespace FunRabbit
         }
 
 
-        private void MoveXZ(Vector3 moveValue)
+        public void MoveXZ(Vector3 moveValue)
         {
             if (GameCheckPositions.TryGetSetInstance(out GameCheckPositions checkPos))
             {
@@ -114,6 +122,11 @@ namespace FunRabbit
             _pivotRigidbody.constraints = RigidbodyConstraints.FreezePositionY;
         }
 
+        public bool IsMoveXZStarted()
+        {
+            return (_pivotRigidbody.constraints & RigidbodyConstraints.FreezePositionY) == 0;
+        }
+
         public void MoveXZEnd()
         {
             _pivotRigidbody.constraints = RigidbodyConstraints.FreezePosition;
@@ -132,8 +145,8 @@ namespace FunRabbit
                 if (joint != null)
                 {
                     var spring = joint.spring;
-                    spring.spring = 10000f;   // 높을수록 빠르게 닫힘
-                    spring.damper = 600f;    // spring 대비 10% 비율로 충격 흡수
+                    spring.spring = 9000f;   // 높을수록 빠르게 닫힘
+                    spring.damper = 1000f;    // spring 대비 10% 비율로 충격 흡수
                     spring.targetPosition = 0f;
 
                     joint.spring = spring;

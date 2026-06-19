@@ -10,7 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 450202}
   - component: {fileID: 5406217804635073991}
-  m_Layer: 8
+  - component: {fileID: 6576495105843568733}
+  m_Layer: 9
   m_Name: doll_octopus_prefab
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -61,6 +62,18 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 1
+--- !u!114 &6576495105843568733
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 133528}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e87be4c519b656c42a0062715e1502ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1069483509112214
 GameObject:
   m_ObjectHideFlags: 0
@@ -73,7 +86,7 @@ GameObject:
   - component: {fileID: 33179247252804972}
   - component: {fileID: 23064613657026870}
   - component: {fileID: 114927952339134194}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: doll_octopus_col
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -201,7 +214,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4865516624871202}
   - component: {fileID: 64457763091655600}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Hull 4
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -254,7 +267,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4413688875531534}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone005(mirrored)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -285,7 +298,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4597944704282882}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone012_eye_R
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -317,7 +330,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4299452555726442}
   - component: {fileID: 137777850715021492}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: doll_octopus
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -416,7 +429,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4394169050786454}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone008(mirrored)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -447,7 +460,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4379710353045192}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone002
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -478,7 +491,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4794519525201530}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone002(mirrored)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -510,7 +523,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4717075756319742}
   - component: {fileID: 64690596971235796}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Hull 2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -563,7 +576,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4239637410954068}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone012_eye_L
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -594,7 +607,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4305935580698292}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone005
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -625,7 +638,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4312558157065978}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone006
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -656,7 +669,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4580132414734478}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone009_nose
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -688,7 +701,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4622250807746626}
   - component: {fileID: 64246750532489152}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Hull 3
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -742,7 +755,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4028764481154838}
   - component: {fileID: 95901321492248272}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: doll_octopus
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -798,7 +811,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4495546649530612}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone006(mirrored)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -829,7 +842,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4722884911585926}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: joint_anchor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -861,7 +874,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4408556766403046}
   - component: {fileID: 64402373309809342}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Hull 1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -914,7 +927,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4276094694881830}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone008
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -946,7 +959,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4207150948982252}
   - component: {fileID: 64074130201181832}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Hull 0
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -999,7 +1012,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4855523091892702}
-  m_Layer: 8
+  m_Layer: 9
   m_Name: Bone001_Head
   m_TagString: Untagged
   m_Icon: {fileID: 0}

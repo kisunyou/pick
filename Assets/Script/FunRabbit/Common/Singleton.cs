@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -83,7 +83,7 @@ namespace FunRabbit
             get { return applicationIsQuitting; }
         }
 
-        // virtual �߰�
+        // virtual 추가
         protected virtual void Awake()
         {
             if (instance_ == null)

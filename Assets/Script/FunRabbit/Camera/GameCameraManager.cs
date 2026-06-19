@@ -22,7 +22,7 @@ namespace FunRabbit
 
         public void SetStatus(int status)
         {
-            if (status == CameraStatus.PLAY)
+            if (status == CameraStatus.INGAME)
             {
                 
             }

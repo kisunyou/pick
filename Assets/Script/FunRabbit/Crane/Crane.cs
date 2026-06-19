@@ -1,20 +1,20 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Linq;
 using UnityEngine;
 
 namespace FunRabbit
 {
     [RequireComponent(typeof(CraneTransform))]
-    public class Crane : MonoBehaviour
+    public class Crane : InstanceSetter<Crane>
     {
         [Header("References")]
         [SerializeField] Rigidbody pivotRigidbody;
         [SerializeField] Rigidbody[] craneRigidbodys;
 
         [Header("Down / Return Settings")]
-        [Tooltip("·ÎÇÁ ³¡ÀÌ ´ê¾Æ¾ß ÇÒ Y ³ôÀÌ")]
+        [Tooltip("ë¡œí”„ ëì´ ë‹¿ì•„ì•¼ í•  Y ë†’ì´")]
         [SerializeField] float targetDownHeight = 1.0f;
-        [Tooltip("¼öÆò º¹±Í ½Ã µµ´ŞÇØ¾ß ÇÒ XZ À§Ä¡ (·ÎÇÁ ³¡)")]
+        [Tooltip("ìˆ˜í‰ ë³µê·€ ì‹œ ë„ë‹¬í•´ì•¼ í•  XZ ìœ„ì¹˜ (ë¡œí”„ ë)")]
         [SerializeField] Vector3 returnPositionXZ;
 
         private int _status = CraneStatus.READY;
@@ -25,33 +25,39 @@ namespace FunRabbit
             private set => _status = value;
         }
 
+        // í¬ë ˆì¸ ìƒíƒœ ë³€ê²½ ì´ë²¤íŠ¸ (GameMain.OnChangedStatusì™€ ë™ì¼í•œ íŒ¨í„´)
+        public System.Action<int> OnChangedStatus { get; set; }
+
         public CraneTransform CraneTransform { get; private set; }
 
         private CraneMovingControl _craneMovingControl;
 
         private Vector3 _initialLopPosition;
-        
-        // MOVING_UP »óÅÂ¸¦ À§ÇÑ ÄÚ·çÆ¾
+
+        // MOVING_UP ìƒíƒœë¥¼ ìœ„í•œ ì½”ë£¨í‹´
         private Coroutine _movingUpCoroutine;
-        
-        // GRAP »óÅÂ¿¡¼­ ÇÑ ¹ø¸¸ ½ÇÇàµÇµµ·Ï ÇÏ´Â ÇÃ·¡±×
+
+        // GRAP ìƒíƒœì—ì„œ í•œ ë²ˆë§Œ ì‹¤í–‰ë˜ë„ë¡ í•˜ëŠ” í”Œë˜ê·¸
         private bool _hasGrapStarted = false;
+
+        // DROP ìƒíƒœì—ì„œ ì§‘ê²Œë¥¼ í•œ ë²ˆë§Œ ì—´ë„ë¡ í•˜ëŠ” í”Œë˜ê·¸
+        private bool _hasReleased = false;
 
         private float _checkTimer = 0.0f;
 
         void Start()
         {
             _craneMovingControl = new CraneMovingControl(this);
-            // »óÅÂ ÃÊ±âÈ­
-            _status = CraneStatus.CONTROL_MOVING;
+            // ìƒíƒœ ì´ˆê¸°í™”
+            //_status = CraneStatus.CONTROL_MOVING;
 
-            // CraneTransform ¼¼ÆÃ
+            // CraneTransform ì„¸íŒ…
             CraneTransform = new CraneTransform(craneRigidbodys, pivotRigidbody);
 
-            // ·ÎÇÁ ³¡(initial) À§Ä¡ ±â·Ï
+            // ë¡œí”„ ë(initial) ìœ„ì¹˜ ê¸°ë¡
             _initialLopPosition = craneRigidbodys[0].position;
 
-            // ±âº» º¹±Í À§Ä¡´Â ½ÃÀÛ À§Ä¡¿Í µ¿ÀÏÇÏ°Ô
+            // ê¸°ë³¸ ë³µê·€ ìœ„ì¹˜ëŠ” ì‹œì‘ ìœ„ì¹˜ì™€ ë™ì¼í•˜ê²Œ
             returnPositionXZ = new Vector3(_initialLopPosition.x, 0, _initialLopPosition.z);
         }
 
@@ -64,14 +70,14 @@ namespace FunRabbit
             {
                 case CraneStatus.MOVING_DOWN:
                     _checkTimer += Time.deltaTime;
-                    
+
                     if (_checkTimer > 3.0f)
                     {
                         _checkTimer = 0.0f;
                         _craneMovingControl.Grap();
                         SetStatus(CraneStatus.GRAP);
                     }
-                    else if(_checkTimer > 2.0f)
+                    else if (_checkTimer > 2.0f)
                     {
                         _craneMovingControl.MovingDownStart();
                     }
@@ -88,45 +94,98 @@ namespace FunRabbit
                     break;
 
                 case CraneStatus.MOVING_UP:
-
-                    if (_craneMovingControl.IsArriveMovingUp())
+                    if (_checkTimer > 0)
                     {
-                        _craneMovingControl.MovingUpStop();
-                        SetStatus(CraneStatus.DROP);
+                        _checkTimer -= Time.deltaTime;
+                        if (_checkTimer <= 0.0f)
+                        {
+                            SetStatus(CraneStatus.MOVING_RETURN);
+                            _checkTimer = 0.0f;
+                        }
                     }
+                    else
+                    {
+                        if (_craneMovingControl.IsArriveMovingUp())
+                        {
+                            _checkTimer = 0.5f;
+                            _craneMovingControl.MovingUpStop();
+                            
+                        }
+                    }
+                        
                     break;
 
                 case CraneStatus.MOVING_RETURN:
-                    //// XÃà º¹±Í
-                    //float dx = returnPositionXZ.x - lop.position.x;
-                    //if (Mathf.Abs(dx) > 0.05f)
-                    //{
-                    //    if (dx > 0) CraneTransform.MoveRight();
-                    //    else CraneTransform.MoveLeft();
-                    //    break;
-                    //}
+                    if (_checkTimer > 0)
+                    {
+                        _checkTimer -= Time.deltaTime;
+                        if (_checkTimer <= 0.0f)
+                        {
+                            SetStatus(CraneStatus.DROP);
+                            _checkTimer = 0.0f;
+                        }
+                    }
+                    else if (GameCheckPositions.TryGetSetInstance(out GameCheckPositions checkPos))
+                    {
+                        Vector3 returnTarget = new Vector3(
+                            checkPos.ReturnPosition.position.x,
+                            0f,
+                            checkPos.ReturnPosition.position.z
+                        );
 
-                    //// ZÃà º¹±Í
-                    //float dz = returnPositionXZ.z - lop.position.z;
-                    //if (Mathf.Abs(dz) > 0.05f)
-                    //{
-                    //    if (dz > 0) CraneTransform.MoveFront();
-                    //    else CraneTransform.MoveBack();
-                    //    break;
-                    //}
+                        if (_craneMovingControl.IsMoveXZStarted() == false)
+                        {
+                            _craneMovingControl.MoveXZStart();
+                        }
 
-                    //// º¹±Í ¿Ï·á
-                    //SetStatus(CraneStatus.DROP);
+                        bool arrived = _craneMovingControl.MoveTowardXZ(returnTarget);
+                        if (arrived)
+                        {
+                            _checkTimer = 0.5f;
+                            _craneMovingControl.MoveXZEnd();
+                        }
+                    }
                     break;
 
                 case CraneStatus.DROP:
-                    _craneMovingControl.Release();
-                    SetStatus(CraneStatus.CONTROL_MOVING);
+                    if (!_hasReleased)
+                    {
+                        // 1) ì§‘ê²Œë¥¼ ì—´ì–´ ì¸í˜•ì„ ë–¨ì–´ëœ¨ë¦°ë‹¤
+                        _craneMovingControl.Release();
+                        _hasReleased = true;
+                        _checkTimer = 0.5f;
+                    }
+                    else if (_checkTimer > 0)
+                    {
+                        // 2) ì¸í˜•ì´ ë¹ ì§ˆ ë•Œê¹Œì§€ ì ì‹œ ëŒ€ê¸°
+                        _checkTimer -= Time.deltaTime;
+                    }
+                    else
+                    {
+                        // 3) ì¤‘ê°„(ì‹œì‘) ìœ„ì¹˜ë¡œ ì´ë™ í›„ READY ë¡œ ì „í™˜
+                        Vector3 centerTarget = new Vector3(
+                            CraneTransform.StartPivotPosition.x,
+                            0f,
+                            CraneTransform.StartPivotPosition.z
+                        );
+
+                        if (_craneMovingControl.IsMoveXZStarted() == false)
+                        {
+                            _craneMovingControl.MoveXZStart();
+                        }
+
+                        if (_craneMovingControl.MoveTowardXZ(centerTarget))
+                        {
+                            _craneMovingControl.MoveXZEnd();
+                            SetStatus(CraneStatus.READY);
+                            StageManager.Save(GameQuestManager.Instance.CurrentStage);
+                        }
+                    }
                     break;
 
                 case CraneStatus.READY:
                 default:
-                    // ¾Æ¹« µ¿ÀÛµµ ÇÏÁö ¾ÊÀ½
+                    // ì•„ë¬´ ë™ì‘ë„ í•˜ì§€ ì•ŠìŒ
                     break;
             }
         }
@@ -137,7 +196,7 @@ namespace FunRabbit
         }
 
         /// <summary>
-        /// MOVING_UP ½ÃÄö½º¸¦ ½ÃÀÛ (2ÃÊ ´ë±â ÈÄ À§·Î ÀÌµ¿)
+        /// MOVING_UP ì‹œí€€ìŠ¤ë¥¼ ì‹œì‘ (2ì´ˆ ëŒ€ê¸° í›„ ìœ„ë¡œ ì´ë™)
         /// </summary>
         private void StartMovingUpSequence()
         {
@@ -145,59 +204,59 @@ namespace FunRabbit
             {
                 StopCoroutine(_movingUpCoroutine);
             }
-            
+
             _movingUpCoroutine = StartCoroutine(MovingUpCoroutine());
         }
 
         /// <summary>
-        /// MOVING_UP »óÅÂ Ã³¸® ÄÚ·çÆ¾
+        /// MOVING_UP ìƒíƒœ ì²˜ë¦¬ ì½”ë£¨í‹´
         /// </summary>
         private IEnumerator MovingUpCoroutine()
         {
-            Debug.Log("[Crane] GRAP ¿Ï·á, 2ÃÊ ´ë±â ½ÃÀÛ...");
-            
-            // 1. 2ÃÊ ´ë±â
+            Debug.Log("[Crane] GRAP ì™„ë£Œ, 2ì´ˆ ëŒ€ê¸° ì‹œì‘...");
+
+            // 1. 2ì´ˆ ëŒ€ê¸°
             yield return new WaitForSeconds(2.0f);
-            
-            Debug.Log("[Crane] 2ÃÊ ´ë±â ¿Ï·á, MOVING_UP ½ÃÀÛ");
+
+            Debug.Log("[Crane] 2ì´ˆ ëŒ€ê¸° ì™„ë£Œ, MOVING_UP ì‹œì‘");
             SetStatus(CraneStatus.MOVING_UP);
-            
-            // 2. ÃÖ´ë ³ôÀÌ±îÁö ¿Ã¶ó°¡±â
+
+            // 2. ìµœëŒ€ ë†’ì´ê¹Œì§€ ì˜¬ë¼ê°€ê¸°
             var lop = craneRigidbodys[0];
-            
+
             while (true)
             {
-                // À§·Î ÀÌµ¿
+                // ìœ„ë¡œ ì´ë™
                 CraneTransform.OnMoveUp();
-                
-                // ÃÖ´ë ³ôÀÌ µµ´Ş Ã¼Å©
+
+                // ìµœëŒ€ ë†’ì´ ë„ë‹¬ ì²´í¬
                 if (lop.position.y >= _initialLopPosition.y)
                 {
-                    Debug.Log($"[Crane] ÃÖ´ë ³ôÀÌ µµ´Ş! ÇöÀç: {lop.position.y}, ÃÊ±â: {_initialLopPosition.y}");
+                    Debug.Log($"[Crane] ìµœëŒ€ ë†’ì´ ë„ë‹¬! í˜„ì¬: {lop.position.y}, ì´ˆê¸°: {_initialLopPosition.y}");
                     break;
                 }
-                
-                // Ãß°¡ ¾ÈÀü Ã¼Å©: ÃÊ±â À§Ä¡º¸´Ù ´õ ³ôÀÌ ¿Ã¶ó°¬À» °æ¿ì
+
+                // ì¶”ê°€ ì•ˆì „ ì²´í¬: ì´ˆê¸° ìœ„ì¹˜ë³´ë‹¤ ë” ë†’ì´ ì˜¬ë¼ê°”ì„ ê²½ìš°
                 if (lop.position.y >= _initialLopPosition.y + 1.0f)
                 {
-                    Debug.Log($"[Crane] ¾ÈÀü ³ôÀÌ ÃÊ°ú! °­Á¦ Á¤Áö");
+                    Debug.Log($"[Crane] ì•ˆì „ ë†’ì´ ì´ˆê³¼! ê°•ì œ ì •ì§€");
                     break;
                 }
-                
-                yield return null; // ´ÙÀ½ ÇÁ·¹ÀÓ±îÁö ´ë±â
+
+                yield return null; // ë‹¤ìŒ í”„ë ˆì„ê¹Œì§€ ëŒ€ê¸°
             }
 
             CraneTransform.MoveXZEnd();
 
 
-            Debug.Log("[Crane] MOVING_UP ¿Ï·á, MOVING_RETURNÀ¸·Î ÀüÈ¯");
+            Debug.Log("[Crane] MOVING_UP ì™„ë£Œ, MOVING_RETURNìœ¼ë¡œ ì „í™˜");
             SetStatus(CraneStatus.MOVING_RETURN);
-            
+
             _movingUpCoroutine = null;
         }
 
         /// <summary>
-        /// ¿ÜºÎ¿¡¼­ ±×·¦ ½ÃÄö½º¸¦ ½ÃÀÛÇÒ ¶§ È£Ãâ
+        /// ì™¸ë¶€ì—ì„œ ê·¸ë© ì‹œí€€ìŠ¤ë¥¼ ì‹œì‘í•  ë•Œ í˜¸ì¶œ
         /// </summary>
         public void StartGrabSequence()
         {
@@ -208,20 +267,37 @@ namespace FunRabbit
             }
         }
 
-        private void SetStatus(int status)
+        public void SetStatus(int status)
         {
-            // »óÅÂ°¡ º¯°æµÉ ¶§ ÇÃ·¡±× ¸®¼Â
+            // ìƒíƒœê°€ ë³€ê²½ë  ë•Œ í”Œë˜ê·¸ ë¦¬ì…‹
             if (_status != status)
             {
                 _hasGrapStarted = false;
+                _hasReleased = false;
             }
-            
+
             _status = status;
-            Debug.Log($"[Crane] »óÅÂ ÀüÈ¯: {status}");
+            Debug.Log($"[Crane] ìƒíƒœ ì „í™˜: {status}");
+
+            OnChangedStatus?.Invoke(status);
+        }
+
+        // ìƒíƒœ ë³€ê²½ êµ¬ë… (+ í˜„ì¬ ìƒíƒœë¥¼ ì¦‰ì‹œ 1íšŒ ë°˜ì˜)
+        public void SubscribeStatus(System.Action<int> handler)
+        {
+            OnChangedStatus -= handler;
+            OnChangedStatus += handler;
+
+            handler(_status);
+        }
+
+        public void UnsubscribeStatus(System.Action<int> handler)
+        {
+            OnChangedStatus -= handler;
         }
 
         /// <summary>
-        /// ÄÄÆ÷³ÍÆ® ºñÈ°¼ºÈ­ ½Ã ½ÇÇà ÁßÀÎ ÄÚ·çÆ¾ Á¤¸®
+        /// ì»´í¬ë„ŒíŠ¸ ë¹„í™œì„±í™” ì‹œ ì‹¤í–‰ ì¤‘ì¸ ì½”ë£¨í‹´ ì •ë¦¬
         /// </summary>
         private void OnDisable()
         {

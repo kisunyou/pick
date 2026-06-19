@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
@@ -37,6 +37,8 @@ namespace FunRabbit
     {
         public static T Instance { get; private set; }
 
+        public bool IsShow => gameObject.activeSelf;
+
         protected virtual void Awake()
         {
             Instance = this as T;
@@ -51,8 +53,18 @@ namespace FunRabbit
         public virtual void OnOpen() { }
         public virtual void OnClose() { }
 
+        public void Show()
+        {
+            gameObject.SetActive(true);
+        }
+
+        public void Hide()
+        {
+            gameObject.SetActive(false);
+        }
+
         /// <summary>
-        /// ¿­·ÁÀÖÀ¸¸é ±âÁ¸ ¹İÈ¯, ¾øÀ¸¸é »õ·Î »ı¼º
+        /// ì—´ë ¤ìˆìœ¼ë©´ ê¸°ì¡´ ë°˜í™˜, ì—†ìœ¼ë©´ ìƒˆë¡œ ìƒì„±
         /// </summary>
         public static T CreateOrGet()
         {
@@ -60,7 +72,7 @@ namespace FunRabbit
         }
 
         /// <summary>
-        /// ÇöÀç ¿­·ÁÀÖ´Â ÀÎ½ºÅÏ½º ¹İÈ¯ (¾øÀ¸¸é null)
+        /// í˜„ì¬ ì—´ë ¤ìˆëŠ” ì¸ìŠ¤í„´ìŠ¤ ë°˜í™˜ (ì—†ìœ¼ë©´ null)
         /// </summary>
         public static T Get()
         {
@@ -68,7 +80,7 @@ namespace FunRabbit
         }
 
         /// <summary>
-        /// ´İ±â
+        /// ë‹«ê¸°
         /// </summary>
         public void Close()
         {
@@ -153,7 +165,7 @@ namespace FunRabbit
 
                 _layerRoots[layer] = rect;
 
-                Debug.Log($"[UIManager] ·¹ÀÌ¾î »ı¼º: {layer} (SortOrder: {canvas.sortingOrder})");
+                Debug.Log($"[UIManager] ë ˆì´ì–´ ìƒì„±: {layer} (SortOrder: {canvas.sortingOrder})");
             }
         }
 
@@ -164,26 +176,26 @@ namespace FunRabbit
             UIOptionAttribute attr = type.GetCustomAttribute<UIOptionAttribute>();
             if (attr == null)
             {
-                Debug.LogError($"[UIManager] {type.Name} ¿¡ UIOptionAttribute °¡ ¾ø½À´Ï´Ù.");
+                Debug.LogError($"[UIManager] {type.Name} ì— UIOptionAttribute ê°€ ì—†ìŠµë‹ˆë‹¤.");
                 return null;
             }
 
             if (attr.OpenMode == UIOpenMode.Single && _openedViews.ContainsKey(type))
             {
-                Debug.LogWarning($"[UIManager] {type.Name} ÀÌ¹Ì ¿­·ÁÀÖ½À´Ï´Ù.");
+                Debug.LogWarning($"[UIManager] {type.Name} ì´ë¯¸ ì—´ë ¤ìˆìŠµë‹ˆë‹¤.");
                 return _openedViews[type] as T;
             }
 
             GameObject prefab = Resources.Load<GameObject>(attr.Path);
             if (prefab == null)
             {
-                Debug.LogError($"[UIManager] ÇÁ¸®ÆÕ ·Îµå ½ÇÆĞ: {attr.Path}");
+                Debug.LogError($"[UIManager] í”„ë¦¬íŒ¹ ë¡œë“œ ì‹¤íŒ¨: {attr.Path}");
                 return null;
             }
 
             if (!_layerRoots.TryGetValue(attr.Layer, out Transform layerRoot))
             {
-                Debug.LogError($"[UIManager] ·¹ÀÌ¾î ·çÆ® ¾øÀ½: {attr.Layer}");
+                Debug.LogError($"[UIManager] ë ˆì´ì–´ ë£¨íŠ¸ ì—†ìŒ: {attr.Layer}");
                 return null;
             }
 
@@ -191,7 +203,7 @@ namespace FunRabbit
             T view = go.GetComponent<T>();
             if (view == null)
             {
-                Debug.LogError($"[UIManager] {type.Name} ÄÄÆ÷³ÍÆ®¸¦ Ã£À» ¼ö ¾ø½À´Ï´Ù.");
+                Debug.LogError($"[UIManager] {type.Name} ì»´í¬ë„ŒíŠ¸ë¥¼ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤.");
                 Destroy(go);
                 return null;
             }

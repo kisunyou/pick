@@ -1,4 +1,4 @@
-using FunRabbit;
+ï»¿using FunRabbit;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -79,11 +79,11 @@ public class TestCrane : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.D)) _isMovingRight = true;
         if (Input.GetKeyUp(KeyCode.D)) _isMovingRight = false;
 
-        // Keypad 1 ¡æ Down
+        // Keypad 1 â†’ Down
         if (Input.GetKeyDown(KeyCode.F1)) _isMovingDown = true;
         if (Input.GetKeyUp(KeyCode.F1)) _isMovingDown = false;
 
-        // Keypad 2 ¡æ Up
+        // Keypad 2 â†’ Up
         if (Input.GetKeyDown(KeyCode.F2)) _isMovingUp = true;
         if (Input.GetKeyUp(KeyCode.F2)) _isMovingUp = false;
 
@@ -101,7 +101,7 @@ public class TestCrane : MonoBehaviour
         if (_isMovingLeft) _crane.CraneTransform.MoveLeft();
         if (_isMovingRight) _crane.CraneTransform.MoveRight();
 
-        if (_isMovingUp) _crane.CraneTransform.OnMoveUp();       // »õ·Î Ãß°¡
-        if (_isMovingDown) _crane.CraneTransform.OnMoveDown();   // »õ·Î Ãß°¡
+        if (_isMovingUp) _crane.CraneTransform.OnMoveUp();       // ìƒˆë¡œ ì¶”ê°€
+        if (_isMovingDown) _crane.CraneTransform.OnMoveDown();   // ìƒˆë¡œ ì¶”ê°€
     }
 }
