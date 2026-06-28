@@ -1,10 +1,12 @@
 using System;
 using System.Threading;
+using FunRabbit;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-public class UICollectionItem : MonoBehaviour
+public class UICollectionItem : MonoBehaviour, IPointerClickHandler
 {
     [SerializeField] TextMeshProUGUI titleName;
     [SerializeField] Image thumbnailIcon;
@@ -12,10 +14,44 @@ public class UICollectionItem : MonoBehaviour
     // 진행 중인 썸네일 비동기 로드를 취소하기 위한 토큰 소스
     private CancellationTokenSource _loadCts;
 
-    public void Set(string title, string fullPath)
+    // 선택(클릭) 시 사용할 데이터
+    private string _title;
+    private string _modelFullPath;
+    private bool _active;
+
+    // active일 때 alpha 255(1.0), 비활성일 때 alpha 120(약 0.47)
+    private const float ActiveAlpha = 255f / 255f;
+    private const float InactiveAlpha = 120f / 255f;
+
+    private void SetActiveItem(bool active)
     {
+        float alpha = active ? ActiveAlpha : InactiveAlpha;
+
+        if (titleName != null)
+        {
+            Color c = titleName.color;
+            c.a = alpha;
+            titleName.color = c;
+        }
+
+        if (thumbnailIcon != null)
+        {
+            Color c = thumbnailIcon.color;
+            c.a = alpha;
+            thumbnailIcon.color = c;
+        }
+    }
+
+    public void Set(string title, string fullPath, string modelFullPath, bool active)
+    {
+        _title = title;
+        _modelFullPath = modelFullPath;
+        _active = active;
+
         if (titleName != null)
             titleName.text = title;
+
+        SetActiveItem(active);
 
         // 이전에 진행 중이던 로드가 있으면 취소 (중복 호출 대비)
         CancelLoad();
@@ -24,6 +60,23 @@ public class UICollectionItem : MonoBehaviour
 
         // 썸네일은 비동기로 로드 (fire-and-forget)
         _ = LoadThumbnailAsync(fullPath, _loadCts.Token);
+    }
+
+    // 클릭 시: 획득(active)한 아이템만 상세 팝업을 열고 모델을 로드한다.
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        //if (!_active)
+        //    return;
+
+        if (string.IsNullOrEmpty(_modelFullPath))
+        {
+            Debug.LogWarning($"[UICollectionItem] 모델 경로가 비어있습니다: {_title}");
+            return;
+        }
+
+        var popup = UICollectionDetailPopup.CreateOrGet();
+        if (popup != null)
+            popup.SetData(_title, _modelFullPath);
     }
 
     private async Awaitable LoadThumbnailAsync(string fullPath, CancellationToken token)

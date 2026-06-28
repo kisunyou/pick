@@ -8,24 +8,21 @@ namespace FunRabbit
         // 생성된 인형 보관 리스트 (다음 로드 시 정리용)
         private readonly List<GameObject> createdDolls = new List<GameObject>();
 
-        // ▼ 변경: 11종 프리팹 경로 배열로 등록
-        private static readonly string[] DOLL_PATHS = new string[]
-        {
-            "doll_bear_full_prefab",
-            "doll_pig_full_prefab",
-            "doll_cow_full_prefab",
-            "doll_duck_full_prefab",
-            "doll_frog_full_prefab",
-            "doll_horse_full_prefab",
-            "doll_koala_full_prefab",
-            "doll_monk_full_prefab",
-            "doll_panda_full_prefab",
-            "doll_lion_full_prefab",
-            "doll_elephant_full_prefab",
-        };
-
         private void Start()
         {
+        }
+
+        // 현재 스테이지를 저장 정보와 무관하게 새 인형으로 다시 생성한다.
+        public void ResetCurrentStage()
+        {
+            StartCoroutine(ResetAndCreateDolls());
+        }
+
+        private IEnumerator ResetAndCreateDolls()
+        {
+            // 기존 인형을 정리한 뒤 새로 생성한다.
+            ClearCreatedDolls();
+            yield return CreateRandomDolls();
         }
 
         public void CreateDolls()
@@ -48,7 +45,13 @@ namespace FunRabbit
                 yield break;
             }
 
-            // 저장된 정보가 없으면 기존대로 로드한다.
+            // 저장된 정보가 없으면 기존대로 새로 생성한다.
+            yield return CreateRandomDolls();
+        }
+
+        // 생성 위치마다 랜덤 프리팹을 골라 새 인형을 생성한다.
+        private IEnumerator CreateRandomDolls()
+        {
             if (!GameCheckPositions.TryGetSetInstance(out GameCheckPositions checkPos))
             {
                 Debug.LogError("[GameDollCreator] GameCheckPositions 인스턴스가 존재하지 않습니다.");
@@ -62,6 +65,14 @@ namespace FunRabbit
                 yield break;
             }
 
+            // 현재 스테이지까지 등장한 동물들의 프리팹 경로 풀을 누적 구성한다.
+            List<string> dollPaths = GetStageDollPaths();
+            if (dollPaths.Count == 0)
+            {
+                Debug.LogError("[GameDollCreator] 현재 스테이지에 사용할 인형 프리팹이 없습니다.");
+                yield break;
+            }
+
             for (int i = 0; i < createPositions.Length; i++)
             {
                 if (createPositions[i] == null)
@@ -70,8 +81,8 @@ namespace FunRabbit
                     continue;
                 }
 
-                // 랜덤 프리팹 경로 선택
-                string randomPath = $"Prefabs/dollPrefabs/{DOLL_PATHS[Random.Range(0, DOLL_PATHS.Length)]}";
+                // 스테이지 풀에서 랜덤 프리팹 경로 선택
+                string randomPath = dollPaths[Random.Range(0, dollPaths.Count)];
 
                 ResourceRequest request = Resources.LoadAsync<GameObject>(randomPath);
                 yield return request;
@@ -143,6 +154,28 @@ namespace FunRabbit
             }
 
             createdDolls.Clear();
+        }
+
+        // 현재 스테이지(1~N)까지 등장한 동물 프리팹 경로를 누적해서 반환한다.
+        // 예) 스테이지 1 → 곰만, 스테이지 3 → 곰·돼지·소
+        private static List<string> GetStageDollPaths()
+        {
+            int currentStage = GameQuestManager.Instance.CurrentStage;
+            List<string> paths = new List<string>();
+
+            for (int stage = 1; stage <= currentStage; stage++)
+            {
+                // GetStage는 첫 매치를 반환하므로 같은 stage 중복 항목(예: octopus)은 자연히 제외된다.
+                QuestData data = GameQuestData.GetStage(stage);
+                if (data == null)
+                    continue;
+
+                string path = data.GetModelPrefabFullPath();
+                if (!paths.Contains(path))
+                    paths.Add(path);
+            }
+
+            return paths;
         }
 
         // gameObject.name(예: doll_bear_full_prefab_0)에서 끝의 _숫자 인덱스를 제거해 프리팹 이름을 얻는다.

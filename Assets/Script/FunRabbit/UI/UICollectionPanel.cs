@@ -24,12 +24,12 @@ namespace FunRabbit
             _control.OnStart();
         }
 
-        public void SetCollectionItems(string[] titles, string[] fullPaths)
+        public void SetCollectionItems(string[] titles, string[] fullPaths, string[] modelPaths, bool[] actives)
         {
-            int count = Mathf.Min(uICollectionItems.Length, titles.Length, fullPaths.Length);
+            int count = Mathf.Min(uICollectionItems.Length, titles.Length, fullPaths.Length, modelPaths.Length, actives.Length);
             for (int i = 0; i < count; i++)
             {
-                uICollectionItems[i].Set(titles[i], fullPaths[i]);
+                uICollectionItems[i].Set(titles[i], fullPaths[i], modelPaths[i], actives[i]);
             }
         }
 
@@ -45,15 +45,24 @@ namespace FunRabbit
                 var questDataList = GameQuestData.QuestDataList;
                 string[] titles = new string[questDataList.stages.Count];
                 string[] fullPaths = new string[questDataList.stages.Count];
+                string[] modelPaths = new string[questDataList.stages.Count];
+                bool[] actives = new bool[questDataList.stages.Count];
+
+                // 현재 스테이지보다 낮은(이미 클리어한) 스테이지만 획득(active) 처리
+                int currentStage = GameQuestManager.IsCheckInstance()
+                    ? GameQuestManager.Instance.CurrentStage
+                    : 1;
 
                 for (int i = 0; i < questDataList.stages.Count; i++)
                 {
                     var stageData = questDataList.stages[i];
                     titles[i] = stageData.animalKey;
                     fullPaths[i] = stageData.GetIconFullPath();
+                    modelPaths[i] = stageData.GetModelPrefabFullPath();
+                    actives[i] = stageData.stage <= currentStage;
                 }
 
-                view.SetCollectionItems(titles, fullPaths);
+                view.SetCollectionItems(titles, fullPaths, modelPaths, actives);
             }
         }
     }

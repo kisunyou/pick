@@ -11,6 +11,7 @@ namespace FunRabbit
         [SerializeField] Transform returnPosition;
         [SerializeField] BoxCollider craneLimitBoxCollider;
         [SerializeField] Transform[] dollCreatePositions;
+        [SerializeField] Transform maxfloorPosition;
 
         public Transform[] CameraPositions
         {
@@ -25,6 +26,11 @@ namespace FunRabbit
         public Transform ReturnPosition
         {
             get { return returnPosition; }
+        }
+
+        public Transform MaxFloorPosition
+        {
+            get { return maxfloorPosition; }
         }
 
         /// <summary>

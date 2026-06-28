@@ -103,22 +103,26 @@ namespace FunRabbit
                 Instance.OnStageLoaded -= handler;
         }
 
-        //private void OnGUI()
-        //{
-        //    if (GUI.Button(new Rect(20f, 20f, 160f, 50f), "Stage Save"))
-        //    {
-        //        UIHud.CreateOrGet().ShowTimer(10);
-        //        //int stage = GameQuestManager.Instance.CurrentStage;
-        //        //if (stage >= 0)
-        //        //{
-        //        //    StageManager.Save(stage);
-        //        //    Debug.Log($"[GameMain] StageManager.Save({stage}) 완료");
-        //        //}
-        //        //else
-        //        //{
-        //        //    Debug.LogWarning($"[GameMain] 잘못된 stage 값({stage}), 저장 스킵.");
-        //        //}
-        //    }
-        //}
+        private void OnGUI()
+        {
+            if (GUI.Button(new Rect(20f, 20f, 160f, 50f), "Stage Save"))
+            {
+                var questData = GameQuestData.GetStage(5);
+                var panel = UIMissionClearPanel.CreateOrGet();
+                if (panel != null)
+                    panel.SetData(questData.GetModelPrefabFullPath());
+                //UIHud.CreateOrGet().ShowTimer(10);
+                //int stage = GameQuestManager.Instance.CurrentStage;
+                //if (stage >= 0)
+                //{
+                //    StageManager.Save(stage);
+                //    Debug.Log($"[GameMain] StageManager.Save({stage}) 완료");
+                //}
+                //else
+                //{
+                //    Debug.LogWarning($"[GameMain] 잘못된 stage 값({stage}), 저장 스킵.");
+                //}
+            }
+        }
     }
 }

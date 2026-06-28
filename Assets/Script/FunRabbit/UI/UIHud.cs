@@ -29,6 +29,11 @@ namespace FunRabbit
         [SerializeField] Button grapButton;
         [SerializeField] Button collectionButton;
 
+        [SerializeField] Button resetButton;
+
+        [SerializeField] TextMeshProUGUI coinTimerText;
+        [SerializeField] Button getCoinTimerButton;
+
         // 현재 로드된 미션 아이콘 프리팹 경로 (중복 로드 체크용)
         private string _currentMissionIconPath;
 
@@ -44,6 +49,9 @@ namespace FunRabbit
         private Coroutine _timerCoroutine;
         private Tween _timerIconTween;
         private Tween _timerTextTween;
+
+        // 5분마다 코인을 받는 타이머 (coinTimerText/getCoinTimerButton 사용)
+        private CoinGetTimer _coinGetTimer;
 
         public UIHudControl Control { get; private set; } = new UIHudControl();
 
@@ -75,7 +83,12 @@ namespace FunRabbit
             playButton.onClick.AddListener(() => Control.OnClickPlayBtn());
             grapButton.onClick.AddListener(()=> Control.OnClickGrapBtn());
             collectionButton.onClick.AddListener(() => Control.OnClickCollectionBtn());
+            resetButton.onClick.AddListener(() => Control.OnClickResetButton());
             Control.Initialize(this);
+
+            // 코인 받기 타이머 시작 (5분 카운트다운 → "받기" → 클릭 시 코인 지급 후 재시작)
+            _coinGetTimer = new CoinGetTimer(this, coinTimerText, getCoinTimerButton);
+            _coinGetTimer.Begin();
         }
 
         public void SetActiveInGameHud(bool isActive)
@@ -267,6 +280,7 @@ namespace FunRabbit
         {
             base.OnDestroy();
             Control.Deinitialize();
+            _coinGetTimer?.Dispose();
             _timerIconTween?.Kill();
             _timerTextTween?.Kill();
         }
@@ -299,6 +313,7 @@ namespace FunRabbit
                 var questManager = GameQuestManager.Instance;
                 questManager.OnMissionCountChanged -= OnMissionCountChanged;
                 questManager.OnStageChanged -= OnStageChanged;
+                questManager.OnStageClear -= OnStageClear;
             }
 
             _hud = null;
@@ -326,6 +341,8 @@ namespace FunRabbit
                     questManager.OnMissionCountChanged += OnMissionCountChanged;
                     questManager.OnStageChanged -= OnStageChanged;
                     questManager.OnStageChanged += OnStageChanged;
+                    questManager.OnStageClear -= OnStageClear;
+                    questManager.OnStageClear += OnStageClear;
                     RefreshMissionText();
                     RefreshMissionIcon();
 
@@ -382,7 +399,7 @@ namespace FunRabbit
         }
 
         // GameQuestManager의 스테이지 변경 시 호출되어 HUD 미션 아이콘을 갱신
-        private void OnStageChanged(int stage)
+        private void OnStageChanged(int stage, bool isClear)
         {
             QuestData questData = GameQuestData.GetStage(stage);
             if (questData == null)
@@ -391,14 +408,32 @@ namespace FunRabbit
                 return;
             }
 
+            // 미션 아이콘은 항상 현재 스테이지 기준으로 갱신
             if (_hud != null)
                 _hud.SetMissionIcon(questData.GetIconPrefabFullPath());
         }
 
-        // 현재 스테이지 정보를 얻어 HUD 미션 아이콘을 갱신
+        // 현재 스테이지 정보를 얻어 HUD 미션 아이콘을 갱신 (단순 갱신이므로 isClear=false)
         private void RefreshMissionIcon()
         {
-            OnStageChanged(GameQuestManager.Instance.CurrentStage);
+            OnStageChanged(GameQuestManager.Instance.CurrentStage, false);
+        }
+
+        // 스테이지 클리어 시 호출되어 다음 스테이지의 인형 정보를 미션 클리어 패널로 표시
+        private void OnStageClear(QuestData nextStageData)
+        {
+            if (nextStageData == null)
+            {
+                // 마지막 스테이지 클리어 - 표시할 다음 인형이 없음
+                Debug.Log("[UIHudControl] 마지막 스테이지 클리어 - 미션 클리어 패널 생략");
+                return;
+            }
+
+            var panel = UIMissionClearPanel.CreateOrGet();
+            if (panel != null)
+                panel.SetData(nextStageData.GetModelPrefabFullPath());
+
+            
         }
 
         public void OnClickStageEnterBtn()
@@ -442,6 +477,11 @@ namespace FunRabbit
         {
             if(UICollectionPanel.Get() == null)
                 UICollectionPanel.CreateOrGet();
+        }
+
+        public void OnClickResetButton()
+        {
+            GameDollCreator.Instance.ResetCurrentStage();
         }
     }
 }

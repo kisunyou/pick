@@ -12,8 +12,14 @@ namespace FunRabbit
         public int totalMissionCount;
 
         public string GetModelPrefabName()
-        {            
+        {
             return $"doll_{animalKey}_full_prefab";
+        }
+
+        // Resources 기준 모델 프리팹 전체 경로 (GameDollCreator와 동일 규칙)
+        public string GetModelPrefabFullPath()
+        {
+            return $"Prefabs/dollPrefabs/{GetModelPrefabName()}";
         }
 
         public string GetIconPrefabFullPath()

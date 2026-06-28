@@ -183,8 +183,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 28.354004}
-  m_SizeDelta: {x: 0, y: 312.8887}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: -6.1118044e-10}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &3468168707639370898
 CanvasRenderer:
@@ -279,7 +279,7 @@ Light:
   serializedVersion: 11
   m_Type: 1
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_Intensity: 2
+  m_Intensity: 1
   m_Range: 15
   m_SpotAngle: 75
   m_InnerSpotAngle: 57.754898
@@ -367,6 +367,7 @@ GameObject:
   - component: {fileID: 3691145129827343106}
   - component: {fileID: 3710536577773396744}
   - component: {fileID: 2698719345509641103}
+  - component: {fileID: 8470636988629331396}
   m_Layer: 5
   m_Name: UILayerCamera
   m_TagString: Untagged
@@ -382,13 +383,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3689169482616644596}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.07951632, y: -0.10577563, z: -0.00849574, w: 0.9911693}
-  m_LocalPosition: {x: 26, y: 0, z: 0}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.0000076293945, z: -2.699997}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1970579436805757218}
-  m_LocalEulerAnglesHint: {x: 8.965, y: -12.336, z: -1.953}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!20 &3710536577773396744
 Camera:
   m_ObjectHideFlags: 0
@@ -428,7 +429,7 @@ Camera:
   m_Depth: 100
   m_CullingMask:
     serializedVersion: 2
-    m_Bits: 1
+    m_Bits: 512
   m_RenderingPath: -1
   m_TargetTexture: {fileID: 0}
   m_TargetDisplay: 0
@@ -484,6 +485,22 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
+--- !u!114 &8470636988629331396
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3689169482616644596}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bfc89e345e3e954b89167e7665aba31, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  InitFlag: 1
+  width: 900
+  height: 900
+  format: 0
 --- !u!1 &3689346042751749158
 GameObject:
   m_ObjectHideFlags: 0
