@@ -219,6 +219,12 @@ namespace FunRabbit
             _crane.CraneTransform.MoveUpEnd();
         }
 
+        // 들어올린 뒤 집게가 인형을 실제로 잡고 있는지 (근접 판정)
+        public bool IsHoldingDoll(float radius)
+        {
+            return _crane.CraneTransform.IsHoldingDoll(radius);
+        }
+
         /// <summary>
         /// 목표 XZ 위치로 한 프레임씩 이동. 도착 시 true 반환.
         /// x, z 속도를 남은 거리 비율로 나눠 직선(대각선)으로 이동하므로
@@ -235,7 +241,7 @@ namespace FunRabbit
             if (distance <= threshold)
                 return true;
 
-            float speed = 0.7f;
+            float speed = 0.9f;
             // 목표 방향 단위 벡터 비율만큼 각 축 속도를 배분 → x, z 동시 도착
             float xMul = speed * Mathf.Abs(dx) / distance;
             float zMul = speed * Mathf.Abs(dz) / distance;

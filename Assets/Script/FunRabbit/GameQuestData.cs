@@ -3,47 +3,41 @@ using UnityEngine;
 
 namespace FunRabbit
 {
+    // 스테이지별 퀘스트 규칙 (JSON table/quest 한 행 = 한 스테이지).
+    // 인형 정체성(모델/아이콘 경로)은 Doll(DollData)로 위임한다.
     [System.Serializable]
-    public class QuestData
+    public class StageQuestData
     {
         public int stage;
         public int createDollCount;
-        public string animalKey;
+        public string animalKey;        // 이 스테이지의 목표 동물
         public int totalMissionCount;
 
-        public string GetModelPrefabName()
-        {
-            return $"doll_{animalKey}_full_prefab";
-        }
+        private DollData _doll;
 
-        // Resources 기준 모델 프리팹 전체 경로 (GameDollCreator와 동일 규칙)
-        public string GetModelPrefabFullPath()
+        // 이 스테이지의 목표 인형 정체성 (animalKey 기반, 최초 접근 시 생성)
+        public DollData Doll
         {
-            return $"Prefabs/dollPrefabs/{GetModelPrefabName()}";
-        }
-
-        public string GetIconPrefabFullPath()
-        {
-            return $"UI2/Prefabs/MissionIconPrefab/{animalKey}MissionIcon";
-        }
-
-        public string GetIconFullPath()
-        {
-            return $"UI2/Thumbnail/{animalKey}";
+            get
+            {
+                if (_doll == null)
+                    _doll = new DollData(animalKey);
+                return _doll;
+            }
         }
     }
 
     [System.Serializable]
-    public class QuestDataList
+    public class StageQuestDataList
     {
-        public List<QuestData> stages;
+        public List<StageQuestData> stages;
     }
 
     public class GameQuestData
     {
-        private static QuestDataList _dataList;
+        private static StageQuestDataList _dataList;
 
-        public static QuestDataList QuestDataList
+        public static StageQuestDataList StageQuestDataList
         {
             get
             {
@@ -62,11 +56,11 @@ namespace FunRabbit
                 return;
             }
 
-            _dataList = JsonUtility.FromJson<QuestDataList>(json.text);
+            _dataList = JsonUtility.FromJson<StageQuestDataList>(json.text);
             Debug.Log($"[GameStageData] Loaded {_dataList.stages.Count} stages.");
         }
 
-        public static QuestData GetStage(int stage)
+        public static StageQuestData GetStage(int stage)
         {
             if (_dataList == null)
                 Load();

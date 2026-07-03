@@ -8,18 +8,18 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: doll_duck_full
-  m_Shader: {fileID: 4800000, guid: 0621ceea51376814ebf6eddded5b0b42, type: 3}
+  m_Shader: {fileID: 4800000, guid: 0b01b03e1e8318c4482f102b0ae4d397, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
-  - _OUTLINE_ON
+  - _COLORGRADING_ON
   - _RIM_ON
   - _SPECULAR_ON
   m_InvalidKeywords:
-  - _COLORGRADING_ON
   - _DETAIL_MULX2
   - _EMISSION
   - _GLOSSYREFLECTIONS_OFF
+  - _OUTLINE_ON
   m_LightmapFlags: 1
   m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 0

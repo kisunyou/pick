@@ -17,6 +17,10 @@ namespace FunRabbit
         [Tooltip("수평 복귀 시 도달해야 할 XZ 위치 (로프 끝)")]
         [SerializeField] Vector3 returnPositionXZ;
 
+        [Header("Grab Check")]
+        [Tooltip("들어올린 뒤 집게 중심부 이 반경 안에 인형이 있으면 '잡은 것'으로 판정. 인형 크기에 맞춰 조절")]
+        [SerializeField] float holdCheckRadius = 1.5f;
+
         private int _status = CraneStatus.READY;
 
         public int Status
@@ -99,8 +103,20 @@ namespace FunRabbit
                         _checkTimer -= Time.deltaTime;
                         if (_checkTimer <= 0.0f)
                         {
-                            SetStatus(CraneStatus.MOVING_RETURN);
                             _checkTimer = 0.0f;
+
+                            // 들어올린 뒤 인형을 실제로 잡았는지 확인한다.
+                            // - 잡았으면: 출구로 옮긴다 (MOVING_RETURN)
+                            // - 못 잡았으면: 출구로 가지 않고 곧장 집게를 열고 중간 위치로 복귀한다
+                            //   (DROP 상태가 Release → 중간 위치 이동 → READY 를 처리)
+                            if (_craneMovingControl.IsHoldingDoll(holdCheckRadius))
+                            {
+                                SetStatus(CraneStatus.MOVING_RETURN);
+                            }
+                            else
+                            {
+                                SetStatus(CraneStatus.DROP);
+                            }
                         }
                     }
                     else
@@ -109,10 +125,10 @@ namespace FunRabbit
                         {
                             _checkTimer = 0.5f;
                             _craneMovingControl.MovingUpStop();
-                            
+
                         }
                     }
-                        
+
                     break;
 
                 case CraneStatus.MOVING_RETURN:

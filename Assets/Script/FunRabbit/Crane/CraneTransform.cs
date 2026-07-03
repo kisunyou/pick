@@ -40,6 +40,18 @@ namespace FunRabbit
             _craneHingeJoints[2] = craneRigidbodys[3].GetComponent<HingeJoint>();
         }
 
+        // 들어올린 뒤 집게가 실제로 인형을 잡고 있는지 판별한다.
+        // 최고점에서는 잡힌 인형만 집게 근처에 있고, 못 잡았으면 인형들은 모두 아래 더미에 남아 있으므로
+        // 집게 중심부(CENTER_BODY) 반경 안에 인형(Actor)이 있는지로 판단한다.
+        public bool IsHoldingDoll(float radius)
+        {
+            Rigidbody center = _craneRigidbodys[CraneBodyType.CENTER_BODY];
+            if (center == null)
+                return false;
+
+            return StageManager.IsAnyActorNear(center.position, radius);
+        }
+
         public void MoveLeft(float multiplier = 1f)
         {
             Vector3 moveValue = -Vector3.right * Time.deltaTime * GameMain.Instance.HorizontalSpeed * multiplier;

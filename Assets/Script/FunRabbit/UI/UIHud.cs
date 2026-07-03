@@ -15,8 +15,11 @@ namespace FunRabbit
     {
         [SerializeField] GameObject lobbyHUD, inGameHUD;
         [SerializeField] Button enterStageButton;
-        [SerializeField] TextMeshProUGUI missionText;
-        [SerializeField] Transform missionIconTransform;
+        
+        /// <summary>
+        /// mission
+        /// </summary>
+        [SerializeField] UIMissionHud missionHud;
 
         [SerializeField] GameObject playTimer;
         [SerializeField] Image playTimerIcon;
@@ -30,12 +33,23 @@ namespace FunRabbit
         [SerializeField] Button collectionButton;
 
         [SerializeField] Button resetButton;
+        [SerializeField] Button backButton;
 
-        [SerializeField] TextMeshProUGUI coinTimerText;
-        [SerializeField] Button getCoinTimerButton;
+        /// <summary>
+        /// coin timer
+        /// </summary>
+        [SerializeField] UICoinTimerHud coinTimerHud;
 
-        // 현재 로드된 미션 아이콘 프리팹 경로 (중복 로드 체크용)
-        private string _currentMissionIconPath;
+        /// <summary>
+        /// get doll trail
+        /// </summary>
+        [SerializeField] UIGetDollTrailHud getDollTrailHud;
+
+
+        
+
+
+        public UIGetDollTrailHud GetDollTrailHud => getDollTrailHud;
 
         // 타이머 설정
         private const int TimerWarningThreshold = 5; // 빨간색/회전/스케일 연출이 시작되는 남은 시간(초)
@@ -49,9 +63,6 @@ namespace FunRabbit
         private Coroutine _timerCoroutine;
         private Tween _timerIconTween;
         private Tween _timerTextTween;
-
-        // 5분마다 코인을 받는 타이머 (coinTimerText/getCoinTimerButton 사용)
-        private CoinGetTimer _coinGetTimer;
 
         public UIHudControl Control { get; private set; } = new UIHudControl();
 
@@ -84,11 +95,16 @@ namespace FunRabbit
             grapButton.onClick.AddListener(()=> Control.OnClickGrapBtn());
             collectionButton.onClick.AddListener(() => Control.OnClickCollectionBtn());
             resetButton.onClick.AddListener(() => Control.OnClickResetButton());
+            if (backButton != null)
+                backButton.onClick.AddListener(() => Control.OnClickBackButton());
             Control.Initialize(this);
+        }
 
-            // 코인 받기 타이머 시작 (5분 카운트다운 → "받기" → 클릭 시 코인 지급 후 재시작)
-            _coinGetTimer = new CoinGetTimer(this, coinTimerText, getCoinTimerButton);
-            _coinGetTimer.Begin();
+        // 외부(테스트/버튼 등)에서 코인 획득 연출만 단독으로 재생하기 위한 진입점.
+        public void OnTestPlayCoinGetEffect()
+        {
+            if (coinTimerHud != null)
+                coinTimerHud.OnTestPlayCoinGetEffect();
         }
 
         public void SetActiveInGameHud(bool isActive)
@@ -100,46 +116,16 @@ namespace FunRabbit
                 HideTimer();
         }
 
-        public void UpdateMissionText(int current, int total)
+        public void UpdateMissionProgressText(int current, int total)
         {
-            missionText.text = $"{current} / {total}";
+            if (missionHud != null)
+                missionHud.UpdateMissionProgressText(current, total);
         }
 
         public void SetMissionIcon(string prefabPath)
         {
-            if (string.IsNullOrEmpty(prefabPath))
-            {
-                Debug.LogError("[UIHud] SetMissionIcon: prefabPath가 비어있습니다.");
-                return;
-            }
-
-            if (missionIconTransform == null)
-            {
-                Debug.LogError("[UIHud] SetMissionIcon: missionIconTransform이 할당되지 않았습니다.");
-                return;
-            }
-
-            // 이미 동일한 아이콘이 로드되어 있으면 스킵
-            if (_currentMissionIconPath == prefabPath && missionIconTransform.childCount > 0)
-                return;
-
-            // 기존 자식 제거
-            for (int i = missionIconTransform.childCount - 1; i >= 0; i--)
-            {
-                Destroy(missionIconTransform.GetChild(i).gameObject);
-            }
-            _currentMissionIconPath = null;
-
-            // 프리팹 로드
-            GameObject prefab = Resources.Load<GameObject>(prefabPath);
-            if (prefab == null)
-            {
-                Debug.LogError($"[UIHud] SetMissionIcon: 프리팹 로드 실패: {prefabPath}");
-                return;
-            }
-
-            Instantiate(prefab, missionIconTransform);
-            _currentMissionIconPath = prefabPath;
+            if (missionHud != null)
+                missionHud.SetMissionIcon(prefabPath);
         }
 
         public void ShowTimer(bool active, float duration = 0f, System.Action onComplete = null)
@@ -280,7 +266,6 @@ namespace FunRabbit
         {
             base.OnDestroy();
             Control.Deinitialize();
-            _coinGetTimer?.Dispose();
             _timerIconTween?.Kill();
             _timerTextTween?.Kill();
         }
@@ -388,7 +373,7 @@ namespace FunRabbit
         private void OnMissionCountChanged(int current, int total)
         {
             if (_hud != null)
-                _hud.UpdateMissionText(current, total);
+                _hud.UpdateMissionProgressText(current, total);
         }
 
         // 현재 미션 진행도를 GameQuestManager에서 얻어 HUD에 갱신
@@ -401,7 +386,7 @@ namespace FunRabbit
         // GameQuestManager의 스테이지 변경 시 호출되어 HUD 미션 아이콘을 갱신
         private void OnStageChanged(int stage, bool isClear)
         {
-            QuestData questData = GameQuestData.GetStage(stage);
+            StageQuestData questData = GameQuestData.GetStage(stage);
             if (questData == null)
             {
                 Debug.LogError($"[UIHudControl] No quest data for stage {stage}");
@@ -410,7 +395,7 @@ namespace FunRabbit
 
             // 미션 아이콘은 항상 현재 스테이지 기준으로 갱신
             if (_hud != null)
-                _hud.SetMissionIcon(questData.GetIconPrefabFullPath());
+                _hud.SetMissionIcon(questData.Doll.GetIconPrefabFullPath());
         }
 
         // 현재 스테이지 정보를 얻어 HUD 미션 아이콘을 갱신 (단순 갱신이므로 isClear=false)
@@ -420,7 +405,7 @@ namespace FunRabbit
         }
 
         // 스테이지 클리어 시 호출되어 다음 스테이지의 인형 정보를 미션 클리어 패널로 표시
-        private void OnStageClear(QuestData nextStageData)
+        private void OnStageClear(StageQuestData nextStageData)
         {
             if (nextStageData == null)
             {
@@ -429,16 +414,31 @@ namespace FunRabbit
                 return;
             }
 
+            // 이 시점의 CurrentStage는 아직 방금 클리어한 스테이지 (GoNextStage 호출 전)
+            StageQuestData clearedStageData = GameQuestManager.Instance.GetCurrentStageData();
+
             var panel = UIMissionClearPanel.CreateOrGet();
             if (panel != null)
-                panel.SetData(nextStageData.GetModelPrefabFullPath());
-
-            
+                panel.SetData(clearedStageData?.Doll.GetModelPrefabFullPath(), nextStageData.Doll.GetModelPrefabFullPath());
         }
 
         public void OnClickStageEnterBtn()
         {
             GameMain.Instance.SetGameStatus(GameStatus.INGAME);
+        }
+
+        // 뒤로가기: 인게임 상태면 로비로 되돌린다.
+        public void OnClickBackButton()
+        {
+            if (GameMain.Instance.CurrentStatus == GameStatus.INGAME)
+                GameMain.Instance.SetGameStatus(GameStatus.LOBBY);
+            else if(GameMain.Instance.CurrentStatus == GameStatus.LOBBY)
+                UIPopup.CreateOrGet().Set("Exit", "Are you sure you want to quit?", () =>
+                {
+#if !UNITY_EDITOR
+                    Application.Quit();
+#endif
+                });
         }
 
         public void OnClickPlayBtn()

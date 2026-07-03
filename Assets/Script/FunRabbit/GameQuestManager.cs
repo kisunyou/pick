@@ -6,13 +6,16 @@ namespace FunRabbit
     {
         private const string KEY_STAGE = "currentStage";
         private const string KEY_MISSION_COUNT = "missionCount";
+        private const string KEY_RANDOM_BOX_COUNT = "randomBoxCount";
 
         // MissionCount가 변경될 때 발생하는 이벤트 (current, total)
         public event System.Action<int, int> OnMissionCountChanged;
+        // RandomBoxCount가 변경될 때 발생하는 이벤트 (current)
+        public event System.Action<int> OnRandomBoxCountChanged;
         // (stage, isClear) - isClear는 스테이지 클리어로 단계가 올라간 경우 true
         public event System.Action<int, bool> OnStageChanged;
         // 스테이지 클리어 시 발생하는 이벤트. 인자는 다음 스테이지 데이터 (마지막 스테이지면 null)
-        public event System.Action<QuestData> OnStageClear;
+        public event System.Action<StageQuestData> OnStageClear;
 
         // 현재 스테이지 (1부터 시작)
         public int CurrentStage
@@ -47,34 +50,45 @@ namespace FunRabbit
             }
         }
 
+        // 미션과 무관한 인형을 받아 쌓인 랜덤박스 카운트
+        public int RandomBoxCount
+        {
+            get => PlayerPrefs.GetInt(KEY_RANDOM_BOX_COUNT, 0);
+            private set
+            {
+                PlayerPrefs.SetInt(KEY_RANDOM_BOX_COUNT, value);
+                OnRandomBoxCountChanged?.Invoke(value);
+            }
+        }
+
         // 현재 스테이지의 총 미션 수
         public int TotalMissionCount
         {
             get
             {
-                QuestData data = GetCurrentStageData();
+                StageQuestData data = GetCurrentStageData();
                 return data != null ? data.totalMissionCount : 0;
             }
         }
 
         // 현재 스테이지 데이터
-        public QuestData GetCurrentStageData()
+        public StageQuestData GetCurrentStageData()
         {
             return GameQuestData.GetStage(CurrentStage);
         }
 
-        public void CheckMissionAdd(string prefabName)
+        // 해당 인형(prefabName)이 현재 스테이지의 미션 대상인지 판정한다. (카운트는 증가시키지 않음)
+        // 실제 증가는 트레일 연출이 도착한 시점에 AddMission / AddRandomBox로 처리한다.
+        public bool IsMissionTarget(string prefabName)
         {
-            QuestData data = GetCurrentStageData();
+            StageQuestData data = GetCurrentStageData();
             if (data == null)
             {
                 Debug.LogError($"[GameQuestManager] No stage data for stage {CurrentStage}");
-                return;
+                return false;
             }
-            if (prefabName == data.GetModelPrefabName())
-            {
-                AddMission();
-            }
+
+            return prefabName.Contains(data.Doll.GetModelPrefabName());
         }
 
         // 미션 1회 달성
@@ -87,12 +101,20 @@ namespace FunRabbit
             if (IsStageClear())
             {
                 // 클리어한 스테이지의 다음 스테이지 데이터 (마지막 스테이지면 null)
-                QuestData nextStageData = GameQuestData.GetStage(CurrentStage + 1);
+                StageQuestData nextStageData = GameQuestData.GetStage(CurrentStage + 1);
                 OnStageClear?.Invoke(nextStageData);
 
                 // 즉시 다음 스테이지로 진행 (CurrentStage +1, MissionCount 0 리셋, OnStageChanged 발생)
                 GoNextStage();
             }
+        }
+
+        // 랜덤박스 카운트 1 증가 (미션과 무관한 인형을 받았을 때)
+        public void AddRandomBox()
+        {
+            RandomBoxCount++;
+            PlayerPrefs.Save();
+            Debug.Log($"[GameQuestManager] RandomBoxCount: {RandomBoxCount}");
         }
 
         // 스테이지 클리어 여부
@@ -122,6 +144,7 @@ namespace FunRabbit
         {
             SetCurrentStage(1);
             MissionCount = 0;
+            RandomBoxCount = 0;
             PlayerPrefs.Save();
         }
     }

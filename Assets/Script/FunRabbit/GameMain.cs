@@ -105,12 +105,16 @@ namespace FunRabbit
 
         private void OnGUI()
         {
-            if (GUI.Button(new Rect(20f, 20f, 160f, 50f), "Stage Save"))
+            if (GUI.Button(new Rect(20f, 20f, 160f, 50f), "TEST"))
             {
-                var questData = GameQuestData.GetStage(5);
-                var panel = UIMissionClearPanel.CreateOrGet();
-                if (panel != null)
-                    panel.SetData(questData.GetModelPrefabFullPath());
+                UIRandomboxPanel.CreateOrGet();
+                //UIHud.CreateOrGet().GetDollTrailHud.PlayGetDollTrail(Vector3.zero, "UI2/Prefabs/MissionIconPrefab/pigMissionIcon", null);
+                //UIHud.CreateOrGet().OnTestPlayCoinGetEffect();
+                //var questData = GameQuestData.GetStage(5);
+                //var nextData = GameQuestData.GetStage(6);
+                //var panel = UIMissionClearPanel.CreateOrGet();
+                //if (panel != null)
+                //    panel.SetData(questData?.GetModelPrefabFullPath(), nextData?.GetModelPrefabFullPath());
                 //UIHud.CreateOrGet().ShowTimer(10);
                 //int stage = GameQuestManager.Instance.CurrentStage;
                 //if (stage >= 0)

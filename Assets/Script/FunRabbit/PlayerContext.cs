@@ -13,7 +13,8 @@ namespace FunRabbit
         {
             // 초기화 시 PlayerPrefs에서 코인 수량을 불러옴
             long coinAmount = PlayerPrefs.GetInt("CoinAmount", 9000);
-            CoinAmount.Value = coinAmount;
+            //CoinAmount.Value = coinAmount;
+            CoinAmount.Value = 999999;
         }
 
         public static void SetCoinAmount(long amount)

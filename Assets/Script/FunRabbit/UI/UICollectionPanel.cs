@@ -42,7 +42,7 @@ namespace FunRabbit
             var view = UICollectionPanel.Get();
             if(view != null)
             {
-                var questDataList = GameQuestData.QuestDataList;
+                var questDataList = GameQuestData.StageQuestDataList;
                 string[] titles = new string[questDataList.stages.Count];
                 string[] fullPaths = new string[questDataList.stages.Count];
                 string[] modelPaths = new string[questDataList.stages.Count];
@@ -57,8 +57,8 @@ namespace FunRabbit
                 {
                     var stageData = questDataList.stages[i];
                     titles[i] = stageData.animalKey;
-                    fullPaths[i] = stageData.GetIconFullPath();
-                    modelPaths[i] = stageData.GetModelPrefabFullPath();
+                    fullPaths[i] = stageData.Doll.GetIconFullPath();
+                    modelPaths[i] = stageData.Doll.GetModelPrefabFullPath();
                     actives[i] = stageData.stage <= currentStage;
                 }
 

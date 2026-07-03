@@ -11,6 +11,8 @@ namespace FunRabbit
         const float ANGULAR_DAMPING = 1.0f;           // 회전 감쇠: 마구 구르지 않고 무게감 있게 정지
         const float MAX_DEPENETRATION_VELOCITY = 2f;  // 겹침(끼임) 해소 시 폭발적으로 튕겨 나가는 속도 제한
 
+        public DollData Data { get; set; }
+
         private void Start()
         {
             ApplyDollPhysics();

@@ -39,6 +39,23 @@ namespace FunRabbit
             actors.Remove(actor);
         }
 
+        // 지정한 위치 반경 내에 인형(Actor)이 하나라도 있으면 true.
+        // (크레인이 들어올린 뒤 집게 근처에 인형이 있는지 = 실제로 잡았는지 판별용)
+        public static bool IsAnyActorNear(Vector3 position, float radius)
+        {
+            float sqrRadius = radius * radius;
+            for (int i = 0; i < actors.Count; i++)
+            {
+                Actor a = actors[i];
+                if (a == null)
+                    continue;
+
+                if ((a.transform.position - position).sqrMagnitude <= sqrRadius)
+                    return true;
+            }
+            return false;
+        }
+
         // actor 보관 리스트의 모든 actor 정보를 stage 키로 json 저장한다.
         public static void Save(int stage)
         {

@@ -10,6 +10,8 @@ public class UIModelViewPanel : MonoBehaviour
     [SerializeField] Camera UILayerCamera;
     [SerializeField] GameObject UILayerDirectionLight;
     [SerializeField] RawImage RawImage;
+    // 이 패널 전용 렌더 레이어. -1이면 모델 레이어를 변경하지 않는다.
+    [SerializeField] int modelLayer = -1;
 
     private UIModelViewController _modelController = null;
     private UIModelViewPanelControl _control = null;
@@ -43,10 +45,25 @@ public class UIModelViewPanel : MonoBehaviour
         RawImage.enabled = false;
     }
 
+    // 이 패널 전용 렌더 레이어를 지정한다.
+    // 카메라 컬링 마스크와 (이미/이후) 로드되는 모델의 레이어를 함께 맞춰
+    // 다른 패널의 카메라에 이 패널의 인형이 잡히지 않도록(겹침 방지) 한다.
+    public void SetModelLayer(int layer)
+    {
+        modelLayer = layer;
+        if (UILayerCamera != null && layer >= 0)
+            UILayerCamera.cullingMask = 1 << layer;
+        _control?.SetModelLayer(layer);
+    }
+
+    // 렌더 결과를 표시하는 RawImage의 RectTransform.
+    // 패널/카메라/모델은 고정한 채 이 RawImage만 움직여 슬라이드 연출에 사용한다.
+    public RectTransform ImageRect => RawImage != null ? RawImage.rectTransform : null;
+
     // 모델을 비동기로 로드한다. (control로 위임)
     public Awaitable LoadModel(string fullPath)
     {
-        return _control.LoadModel(fullPath);
+        return _control.LoadModel(fullPath, modelLayer);
     }
 
     void OnDestroy()
@@ -67,13 +84,26 @@ public class UIModelViewPanelControl
     // 진행 중인 비동기 로드를 취소하기 위한 토큰 소스
     private CancellationTokenSource _loadCts;
 
+    // 로드된 모델에 적용할 레이어. -1이면 변경하지 않는다.
+    private int _modelLayer = -1;
+
     public UIModelViewPanelControl(Transform parent)
     {
         _parent = parent;
     }
 
-    public async Awaitable LoadModel(string fullPath)
+    // 전용 레이어 지정. 이미 로드된 모델이 있으면 즉시 반영한다.
+    public void SetModelLayer(int layer)
     {
+        _modelLayer = layer;
+        if (_modelInstance != null && layer >= 0)
+            SetLayerRecursively(_modelInstance, layer);
+    }
+
+    public async Awaitable LoadModel(string fullPath, int layer = -1)
+    {
+        _modelLayer = layer;
+
         if (string.IsNullOrEmpty(fullPath))
             return;
 
@@ -105,6 +135,10 @@ public class UIModelViewPanelControl
 
                 // Rigidbody가 있으면 물리(중력/충돌 등) 영향을 받지 않도록 kinematic 처리
                 DisablePhysics(_modelInstance);
+
+                // 전용 레이어가 지정된 경우 모델 전체를 해당 레이어로 옮긴다. (패널별 카메라 분리)
+                if (_modelLayer >= 0)
+                    SetLayerRecursively(_modelInstance, _modelLayer);
             }
             else
             {
@@ -119,6 +153,18 @@ public class UIModelViewPanelControl
         {
             Debug.LogError($"[UIModelViewPanelControl] 모델 로드 중 예외: {fullPath}\n{e}");
         }
+    }
+
+    // 오브젝트와 모든 자식의 레이어를 재귀적으로 설정한다.
+    private static void SetLayerRecursively(GameObject go, int layer)
+    {
+        if (go == null)
+            return;
+
+        go.layer = layer;
+        Transform t = go.transform;
+        for (int i = 0; i < t.childCount; i++)
+            SetLayerRecursively(t.GetChild(i).gameObject, layer);
     }
 
     // 모델에 포함된 모든 Rigidbody를 kinematic으로 만들어 물리 시뮬레이션을 적용하지 않는다.

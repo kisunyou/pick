@@ -65,9 +65,9 @@ namespace FunRabbit
                 yield break;
             }
 
-            // 현재 스테이지까지 등장한 동물들의 프리팹 경로 풀을 누적 구성한다.
-            List<string> dollPaths = GetStageDollPaths();
-            if (dollPaths.Count == 0)
+            // 현재 스테이지까지 등장한 동물들의 StageQuestData 풀을 누적 구성한다.
+            List<StageQuestData> dollPool = GetStageQuestPool();
+            if (dollPool.Count == 0)
             {
                 Debug.LogError("[GameDollCreator] 현재 스테이지에 사용할 인형 프리팹이 없습니다.");
                 yield break;
@@ -81,8 +81,9 @@ namespace FunRabbit
                     continue;
                 }
 
-                // 스테이지 풀에서 랜덤 프리팹 경로 선택
-                string randomPath = dollPaths[Random.Range(0, dollPaths.Count)];
+                // 스테이지 풀에서 랜덤 StageQuestData 선택
+                StageQuestData randomQuest = dollPool[Random.Range(0, dollPool.Count)];
+                string randomPath = randomQuest.Doll.GetModelPrefabFullPath();
 
                 ResourceRequest request = Resources.LoadAsync<GameObject>(randomPath);
                 yield return request;
@@ -96,6 +97,10 @@ namespace FunRabbit
                 GameObject dollPrefab = request.asset as GameObject;
                 Quaternion randomRot = createPositions[i].rotation * Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
                 GameObject doll = Instantiate(dollPrefab, createPositions[i].position, randomRot);
+
+                Actor actor = doll.GetComponent<Actor>();
+                if (actor != null)
+                    actor.Data = randomQuest.Doll;
 
                 // ▼ 변경: 실제 프리팹 이름 기반으로 네이밍
                 doll.name = $"{dollPrefab.name}_{i}";
@@ -138,6 +143,11 @@ namespace FunRabbit
                 GameObject doll = Instantiate(dollPrefab, position, rotation);
                 doll.transform.localScale = data.scales[i];
                 doll.name = objectName;
+
+                Actor actor = doll.GetComponent<Actor>();
+                if (actor != null)
+                    actor.Data = FindDollDataByPrefabName(prefabName);
+
                 createdDolls.Add(doll);
             }
 
@@ -156,26 +166,39 @@ namespace FunRabbit
             createdDolls.Clear();
         }
 
-        // 현재 스테이지(1~N)까지 등장한 동물 프리팹 경로를 누적해서 반환한다.
+        // 현재 스테이지(1~N)까지 등장한 동물들의 StageQuestData를 누적해서 반환한다.
         // 예) 스테이지 1 → 곰만, 스테이지 3 → 곰·돼지·소
-        private static List<string> GetStageDollPaths()
+        private static List<StageQuestData> GetStageQuestPool()
         {
             int currentStage = GameQuestManager.Instance.CurrentStage;
-            List<string> paths = new List<string>();
+            List<StageQuestData> pool = new List<StageQuestData>();
 
             for (int stage = 1; stage <= currentStage; stage++)
             {
                 // GetStage는 첫 매치를 반환하므로 같은 stage 중복 항목(예: octopus)은 자연히 제외된다.
-                QuestData data = GameQuestData.GetStage(stage);
+                StageQuestData data = GameQuestData.GetStage(stage);
                 if (data == null)
                     continue;
 
-                string path = data.GetModelPrefabFullPath();
-                if (!paths.Contains(path))
-                    paths.Add(path);
+                // 같은 동물(animalKey) 중복 제외
+                if (pool.Exists(q => q.animalKey == data.animalKey))
+                    continue;
+
+                pool.Add(data);
             }
 
-            return paths;
+            return pool;
+        }
+
+        // 프리팹 이름(doll_{animalKey}_full_prefab)에 해당하는 DollData를 찾는다.
+        private static DollData FindDollDataByPrefabName(string prefabName)
+        {
+            List<StageQuestData> stages = GameQuestData.StageQuestDataList?.stages;
+            if (stages == null)
+                return null;
+
+            StageQuestData matched = stages.Find(q => q.Doll.GetModelPrefabName() == prefabName);
+            return matched?.Doll;
         }
 
         // gameObject.name(예: doll_bear_full_prefab_0)에서 끝의 _숫자 인덱스를 제거해 프리팹 이름을 얻는다.
