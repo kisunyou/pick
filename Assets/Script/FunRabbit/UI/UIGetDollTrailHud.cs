@@ -26,7 +26,7 @@ namespace FunRabbit
         public Transform GetDollTargetTransform => getDollTargetTransform;
         public Transform GetRandomBoxTargetTransform => getRandomBoxTargetTransform;
 
-        public void PlayGetDollTrail(Vector3 start, string prefabName, System.Action onArriveEvent)
+        public void PlayGetDollTrail(string prefabName, System.Action onArriveEvent)
         {
             if (getDollTargetTransform == null)
             {
@@ -38,7 +38,7 @@ namespace FunRabbit
             PlayTrail(getDollStartTransform.position, getDollTargetTransform.position, prefabName, onArriveEvent);
         }
 
-        public void PlayGetRandomBoxTrail(Vector3 start, string prefabName, System.Action onArriveEvent)
+        public void PlayGetRandomBoxTrail(string prefabName, System.Action onArriveEvent)
         {
             if (getRandomBoxTargetTransform == null)
             {

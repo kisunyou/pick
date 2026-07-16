@@ -20,6 +20,12 @@ namespace FunRabbit
         // actor 보관 리스트
         private static readonly List<Actor> actors = new List<Actor>();
 
+        // 보관된 actor 수가 변경될 때 발생하는 이벤트 (현재 개수)
+        public static event System.Action<int> OnActorCountChanged;
+
+        // 현재 스테이지에 존재하는 인형(Actor) 수
+        public static int ActorCount => actors.Count;
+
         // actor 보관 리스트에 actor를 추가한다.
         public static void AddActor(Actor actor)
         {
@@ -27,7 +33,10 @@ namespace FunRabbit
                 return;
 
             if (!actors.Contains(actor))
+            {
                 actors.Add(actor);
+                OnActorCountChanged?.Invoke(actors.Count);
+            }
         }
 
         // actor 보관 리스트에서 actor를 삭제한다.
@@ -36,7 +45,8 @@ namespace FunRabbit
             if (actor == null)
                 return;
 
-            actors.Remove(actor);
+            if (actors.Remove(actor))
+                OnActorCountChanged?.Invoke(actors.Count);
         }
 
         // 지정한 위치 반경 내에 인형(Actor)이 하나라도 있으면 true.

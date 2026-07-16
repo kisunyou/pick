@@ -88,6 +88,13 @@ namespace FunRabbit
             grap.SetActive(isActive);
         }
 
+        public void SetActiveResetButton(bool isActive)
+        {
+            if (resetButton == null || resetButton.gameObject.activeSelf == isActive)
+                return;
+            resetButton.gameObject.SetActive(isActive);
+        }
+
         private void Start()
         {
             enterStageButton.onClick.AddListener(() => Control.OnClickStageEnterBtn());
@@ -280,18 +287,26 @@ namespace FunRabbit
         // 크레인 조작 가능(CONTROL_MOVING) 시 표시할 제한 시간(초)
         private const float CraneControlTimeLimit = 15f;
 
+        // resetButton은 현재 스테이지 인형(Actor)이 이 개수 이하일 때만 활성화한다.
+        private const int ResetButtonMaxActorCount = 10;
+
         public void Initialize(UIHud hud)
         {
             _hud = hud;
 
             PlayerContext.CoinAmount.Attach(OnChangedCoinAmount);
             GameMain.SubscribeStatus(OnChangedGameStatus);
+
+            // 인형 수에 따라 resetButton 활성/비활성 갱신
+            StageManager.OnActorCountChanged += OnChangedActorCount;
+            OnChangedActorCount(StageManager.ActorCount); // 현재 값으로 초기 반영
         }
 
         public void Deinitialize()
         {
             GameMain.UnsubscribeStatus(OnChangedGameStatus);
             UnsubscribeCrane();
+            StageManager.OnActorCountChanged -= OnChangedActorCount;
 
             if (GameQuestManager.IsCheckInstance())
             {
@@ -302,6 +317,13 @@ namespace FunRabbit
             }
 
             _hud = null;
+        }
+
+        // 스테이지 인형(Actor) 수 변경 시: 7개 이하이면 resetButton 활성화, 초과면 비활성화
+        private void OnChangedActorCount(int count)
+        {
+            if (_hud != null)
+                _hud.SetActiveResetButton(count <= ResetButtonMaxActorCount);
         }
 
         // 게임 상태 변경 시 HUD 갱신

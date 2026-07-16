@@ -22,10 +22,11 @@ namespace FunRabbit
 
         private void Start()
         {
-            // 코인 받기 타이머 시작 (5분 카운트다운 → "받기" → 클릭 시 코인 지급 후 재시작)
+            // 코인 받기 타이머 (5분 카운트다운 → "받기" → 클릭 시 코인 지급 후 재시작)
+            // Resume: 재실행 시 저장된 상태 복원 (없으면 새로 시작)
             _coinGetTimer = new CoinGetTimer(this, coinTimerText, getCoinTimerButton,
                 coinFlyStart, coinFlyTarget, coinFlyTemplate, coinTimerSlider);
-            _coinGetTimer.Begin();
+            _coinGetTimer.Resume();
         }
 
         // 외부(테스트/버튼 등)에서 코인 획득 연출만 단독으로 재생하기 위한 진입점.

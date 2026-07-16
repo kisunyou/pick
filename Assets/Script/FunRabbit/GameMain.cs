@@ -107,7 +107,9 @@ namespace FunRabbit
         {
             if (GUI.Button(new Rect(20f, 20f, 160f, 50f), "TEST"))
             {
-                UIRandomboxPanel.CreateOrGet();
+                UIHud.CreateOrGet().GetDollTrailHud.PlayGetRandomBoxTrail("UI2/Prefabs/MissionIconPrefab/pigMissionIcon",
+                    () => PlayerContext.AddRandomBoxProgressValue(0.1f));
+                //UIRandomboxPanel.CreateOrGet();
                 //UIHud.CreateOrGet().GetDollTrailHud.PlayGetDollTrail(Vector3.zero, "UI2/Prefabs/MissionIconPrefab/pigMissionIcon", null);
                 //UIHud.CreateOrGet().OnTestPlayCoinGetEffect();
                 //var questData = GameQuestData.GetStage(5);

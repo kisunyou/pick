@@ -14,6 +14,7 @@ namespace FunRabbit
         private const float Duration = 300f;        // 타이머 길이(초) = 5분
         private const long RewardCoinAmount = 100;  // "받기" 시 지급할 코인
         private const string ClaimLabel = "받기";   // 0:00 도달 후 표시할 문구
+        private const string KeyEndTime = "CoinTimerEndTimeUtc"; // 종료 목표 시각(UTC ticks) 저장 키
 
         // 코인 획득 연출 설정 (UIMissionClearPanel의 코인 비행 연출과 동일한 방식)
         private const int CoinFlyCount = 8;              // 한 번에 날아가는 코인 개수
@@ -46,6 +47,7 @@ namespace FunRabbit
 
         private Coroutine _coroutine;
         private bool _claimable; // 카운트다운이 끝나 "받기" 입력을 기다리는 상태인지
+        private System.DateTime _endTimeUtc; // 카운트다운 종료(받기 가능) 목표 시각 (UTC, 절대 시간)
 
         public CoinGetTimer(MonoBehaviour runner, TextMeshProUGUI timerText, Button claimButton,
             RectTransform coinFlyStart = null, RectTransform coinFlyTarget = null, RectTransform coinFlyTemplate = null,
@@ -74,12 +76,49 @@ namespace FunRabbit
                 _claimButton.onClick.AddListener(OnClickClaim);
         }
 
-        // 타이머 시작 (이미 동작 중이면 처음(05:00)부터 다시 시작)
+        // 새 5분 사이클 시작 (첫 실행 / "받기" 이후). 종료 목표 시각을 저장한다.
         public void Begin()
         {
             if (_runner == null)
                 return;
 
+            _endTimeUtc = System.DateTime.UtcNow.AddSeconds(Duration);
+            SaveEndTime();
+            StartCountdown();
+        }
+
+        // 저장된 상태를 복원한다. (앱 재실행 시 호출)
+        // 앱이 꺼져 있던 실제 시간도 반영되며, 저장된 상태가 없으면 새로 시작한다.
+        public void Resume()
+        {
+            if (_runner == null)
+                return;
+
+            if (!TryLoadEndTime(out _endTimeUtc))
+            {
+                Begin(); // 저장된 상태 없음 → 새 사이클
+                return;
+            }
+
+            double remaining = (_endTimeUtc - System.DateTime.UtcNow).TotalSeconds;
+            if (remaining <= 0)
+            {
+                // 꺼져 있는 동안 이미 완료됨 → 바로 "받기" 상태로 복원
+                Stop();
+                StopClaimTextPulse();
+                UpdateTimerText(0);
+                UpdateSlider(0);
+                EnterClaimableState();
+            }
+            else
+            {
+                // 남은 시간까지 이어서 카운트다운
+                StartCountdown();
+            }
+        }
+
+        private void StartCountdown()
+        {
             Stop();
             StopClaimTextPulse();         // "받기" 상태 텍스트 펄스 종료
             _claimable = false;
@@ -108,15 +147,18 @@ namespace FunRabbit
 
         private IEnumerator CountdownCoroutine()
         {
-            int remaining = Mathf.CeilToInt(Duration);
-
-            // 05:00 → 00:01 까지 매 초 갱신
-            while (remaining > 0)
+            // 남은 시간을 저장된 종료 시각(_endTimeUtc)과 현재 시각의 차이로 매 초 계산한다.
+            // (게임 일시정지/프레임 변동과 무관하게 실제 시간 기준으로 정확히 감소)
+            while (true)
             {
+                double remainingSec = (_endTimeUtc - System.DateTime.UtcNow).TotalSeconds;
+                if (remainingSec <= 0)
+                    break;
+
+                int remaining = Mathf.CeilToInt((float)remainingSec);
                 UpdateTimerText(remaining);
                 UpdateSlider(remaining);
                 yield return new WaitForSeconds(1f);
-                remaining--;
             }
 
             // 0:00 도달: "00:00"을 한 번 보여준 뒤 "받기" 대기 상태로 진입
@@ -237,6 +279,26 @@ namespace FunRabbit
 
             // minValue/maxValue 설정과 무관하게 0~1로 다루기 위해 normalizedValue 사용
             _slider.normalizedValue = 1f - Mathf.Clamp01(remaining / Duration);
+        }
+
+        // 종료 목표 시각(UTC ticks)을 저장한다. (재실행 후 복원용)
+        private void SaveEndTime()
+        {
+            PlayerPrefs.SetString(KeyEndTime, _endTimeUtc.Ticks.ToString());
+            PlayerPrefs.Save();
+        }
+
+        // 저장된 종료 목표 시각을 불러온다. 저장이 없거나 파싱 실패면 false.
+        private bool TryLoadEndTime(out System.DateTime endTimeUtc)
+        {
+            endTimeUtc = default;
+
+            string s = PlayerPrefs.GetString(KeyEndTime, "");
+            if (string.IsNullOrEmpty(s) || !long.TryParse(s, out long ticks))
+                return false;
+
+            endTimeUtc = new System.DateTime(ticks, System.DateTimeKind.Utc);
+            return true;
         }
 
         // "받기" 가능 상태에서 텍스트를 일정 간격으로 커졌다 작아지게 반복해 주목도를 높인다.
