@@ -26,6 +26,23 @@ namespace FunRabbit
         public Transform GetDollTargetTransform => getDollTargetTransform;
         public Transform GetRandomBoxTargetTransform => getRandomBoxTargetTransform;
 
+        // 획득 연출 전용 이펙트 프리팹의 Resources 경로 (프리팹 캐시/풀 키로도 그대로 사용)
+        // uiGetDollEffect = 구버전(로컬 공간 반짝임), uiGetDollTrailEffect = 월드 공간 꼬리 연출
+        const string GetDollEffectPrefabName = "FX/get_doll_effect/uiGetDollTrailEffect";
+
+        // uiGetDollEffect 프리팹을 로드해 인형 획득 트레일을 재생한다. (기존과 동일하게 풀링)
+        public void PlayGetDollTrailEffect(System.Action onArriveEvent)
+        {
+            PlayGetDollTrail(GetDollEffectPrefabName, onArriveEvent);
+        }
+
+        // uiGetDollEffect 프리팹을 로드해 랜덤박스 획득 트레일을 재생한다. (기존과 동일하게 풀링)
+        public void PlayGetRandomBoxTrailEffect(System.Action onArriveEvent)
+        {
+            PlayGetRandomBoxTrail(GetDollEffectPrefabName, onArriveEvent);
+        }
+
+
         public void PlayGetDollTrail(string prefabName, System.Action onArriveEvent)
         {
             if (getDollTargetTransform == null)

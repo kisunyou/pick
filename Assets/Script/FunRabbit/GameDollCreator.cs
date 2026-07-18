@@ -96,7 +96,10 @@ namespace FunRabbit
 
                 GameObject dollPrefab = request.asset as GameObject;
                 Quaternion randomRot = createPositions[i].rotation * Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-                GameObject doll = Instantiate(dollPrefab, createPositions[i].position, randomRot);
+                GameObject doll = Instantiate(dollPrefab, createPositions[i].position, randomRot, checkPos.PickMachine);
+
+                // 인게임(뽑기 기계) 인형은 actor.json의 inGameScale로 스케일링한다
+                doll.transform.localScale = Vector3.one * GameActorData.GetInGameScale(randomQuest.animalKey);
 
                 Actor actor = doll.GetComponent<Actor>();
                 if (actor != null)
@@ -113,6 +116,12 @@ namespace FunRabbit
         // StageManager에 저장된 정보로 인형을 로드한다.
         private IEnumerator LoadFromStageData(StageManager.StageData data)
         {
+            if (!GameCheckPositions.TryGetSetInstance(out GameCheckPositions checkPos))
+            {
+                Debug.LogError("[GameDollCreator] GameCheckPositions 인스턴스가 존재하지 않습니다.");
+                yield break;
+            }
+
             int count = data.prefabNames.Length;
 
             for (int i = 0; i < count; i++)
@@ -139,14 +148,20 @@ namespace FunRabbit
                 GameObject dollPrefab = request.asset as GameObject;
                 Vector3 position = data.positions[i];
                 Quaternion rotation = Quaternion.Euler(data.rotations[i]);
+                DollData dollData = FindDollDataByPrefabName(prefabName);
 
-                GameObject doll = Instantiate(dollPrefab, position, rotation);
-                doll.transform.localScale = data.scales[i];
+                GameObject doll = Instantiate(dollPrefab, position, rotation, checkPos.PickMachine);
+                // 저장 당시 스케일 대신 현재 테이블(actor.json inGameScale)을 적용한다
+                // (테이블 튜닝이 저장 데이터에 묻히지 않도록 항상 테이블이 우선.
+                //  동물을 특정 못 하는 예외 케이스만 저장값 폴백)
+                doll.transform.localScale = dollData != null
+                    ? Vector3.one * GameActorData.GetInGameScale(dollData.animalKey)
+                    : data.scales[i];
                 doll.name = objectName;
 
                 Actor actor = doll.GetComponent<Actor>();
                 if (actor != null)
-                    actor.Data = FindDollDataByPrefabName(prefabName);
+                    actor.Data = dollData;
 
                 createdDolls.Add(doll);
             }

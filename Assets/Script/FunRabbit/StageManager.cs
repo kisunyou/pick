@@ -66,6 +66,21 @@ namespace FunRabbit
             return false;
         }
 
+        // 지정한 위치 반경 내의 인형(Actor)들을 results에 담는다. (results는 호출자가 재사용하는 버퍼)
+        public static void GetActorsNear(Vector3 position, float radius, List<Actor> results)
+        {
+            float sqrRadius = radius * radius;
+            for (int i = 0; i < actors.Count; i++)
+            {
+                Actor a = actors[i];
+                if (a == null)
+                    continue;
+
+                if ((a.transform.position - position).sqrMagnitude <= sqrRadius)
+                    results.Add(a);
+            }
+        }
+
         // actor 보관 리스트의 모든 actor 정보를 stage 키로 json 저장한다.
         public static void Save(int stage)
         {

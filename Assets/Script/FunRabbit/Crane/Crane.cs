@@ -49,6 +49,15 @@ namespace FunRabbit
 
         private float _checkTimer = 0.0f;
 
+        // 목표 XZ 이동(복귀/중앙 이동)이 이 시간을 넘기면 강제로 도착 처리한다.
+        // (외부 요인으로 이동이 막혀도 상태머신이 멈추지 않도록 하는 안전장치)
+        private const float MoveTimeoutSeconds = 6.0f;
+        private float _moveElapsed = 0.0f;
+
+        // 자동 이동 속도 배율 (기본 XZ 속도 = HorizontalSpeed × fixedDt = 10 units/s 대비)
+        private const float CarryMoveSpeedRatio = 0.25f;  // 인형을 들고 출구로 이동(MOVING_RETURN)
+        private const float CenterMoveSpeedRatio = 0.45f; // 놓은 뒤 중앙 복귀(DROP)
+
         void Start()
         {
             _craneMovingControl = new CraneMovingControl(this);
@@ -78,6 +87,12 @@ namespace FunRabbit
                     if (_checkTimer > 3.0f)
                     {
                         _checkTimer = 0.0f;
+                        // 하강을 멈추지 않으면 GRAP 동안 매 FixedUpdate마다 하강력이
+                        // 계속 걸려 크레인 전체가 인형을 짓누른 채 집게가 닫힌다
+                        // (접촉 솔버가 밀려 인형을 뚫는 주원인). 하강을 멈추고
+                        // pivot을 현재 위치에 고정한 뒤 집게를 닫는다.
+                        _craneMovingControl.MovingDownStop();
+                        _craneMovingControl.StopXZMove();
                         _craneMovingControl.Grap();
                         SetStatus(CraneStatus.GRAP);
                     }
@@ -154,7 +169,9 @@ namespace FunRabbit
                             _craneMovingControl.MoveXZStart();
                         }
 
-                        bool arrived = _craneMovingControl.MoveTowardXZ(returnTarget);
+                        _moveElapsed += Time.deltaTime;
+                        bool arrived = _craneMovingControl.MoveTowardXZ(returnTarget, CarryMoveSpeedRatio)
+                            || _moveElapsed > MoveTimeoutSeconds; // 이동이 막혀도 멈추지 않게 강제 도착
                         if (arrived)
                         {
                             _checkTimer = 0.5f;
@@ -190,7 +207,9 @@ namespace FunRabbit
                             _craneMovingControl.MoveXZStart();
                         }
 
-                        if (_craneMovingControl.MoveTowardXZ(centerTarget))
+                        _moveElapsed += Time.deltaTime;
+                        if (_craneMovingControl.MoveTowardXZ(centerTarget, CenterMoveSpeedRatio)
+                            || _moveElapsed > MoveTimeoutSeconds) // 이동이 막혀도 멈추지 않게 강제 도착
                         {
                             _craneMovingControl.MoveXZEnd();
                             SetStatus(CraneStatus.READY);
@@ -290,6 +309,7 @@ namespace FunRabbit
             {
                 _hasGrapStarted = false;
                 _hasReleased = false;
+                _moveElapsed = 0.0f;
             }
 
             _status = status;

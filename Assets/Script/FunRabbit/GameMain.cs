@@ -8,13 +8,16 @@ namespace FunRabbit
     {
         LOBBY,
         INGAME,
+        COLLECTION,
     }
 
     public class GameMain : Singleton<GameMain>
     {
         [SerializeField] public float HorizontalSpeed = 500.0f;
         [SerializeField] public float DownSpeed = 15.0f;
-        [SerializeField] public float UpSpeed = 30.0f;
+        // 2026-07-16: 30 → 15. 하강력 잔류 버그(MovingDownStop 미호출) 수정으로 상승이
+        // 2배 빨라져(≈5.88 m/s), 기존 체감(≈2.94 m/s)을 유지하도록 절반으로 낮춤.
+        [SerializeField] public float UpSpeed = 15.0f;
 
         // 게임 상태 변경 이벤트
         public System.Action<GameStatus> OnChangedStatus { get; set; }
@@ -30,6 +33,13 @@ namespace FunRabbit
         private void Start()
         {
             PlayerContext.Initialize();
+
+            // 게임/크레인 상태를 구독해 BGM을 재생하는 사운드 매니저를 깨운다
+            AudioManager.MakeInstance();
+
+            // 컬렉션(도감) 진입 시 획득 인형을 생성/배회시키는 매니저를 깨운다
+            CollectionManager.MakeInstance();
+
             var uiHUD = UIHud.CreateOrGet();
             
 
@@ -103,32 +113,32 @@ namespace FunRabbit
                 Instance.OnStageLoaded -= handler;
         }
 
-        private void OnGUI()
-        {
-            if (GUI.Button(new Rect(20f, 20f, 160f, 50f), "TEST"))
-            {
-                UIHud.CreateOrGet().GetDollTrailHud.PlayGetRandomBoxTrail("UI2/Prefabs/MissionIconPrefab/pigMissionIcon",
-                    () => PlayerContext.AddRandomBoxProgressValue(0.1f));
-                //UIRandomboxPanel.CreateOrGet();
-                //UIHud.CreateOrGet().GetDollTrailHud.PlayGetDollTrail(Vector3.zero, "UI2/Prefabs/MissionIconPrefab/pigMissionIcon", null);
-                //UIHud.CreateOrGet().OnTestPlayCoinGetEffect();
-                //var questData = GameQuestData.GetStage(5);
-                //var nextData = GameQuestData.GetStage(6);
-                //var panel = UIMissionClearPanel.CreateOrGet();
-                //if (panel != null)
-                //    panel.SetData(questData?.GetModelPrefabFullPath(), nextData?.GetModelPrefabFullPath());
-                //UIHud.CreateOrGet().ShowTimer(10);
-                //int stage = GameQuestManager.Instance.CurrentStage;
-                //if (stage >= 0)
-                //{
-                //    StageManager.Save(stage);
-                //    Debug.Log($"[GameMain] StageManager.Save({stage}) 완료");
-                //}
-                //else
-                //{
-                //    Debug.LogWarning($"[GameMain] 잘못된 stage 값({stage}), 저장 스킵.");
-                //}
-            }
-        }
+        //private void OnGUI()
+        //{
+        //    if (GUI.Button(new Rect(20f, 20f, 160f, 50f), "TEST"))
+        //    {
+        //        UIHud.CreateOrGet().GetDollTrailHud.PlayGetRandomBoxTrail("UI2/Prefabs/MissionIconPrefab/pigMissionIcon",
+        //            () => PlayerContext.AddRandomBoxProgressValue(0.1f));
+        //        //UIRandomboxPanel.CreateOrGet();
+        //        //UIHud.CreateOrGet().GetDollTrailHud.PlayGetDollTrail(Vector3.zero, "UI2/Prefabs/MissionIconPrefab/pigMissionIcon", null);
+        //        //UIHud.CreateOrGet().OnTestPlayCoinGetEffect();
+        //        //var questData = GameQuestData.GetStage(5);
+        //        //var nextData = GameQuestData.GetStage(6);
+        //        //var panel = UIMissionClearPanel.CreateOrGet();
+        //        //if (panel != null)
+        //        //    panel.SetData(questData?.GetModelPrefabFullPath(), nextData?.GetModelPrefabFullPath());
+        //        //UIHud.CreateOrGet().ShowTimer(10);
+        //        //int stage = GameQuestManager.Instance.CurrentStage;
+        //        //if (stage >= 0)
+        //        //{
+        //        //    StageManager.Save(stage);
+        //        //    Debug.Log($"[GameMain] StageManager.Save({stage}) 완료");
+        //        //}
+        //        //else
+        //        //{
+        //        //    Debug.LogWarning($"[GameMain] 잘못된 stage 값({stage}), 저장 스킵.");
+        //        //}
+        //    }
+        //}
     }
 }

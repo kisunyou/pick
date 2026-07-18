@@ -10,7 +10,7 @@ namespace FunRabbit
     {
         public int stage;
         public int createDollCount;
-        public string animalKey;        // 이 스테이지의 목표 동물
+        public string animalKey;        // 이 스테이지의 목표 동물 (동물 자체 속성은 GameActorData/actor.json 참조)
         public int totalMissionCount;
 
         private DollData _doll;

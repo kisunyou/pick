@@ -42,6 +42,9 @@ namespace FunRabbit
         protected virtual void Awake()
         {
             Instance = this as T;
+
+            // 뷰 계층 아래 모든 버튼에 공통 클릭 효과음을 바인딩한다
+            UIButtonSound.BindAll(gameObject);
         }
 
         protected virtual void OnDestroy()
@@ -55,6 +58,8 @@ namespace FunRabbit
 
         public void Show()
         {
+            // Awake 이후 동적으로 추가된 버튼까지 커버하도록 표시 시점에 재바인딩 (기존 바인딩은 무시됨)
+            UIButtonSound.BindAll(gameObject);
             gameObject.SetActive(true);
         }
 

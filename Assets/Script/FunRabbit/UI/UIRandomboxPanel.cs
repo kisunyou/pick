@@ -121,6 +121,10 @@ namespace FunRabbit
     // UIRandomboxPanel의 로직(카운트 표시 / 열기 / 확률 추첨 / 보상)을 담당하는 컨트롤
     public class UIRandomboxPanelControl
     {
+        // 랜덤박스 열기 연출 시작 시 재생할 효과음 (2배속 재생)
+        const string RandomBoxOpenSoundName = "randombox_open";
+        const float RandomBoxOpenSoundPitch = 2f;
+
         private UIRandomboxPanel _panel;
         private bool _opening; // 열기(애니메이션~보상) 진행 중 여부 - 중복 실행 방지
 
@@ -165,6 +169,9 @@ namespace FunRabbit
 
             _opening = true;
             RefreshView(); // 소비된 카운트 반영 + 버튼 비활성화
+
+            // 오픈 연출 시작과 함께 박스 열기 효과음 재생 (2배속)
+            AudioManager.Instance.PlaySfx(RandomBoxOpenSoundName, RandomBoxOpenSoundPitch);
 
             _panel.PlayOpenAnimation(OnOpenAnimationComplete);
         }

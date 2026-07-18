@@ -6,6 +6,9 @@ namespace FunRabbit
 {
     public class CraneMovingControl
     {
+        // 크레인 이동(수동 XZ / 상승 / 하강) 중 루프 재생할 이동음
+        const string CraneMoveSoundName = "game_sounds/ui/stick_go_1";
+
         private Crane _crane;
         private bool[] _isMovingValues = new bool[4];
         private bool _isAnyMoving = false;
@@ -162,6 +165,9 @@ namespace FunRabbit
 
         public void ManualFixedUpdate()
         {
+            // Grap 스프링 램프 등 CraneTransform의 물리 스텝 갱신
+            _crane.CraneTransform?.ManualFixedUpdate();
+
             if (_isMovingValues[0]) _crane.CraneTransform.MoveFront();
             if (_isMovingValues[1]) _crane.CraneTransform.MoveBack();
             if (_isMovingValues[2]) _crane.CraneTransform.MoveLeft();
@@ -178,6 +184,62 @@ namespace FunRabbit
 
                 if (_dpadDelta.x > 0f) _crane.CraneTransform.MoveRight(_dpadDelta.x);
                 else if (_dpadDelta.x < 0f) _crane.CraneTransform.MoveLeft(-_dpadDelta.x);
+            }
+
+            UpdateMoveSound();
+        }
+
+        // 이동음 판정: 입력/상태 플래그가 아니라 pivot의 "실제 이동량"으로 판단한다.
+        // 플래그 방식은 하강 후 바닥에 걸려 멈춘 상태(플래그 true, 실제 정지)나
+        // 자동 복귀 이동(플래그 없음, 실제 이동)에서 실제 움직임과 어긋난다.
+        // 순간 속도가 아니라 "정지 이후 누적 이동 거리"로 판단해, 물리 잔떨림 같은
+        // 미세한 순간 이동에는 소리가 나지 않고 실제로 일정 거리 이상 움직여야 재생된다.
+        const float MoveSoundDistanceThreshold = 0.17f;  // 이동음이 시작되는 데 필요한 누적 이동 거리(units)
+        const float MoveSoundStillStepDistance = 0.001f; // 이 거리 미만이면 해당 물리 스텝은 "정지"로 간주
+
+        private Vector3 _lastPivotPosition;
+        private bool _hasLastPivotPosition;
+        private float _accumulatedMoveDistance;
+        private bool _isMoveSoundPlaying;
+
+        // 크레인이 실제로 움직이는 동안(상하좌우/자동 복귀 포함) 이동음을 루프 재생하고,
+        // 멈추면 정지한다. (AudioManager가 같은 클립 중복 재생을 막아줘 매 스텝 호출해도 안전)
+        private void UpdateMoveSound()
+        {
+            var audio = AudioManager.Instance;
+            if (audio == null)
+                return;
+
+            Vector3 pivotPos = _crane.CraneTransform.PivotPosition;
+            if (!_hasLastPivotPosition)
+            {
+                _lastPivotPosition = pivotPos;
+                _hasLastPivotPosition = true;
+                return;
+            }
+
+            // 직전 물리 스텝 동안 실제로 이동한 거리
+            float stepDistance = (pivotPos - _lastPivotPosition).magnitude;
+            _lastPivotPosition = pivotPos;
+
+            if (stepDistance < MoveSoundStillStepDistance)
+            {
+                // 사실상 정지 - 누적치를 초기화하고 소리를 멈춘다 (다음 이동은 다시 거리를 채워야 함)
+                _accumulatedMoveDistance = 0f;
+                if (_isMoveSoundPlaying)
+                {
+                    _isMoveSoundPlaying = false;
+                    audio.StopLoopSfx();
+                }
+                return;
+            }
+
+            _accumulatedMoveDistance += stepDistance;
+
+            if (!_isMoveSoundPlaying && _accumulatedMoveDistance >= MoveSoundDistanceThreshold)
+            {
+                _isMoveSoundPlaying = true;
+                audio.PlayLoopSfx(CraneMoveSoundName);
             }
         }
 
@@ -226,33 +288,16 @@ namespace FunRabbit
         }
 
         /// <summary>
-        /// 목표 XZ 위치로 한 프레임씩 이동. 도착 시 true 반환.
-        /// x, z 속도를 남은 거리 비율로 나눠 직선(대각선)으로 이동하므로
-        /// 두 축이 동시에 도착한다. (한 축만 먼저 끝나는 ㄱ자 이동 방지)
+        /// 목표 XZ 위치로 등속 이동. 도착 시 true 반환.
+        /// MovePosition 프레임 이동 방식은 모바일(저프레임)에서 덜컹거림과
+        /// 목표 주변 오버슛 진동(도착 실패)을 만들어 velocity 방식으로 이동한다.
+        /// speedRatio : 기본 XZ 속도 대비 배율 (기본 0.9)
         /// </summary>
-        public bool MoveTowardXZ(Vector3 targetXZ)
+        public bool MoveTowardXZ(Vector3 targetXZ, float speedRatio = 0.9f)
         {
-            Vector3 pivotPos = _crane.CraneTransform.PivotPosition;
-            float dx = targetXZ.x - pivotPos.x;
-            float dz = targetXZ.z - pivotPos.z;
-
             const float threshold = 0.05f;
-            float distance = Mathf.Sqrt(dx * dx + dz * dz);
-            if (distance <= threshold)
-                return true;
 
-            float speed = 0.9f;
-            // 목표 방향 단위 벡터 비율만큼 각 축 속도를 배분 → x, z 동시 도착
-            float xMul = speed * Mathf.Abs(dx) / distance;
-            float zMul = speed * Mathf.Abs(dz) / distance;
-
-            if (dx > 0f) _crane.CraneTransform.MoveRight(xMul);
-            else if (dx < 0f) _crane.CraneTransform.MoveLeft(xMul);
-
-            if (dz > 0f) _crane.CraneTransform.MoveFront(zMul);
-            else if (dz < 0f) _crane.CraneTransform.MoveBack(zMul);
-
-            return false;
+            return _crane.CraneTransform.MoveTowardXZVelocity(targetXZ, speedRatio, threshold);
         }
 
         /// <summary>

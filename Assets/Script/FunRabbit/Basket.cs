@@ -9,6 +9,13 @@ namespace FunRabbit
         // 미션과 무관한 인형 1개가 채우는 랜덤박스 진행 게이지 양 (1이 되면 랜덤박스 1개)
         [SerializeField] float _randomBoxProgressPerDoll = 0.2f;
 
+        // 인형 획득 시 인형 위치(3D)에 재생할 히트 버스트 이펙트 (Hit & Slashes 팩에서 독립시킨 사본)
+        const string HitEffectPrefabName = "FunRabbit/FX/hit-outer-1";
+
+        // 인형 획득 시 울음소리에 뒤이어 재생할 효과음과 지연 시간
+        const string AllyUpSoundName = "ally_up";
+        const float AllyUpSoundDelay = 0.2f;
+
         // Actor 하나에 자식 콜라이더가 여러 개면 OnTriggerEnter가 여러 번 호출된다.
         // Destroy는 프레임 끝에 반영되므로, 같은 프레임 내 중복 호출을 막기 위해
         // 이미 처리한 Actor를 기록해 프리팹당 한 번만 처리한다.
@@ -25,7 +32,7 @@ namespace FunRabbit
 
         private void OnTriggerEnter(Collider other)
         {
-            if (other.gameObject.layer == LayerMask.NameToLayer("doll"))
+            if (other.gameObject.layer == LayerMask.NameToLayer("ingame_doll"))
             {
                 OnDollEnterBasket(other);
             }
@@ -45,8 +52,18 @@ namespace FunRabbit
             // 찾으면 Actor가 붙은 오브젝트 이름을, 없으면 콜라이더 오브젝트 이름을 사용한다.
             string dollName = actor != null ? actor.gameObject.name : dollCollider.gameObject.name;
 
-            //Vector3 startPos = GameCommon.Convert3dTo2dCoord(dollCollider.transform.position);
-            string iconPath = actor.Data.GetIconPrefabFullPath();
+            // 인형이 들어간 3D 위치에 획득 히트 버스트 이펙트를 재생한다. (월드 공간, 풀링)
+            WorldFxPlayer.Instance.Play(HitEffectPrefabName, dollCollider.transform.position);
+
+            // 뽑은 동물의 울음소리를 재생한다. (actor.json의 animalKey별 sound 필드 매핑)
+            if (actor != null && actor.Data != null)
+                AudioManager.Instance.PlaySfx(GameActorData.GetSound(actor.Data.animalKey));
+
+            // 울음소리에 뒤이어 획득 효과음을 재생한다
+            AudioManager.Instance.PlaySfxDelayed(AllyUpSoundName, AllyUpSoundDelay);
+
+            // 트레일로 날릴 아이콘 프리팹 경로 (Actor가 없으면 null - PlayTrail이 로그 후 콜백만 보장)
+            string iconPath = actor != null ? actor.Data.GetIconPrefabFullPath() : null;
 
             // 카운트는 즉시 올리지 않고, 트레일이 도착하는 시점(onArrive)에 증가시킨다.
             if (GameQuestManager.Instance.IsMissionTarget(dollName))

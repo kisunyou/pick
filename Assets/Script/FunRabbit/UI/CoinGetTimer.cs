@@ -12,8 +12,8 @@ namespace FunRabbit
     public class CoinGetTimer
     {
         private const float Duration = 300f;        // 타이머 길이(초) = 5분
-        private const long RewardCoinAmount = 100;  // "받기" 시 지급할 코인
-        private const string ClaimLabel = "받기";   // 0:00 도달 후 표시할 문구
+        private const long RewardCoinAmount = 1000;  // "받기" 시 지급할 코인
+        private const string ClaimLabel = "Try Receive";   // 0:00 도달 후 표시할 문구
         private const string KeyEndTime = "CoinTimerEndTimeUtc"; // 종료 목표 시각(UTC ticks) 저장 키
 
         // 코인 획득 연출 설정 (UIMissionClearPanel의 코인 비행 연출과 동일한 방식)
@@ -48,6 +48,10 @@ namespace FunRabbit
         private Coroutine _coroutine;
         private bool _claimable; // 카운트다운이 끝나 "받기" 입력을 기다리는 상태인지
         private System.DateTime _endTimeUtc; // 카운트다운 종료(받기 가능) 목표 시각 (UTC, 절대 시간)
+
+        // 도착 지급: 보상은 즉시 지급하지 않고 날아간 코인이 도착할 때마다 나눠 지급한다.
+        private long _pendingCoinReward;   // 아직 지급되지 않은(비행 중) 잔액
+        private long _rewardSharePerCoin;  // 코인 1개 도착당 지급량 (마지막 코인이 나머지 정산)
 
         public CoinGetTimer(MonoBehaviour runner, TextMeshProUGUI timerText, Button claimButton,
             RectTransform coinFlyStart = null, RectTransform coinFlyTarget = null, RectTransform coinFlyTemplate = null,
@@ -138,6 +142,7 @@ namespace FunRabbit
         public void Dispose()
         {
             Stop();
+            FlushPendingCoinReward(); // 비행 중이던 보상 잔액 유실 방지
             _coinSeq?.Kill();
             _coinBounceTween?.Kill();
             _claimPulseSeq?.Kill();
@@ -192,9 +197,51 @@ namespace FunRabbit
             if (!_claimable)
                 return;
 
-            PlayerContext.AddCoinAmount(RewardCoinAmount);
-            PlayCoinGetEffect(); // 코인이 출발점에서 도착점으로 날아가는 연출
+            // 코인은 즉시 지급하지 않고, 날아간 코인이 도착점에 닿을 때마다 나눠 지급한다
+            PlayCoinGetEffect(RewardCoinAmount);
             Begin(); // 다시 5분 타이머 시작
+        }
+
+        // 연출과 함께 rewardAmount 코인을 "도착한 코인마다" 나눠 지급한다.
+        // (연출을 재생할 수 없으면 전액 즉시 지급으로 폴백)
+        public void PlayCoinGetEffect(long rewardAmount)
+        {
+            // 이전 비행에서 아직 지급되지 않은 잔액이 있으면 먼저 정산한다 (유실 방지)
+            FlushPendingCoinReward();
+
+            if (_coinFlyStart == null || _coinFlyTarget == null || _coinFlyTemplate == null)
+            {
+                PlayerContext.AddCoinAmount(rewardAmount);
+                return;
+            }
+
+            _pendingCoinReward = rewardAmount;
+            _rewardSharePerCoin = rewardAmount / CoinFlyCount;
+            PlayCoinGetEffect();
+        }
+
+        // 도착한 코인 몫만큼 지급하고 잔액에서 차감한다.
+        private void GrantCoinShare(long share)
+        {
+            if (_pendingCoinReward <= 0)
+                return;
+
+            share = System.Math.Min(share, _pendingCoinReward);
+            if (share <= 0)
+                return;
+
+            _pendingCoinReward -= share;
+            PlayerContext.AddCoinAmount(share);
+        }
+
+        // 비행 중 잔액을 전액 즉시 지급한다. (연출 중단/파괴 시에도 보상이 유실되지 않도록)
+        private void FlushPendingCoinReward()
+        {
+            if (_pendingCoinReward <= 0)
+                return;
+
+            PlayerContext.AddCoinAmount(_pendingCoinReward);
+            _pendingCoinReward = 0;
         }
 
         // 코인 획득 연출: 여러 개의 코인이 출발점(cointimer)에서 도착점(coinImage)으로
@@ -209,12 +256,12 @@ namespace FunRabbit
             _coinSeq = DOTween.Sequence().SetUpdate(true);
             for (int i = 0; i < CoinFlyCount; i++)
             {
-                _coinSeq.Insert(i * CoinFlyInterval, CreateCoinFly());
+                _coinSeq.Insert(i * CoinFlyInterval, CreateCoinFly(i == CoinFlyCount - 1));
             }
         }
 
-        // 코인 1개 비행 트윈 생성 (2차 베지어 곡선)
-        private Tween CreateCoinFly()
+        // 코인 1개 비행 트윈 생성 (2차 베지어 곡선). isLast = 마지막으로 도착하는 코인 여부.
+        private Tween CreateCoinFly(bool isLast)
         {
             RectTransform coin = Object.Instantiate(_coinFlyTemplate, _coinFlyTemplate.parent);
             coin.SetAsLastSibling();
@@ -242,6 +289,9 @@ namespace FunRabbit
                     if (coin != null)
                         Object.Destroy(coin.gameObject);
                     BounceTargetCoin();
+
+                    // 도착한 몫만큼 지급 (마지막 코인은 나눗셈 나머지까지 정산)
+                    GrantCoinShare(isLast ? _pendingCoinReward : _rewardSharePerCoin);
                 });
         }
 

@@ -13,7 +13,7 @@ namespace FunRabbit
         isPool = false)]
     public class UIHud : BaseUIView<UIHud>
     {
-        [SerializeField] GameObject lobbyHUD, inGameHUD;
+        [SerializeField] GameObject lobbyHUD, inGameHUD, collectionHUD;
         [SerializeField] Button enterStageButton;
         
         /// <summary>
@@ -53,6 +53,7 @@ namespace FunRabbit
 
         // 타이머 설정
         private const int TimerWarningThreshold = 5; // 빨간색/회전/스케일 연출이 시작되는 남은 시간(초)
+        private const string CountdownSoundName = "game_sounds/ui/play_countdown"; // 경고 구간 매 초 재생할 카운트다운 효과음
         private const float TimerIconSwingAngle = 20f; // 시계 아이콘이 흔들리는 각도
         private const float TimerIconSwingDuration = 0.25f; // 한 방향으로 흔드는 시간
         private const float TimerTextPulseScale = 1.4f; // 매 초 박자마다 숫자가 커지는 최대 배율
@@ -68,10 +69,52 @@ namespace FunRabbit
 
         public System.Action OnEnterStageButtonClicked { get; set; }
 
-        public void SetCoinText(string coinText)
+        // 코인 표시 연출: 최초 셋팅은 즉시, 이후 변경은 매 프레임 10씩 목표값까지 카운팅.
+        private const long CoinCountStep = 10;
+        private long _displayedCoin;        // 현재 화면에 표시 중인 값
+        private long _targetCoin;           // 카운팅 목표 값
+        private bool _coinInitialized;      // 최초 셋팅 여부
+        private Coroutine _coinCountCoroutine;
+
+        public void SetCoinText(long amount)
         {
-            if (this.coinText != null)
-                this.coinText.text = coinText;
+            if (coinText == null)
+                return;
+
+            _targetCoin = amount;
+
+            // 초기화(최초 셋팅)는 연출 없이 즉시 반영
+            if (!_coinInitialized)
+            {
+                _coinInitialized = true;
+                _displayedCoin = amount;
+                ApplyCoinText(amount);
+                return;
+            }
+
+            // 이미 카운팅 중이면 목표값만 갱신 (진행 중인 코루틴이 새 목표로 이어감)
+            if (_coinCountCoroutine == null && _displayedCoin != _targetCoin)
+                _coinCountCoroutine = StartCoroutine(CoinCountCoroutine());
+        }
+
+        // 표시값을 목표값까지 매 프레임 10씩 증가/감소시킨다. (마지막 스텝은 목표값에 정확히 맞춤)
+        private IEnumerator CoinCountCoroutine()
+        {
+            while (_displayedCoin != _targetCoin)
+            {
+                long diff = _targetCoin - _displayedCoin;
+                long step = System.Math.Min(System.Math.Abs(diff), CoinCountStep) * System.Math.Sign(diff);
+                _displayedCoin += step;
+                ApplyCoinText(_displayedCoin);
+                yield return null;
+            }
+            _coinCountCoroutine = null;
+        }
+
+        // 세 자릿수마다 콤마를 붙여 표시한다. (예: 994299 → 994,299)
+        private void ApplyCoinText(long amount)
+        {
+            coinText.text = amount.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture);
         }
 
         public void SetActivePlayButton(bool isActive)
@@ -114,12 +157,17 @@ namespace FunRabbit
                 coinTimerHud.OnTestPlayCoinGetEffect();
         }
 
-        public void SetActiveInGameHud(bool isActive)
+        // 게임 상태에 맞는 HUD 패널(lobby/inGame/collection) 하나만 활성화한다.
+        public void SetActiveHud(GameStatus status)
         {
-            inGameHUD.SetActive(isActive);
-            lobbyHUD.SetActive(!isActive);
+            bool isInGame = status == GameStatus.INGAME;
 
-            if (!isActive)
+            lobbyHUD.SetActive(status == GameStatus.LOBBY);
+            inGameHUD.SetActive(isInGame);
+            if (collectionHUD != null)
+                collectionHUD.SetActive(status == GameStatus.COLLECTION);
+
+            if (!isInGame)
                 HideTimer();
         }
 
@@ -185,7 +233,7 @@ namespace FunRabbit
             {
                 playTimerText.text = remaining.ToString();
 
-                // 5초 이하부터 빨간색 + 시계 아이콘 회전 + 매 초 박자에 맞춘 숫자 스케일 연출
+                // 5초 이하부터 빨간색 + 시계 아이콘 회전 + 매 초 박자에 맞춘 숫자 스케일 연출 + 카운트다운 효과음
                 if (remaining <= TimerWarningThreshold)
                 {
                     playTimerText.color = _timerWarningColor;
@@ -194,6 +242,7 @@ namespace FunRabbit
                         PlayTimerIconAnim();
 
                     PlayTimerTextPulse();
+                    AudioManager.Instance.PlaySfx(CountdownSoundName);
                 }
 
                 yield return new WaitForSeconds(1f);
@@ -284,6 +333,9 @@ namespace FunRabbit
         private UIHud _hud;
         private Crane _crane;
 
+        // 컬렉션 화면 진입 직전 상태 (뒤로가기 시 복귀할 상태)
+        private GameStatus _statusBeforeCollection = GameStatus.LOBBY;
+
         // 크레인 조작 가능(CONTROL_MOVING) 시 표시할 제한 시간(초)
         private const float CraneControlTimeLimit = 15f;
 
@@ -332,31 +384,28 @@ namespace FunRabbit
             if (_hud == null)
                 return;
 
-            switch (status)
+            _hud.SetActiveHud(status);
+
+            // INGAME이 아니면(LOBBY/COLLECTION) 크레인 상태 구독을 해제하고 끝 - 그 외 갱신 불필요
+            if (status != GameStatus.INGAME)
             {
-                case GameStatus.LOBBY:
-                    UnsubscribeCrane();
-                    _hud.SetActiveInGameHud(false);
-                    break;
-
-                case GameStatus.INGAME:
-                    _hud.SetActiveInGameHud(true);
-
-                    // 미션 카운트/스테이지 변경 이벤트 구독 후, GameQuestManager 정보로 HUD 초기 갱신
-                    var questManager = GameQuestManager.Instance;
-                    questManager.OnMissionCountChanged -= OnMissionCountChanged;
-                    questManager.OnMissionCountChanged += OnMissionCountChanged;
-                    questManager.OnStageChanged -= OnStageChanged;
-                    questManager.OnStageChanged += OnStageChanged;
-                    questManager.OnStageClear -= OnStageClear;
-                    questManager.OnStageClear += OnStageClear;
-                    RefreshMissionText();
-                    RefreshMissionIcon();
-
-                    // 크레인 상태에 따라 제한 시간 타이머 표시
-                    SubscribeCrane();
-                    break;
+                UnsubscribeCrane();
+                return;
             }
+
+            // 미션 카운트/스테이지 변경 이벤트 구독 후, GameQuestManager 정보로 HUD 초기 갱신
+            var questManager = GameQuestManager.Instance;
+            questManager.OnMissionCountChanged -= OnMissionCountChanged;
+            questManager.OnMissionCountChanged += OnMissionCountChanged;
+            questManager.OnStageChanged -= OnStageChanged;
+            questManager.OnStageChanged += OnStageChanged;
+            questManager.OnStageClear -= OnStageClear;
+            questManager.OnStageClear += OnStageClear;
+            RefreshMissionText();
+            RefreshMissionIcon();
+
+            // 크레인 상태에 따라 제한 시간 타이머 표시
+            SubscribeCrane();
         }
 
         // 크레인 상태 구독 (구독 즉시 현재 상태가 반영됨)
@@ -449,10 +498,12 @@ namespace FunRabbit
             GameMain.Instance.SetGameStatus(GameStatus.INGAME);
         }
 
-        // 뒤로가기: 인게임 상태면 로비로 되돌린다.
+        // 뒤로가기: 컬렉션 화면이면 진입 전 상태로, 인게임 상태면 로비로 되돌린다.
         public void OnClickBackButton()
         {
-            if (GameMain.Instance.CurrentStatus == GameStatus.INGAME)
+            if (GameMain.Instance.CurrentStatus == GameStatus.COLLECTION)
+                GameMain.Instance.SetGameStatus(_statusBeforeCollection);
+            else if (GameMain.Instance.CurrentStatus == GameStatus.INGAME)
                 GameMain.Instance.SetGameStatus(GameStatus.LOBBY);
             else if(GameMain.Instance.CurrentStatus == GameStatus.LOBBY)
                 UIPopup.CreateOrGet().Set("Exit", "Are you sure you want to quit?", () =>
@@ -492,13 +543,19 @@ namespace FunRabbit
         private void OnChangedCoinAmount(long newAmount)
         {
             if (_hud != null)
-                _hud.SetCoinText(newAmount.ToString());
+                _hud.SetCoinText(newAmount);
         }
 
         public void OnClickCollectionBtn()
         {
-            if(UICollectionPanel.Get() == null)
-                UICollectionPanel.CreateOrGet();
+            // 이미 컬렉션 화면이면 진입 전 상태를 덮어쓰지 않는다
+            if (GameMain.Instance.CurrentStatus != GameStatus.COLLECTION)
+                _statusBeforeCollection = GameMain.Instance.CurrentStatus;
+
+            GameMain.Instance.SetGameStatus(GameStatus.COLLECTION);
+
+            //if(UICollectionPanel.Get() == null)
+            //    UICollectionPanel.CreateOrGet();
         }
 
         public void OnClickResetButton()

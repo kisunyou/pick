@@ -13,6 +13,19 @@ namespace FunRabbit
 
         private Vector3 _startPivotPosition;
 
+        // ── Grap 스프링 램프 ──────────────────────────────────────
+        // 스프링을 한 스텝에 200→8500으로 올리면 과도한 토크가 접촉 솔버를
+        // 이겨 집게가 인형을 뚫는다. 목표각(0°)은 즉시 주되, 스프링/댐퍼는
+        // GRAP_RAMP_DURATION에 걸쳐 서서히 올린다. (최종 그립력은 기존과 동일)
+        const float GRAP_RAMP_DURATION = 0.4f;   // 목표 스프링까지 올리는 시간(초)
+        const float GRAP_START_SPRING = 200f;    // 씬 대기 상태와 같은 시작값
+        const float GRAP_TARGET_SPRING = 8500f;  // 바닥에서 집을 때의 그립력 (기존 Grap 값)
+        const float GRAP_START_DAMPER = 20f;
+        const float GRAP_TARGET_DAMPER = 2500f;
+
+        private bool _isGrapRamping = false;
+        private float _grapRampElapsed = 0f;
+
         public Vector3 PivotPosition => _pivotRigidbody.position;
 
         // 시작(중간) 위치 - READY 상태에서 이동 목표
@@ -28,16 +41,33 @@ namespace FunRabbit
             // 빠른 하강/집게 회전 시 인형을 뚫고 지나가는(터널링) 현상을 막기 위해,
             // 인형과 실제로 충돌하는 크레인 바디(로프 끝 + 집게)를 가장 터널링에 강한
             // ContinuousSpeculative 모드로 설정한다. (인형 쪽은 Actor.cs에서 동일하게 설정)
+            // maxDepenetrationVelocity도 인형(Actor.cs)과 동일하게 상향 - 하강/그립으로
+            // 생긴 겹침이 하강 속도(≈2.94 m/s)보다 빠르게 풀리도록 한다.
             foreach (var body in craneRigidbodys)
             {
                 if (body != null)
+                {
                     body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+                    body.maxDepenetrationVelocity = 4f;
+                }
             }
 
             _craneHingeJoints = new HingeJoint[3];
             _craneHingeJoints[0] = craneRigidbodys[1].GetComponent<HingeJoint>();
             _craneHingeJoints[1] = craneRigidbodys[2].GetComponent<HingeJoint>();
             _craneHingeJoints[2] = craneRigidbodys[3].GetComponent<HingeJoint>();
+
+            // 놓기(Release) 시 인형 통과 처리용 - 크레인 바디 전체의 콜라이더를 캐시
+            var craneColliderSet = new HashSet<Collider>();
+            foreach (var body in craneRigidbodys)
+            {
+                if (body == null)
+                    continue;
+                foreach (var col in body.GetComponentsInChildren<Collider>(true))
+                    craneColliderSet.Add(col);
+            }
+            _craneColliders = new Collider[craneColliderSet.Count];
+            craneColliderSet.CopyTo(_craneColliders);
         }
 
         // 들어올린 뒤 집게가 실제로 인형을 잡고 있는지 판별한다.
@@ -194,6 +224,40 @@ namespace FunRabbit
         }
 
 
+        /// <summary>
+        /// 목표 XZ 위치로 등속 velocity 이동. 도착(threshold 이내) 시 XZ 속도를 0으로 만들고 true.
+        /// MovePosition 방식은 조인트로 매달린 하중과 매 스텝 경합해 저프레임(모바일)에서
+        /// 덜컹거림을 만들고, 렌더 프레임당 이동량이 커져 목표 주변을 오버슛하며 진동
+        /// (도착 판정 실패 → 집게가 안 열리는 멈춤)까지 유발하므로 velocity로 이동한다.
+        /// speedRatio : 기본 XZ 속도(HorizontalSpeed × fixedDeltaTime) 대비 배율.
+        /// </summary>
+        public bool MoveTowardXZVelocity(Vector3 targetXZ, float speedRatio, float threshold)
+        {
+            Vector3 pos = _pivotRigidbody.position;
+            Vector3 delta = new Vector3(targetXZ.x - pos.x, 0f, targetXZ.z - pos.z);
+            float distance = delta.magnitude;
+
+            Vector3 vel = _pivotRigidbody.linearVelocity;
+            if (distance <= threshold)
+            {
+                vel.x = 0f;
+                vel.z = 0f;
+                _pivotRigidbody.linearVelocity = vel;
+                return true;
+            }
+
+            // 기존 튜닝 체감 보존: 등가 속도(units/sec) = HorizontalSpeed × fixedDeltaTime (MoveXZVelocity와 동일 공식)
+            float baseSpeed = GameMain.Instance.HorizontalSpeed * Time.fixedDeltaTime * speedRatio;
+            // 한 물리 스텝에 남은 거리보다 멀리 가지 못하게 상한 → 목표 주변 오버슛 진동 원천 차단
+            float speed = Mathf.Min(baseSpeed, distance / Time.fixedDeltaTime);
+
+            Vector3 dir = delta / distance;
+            vel.x = dir.x * speed;
+            vel.z = dir.z * speed;
+            _pivotRigidbody.linearVelocity = vel;
+            return false;
+        }
+
         public void MoveXZStart()
         {
             _pivotRigidbody.constraints = RigidbodyConstraints.FreezePositionY;
@@ -217,13 +281,45 @@ namespace FunRabbit
 
         public void Grap()
         {
+            // 즉시 8500을 주지 않고 램프를 시작한다. 실제 스프링 상승은
+            // ManualFixedUpdate()가 매 물리 스텝 처리한다.
+            _isGrapRamping = true;
+            _grapRampElapsed = 0f;
+            ApplyGrapSpring(GRAP_START_SPRING, GRAP_START_DAMPER);
+        }
+
+        // Crane.FixedUpdate → CraneMovingControl.ManualFixedUpdate 에서 매 물리 스텝 호출.
+        public void ManualFixedUpdate()
+        {
+            UpdateGrapRamp();
+            UpdatePassThrough();
+        }
+
+        private void UpdateGrapRamp()
+        {
+            if (!_isGrapRamping)
+                return;
+
+            _grapRampElapsed += Time.fixedDeltaTime;
+            float t = Mathf.Clamp01(_grapRampElapsed / GRAP_RAMP_DURATION);
+
+            ApplyGrapSpring(
+                Mathf.Lerp(GRAP_START_SPRING, GRAP_TARGET_SPRING, t),
+                Mathf.Lerp(GRAP_START_DAMPER, GRAP_TARGET_DAMPER, t));
+
+            if (t >= 1f)
+                _isGrapRamping = false;
+        }
+
+        private void ApplyGrapSpring(float springValue, float damperValue)
+        {
             foreach (var joint in _craneHingeJoints)
             {
                 if (joint != null)
                 {
                     var spring = joint.spring;
-                    spring.spring = 8500f;   // 바닥에서 인형을 처음 집을 때의 그립력 (현재 값이 적당)
-                    spring.damper = 2500f;   // damper도 함께 높여, 강한 스프링이어도 천천히 닫혀 그랩 시 튕김 방지
+                    spring.spring = springValue;
+                    spring.damper = damperValue;   // damper도 함께 올려, 강한 스프링이어도 천천히 닫혀 그랩 시 튕김 방지
                     spring.targetPosition = 0f;
 
                     joint.spring = spring;
@@ -253,8 +349,101 @@ namespace FunRabbit
 
 
 
+        // ── 놓기(Release) 시 인형 털어내기 ──────────────────────────
+        // 드물게 손끝이 인형에 박힌 채(뚫림) 집게를 열어도 인형이 매달려 있는 경우가 있어,
+        // 놓는 순간 집게 근처(=잡힌) 인형에 하향 초기 속도를 주고, 관통된 채 훅에 걸린
+        // 인형도 그대로 통과해 떨어지도록 클로와의 충돌을 잠시 무시시킨다.
+        const float RELEASE_SHAKEOFF_RADIUS = 1.5f;      // 잡힘 판정(holdCheckRadius)과 동일 값
+        const float RELEASE_SHAKEOFF_SPEED = 3f;         // 하향 초기 속도(m/s)
+        const float RELEASE_PASS_THROUGH_DURATION = 1f;  // 클로↔인형 충돌 무시 시간(초) - 다음 집기 전에 충분히 복구됨
+
+        private static readonly List<Actor> _shakeOffBuffer = new List<Actor>();
+
+        private Collider[] _craneColliders;
+
+        // 충돌 무시를 되돌리기 위한 대기 항목 (놓은 인형별 1개)
+        private class PassThroughEntry
+        {
+            public Collider[] dollColliders;
+            public float remaining;
+        }
+        private readonly List<PassThroughEntry> _passThroughList = new List<PassThroughEntry>();
+
+        private void ShakeOffHeldDolls()
+        {
+            Rigidbody center = _craneRigidbodys[CraneBodyType.CENTER_BODY];
+            if (center == null)
+                return;
+
+            _shakeOffBuffer.Clear();
+            StageManager.GetActorsNear(center.position, RELEASE_SHAKEOFF_RADIUS, _shakeOffBuffer);
+            foreach (var actor in _shakeOffBuffer)
+            {
+                if (actor == null)
+                    continue;
+
+                // 하향 킥만으로는 관통(꼬치 상태)된 인형이 손가락 훅에 걸려 못 떨어지므로,
+                // 클로와의 충돌을 잠시 꺼 손가락을 그대로 통과해 낙하하게 한다.
+                BeginPassThrough(actor);
+
+                if (actor.TryGetComponent(out Rigidbody body))
+                    body.AddForce(Vector3.down * RELEASE_SHAKEOFF_SPEED, ForceMode.VelocityChange);
+            }
+        }
+
+        // 인형의 모든 콜라이더 x 클로의 모든 콜라이더 충돌을 끄고, 복구 목록에 등록한다.
+        private void BeginPassThrough(Actor actor)
+        {
+            Collider[] dollColliders = actor.GetComponentsInChildren<Collider>(true);
+            SetIgnoreCraneCollision(dollColliders, true);
+            _passThroughList.Add(new PassThroughEntry
+            {
+                dollColliders = dollColliders,
+                remaining = RELEASE_PASS_THROUGH_DURATION,
+            });
+        }
+
+        private void SetIgnoreCraneCollision(Collider[] dollColliders, bool ignore)
+        {
+            foreach (var craneCollider in _craneColliders)
+            {
+                if (craneCollider == null)
+                    continue;
+
+                foreach (var dollCollider in dollColliders)
+                {
+                    // 인형이 먼저 파괴된 경우(바스켓 획득 등) 파괴된 콜라이더는 건너뛴다
+                    if (dollCollider == null)
+                        continue;
+
+                    Physics.IgnoreCollision(dollCollider, craneCollider, ignore);
+                }
+            }
+        }
+
+        // 통과 시간이 끝난 인형의 클로 충돌을 복구한다. (ManualFixedUpdate에서 매 물리 스텝 호출)
+        private void UpdatePassThrough()
+        {
+            for (int i = _passThroughList.Count - 1; i >= 0; i--)
+            {
+                var entry = _passThroughList[i];
+                entry.remaining -= Time.fixedDeltaTime;
+                if (entry.remaining > 0f)
+                    continue;
+
+                SetIgnoreCraneCollision(entry.dollColliders, false);
+                _passThroughList.RemoveAt(i);
+            }
+        }
+
         public void Release()
         {
+            // 진행 중인 그립 램프가 있으면 중단한다 (램프가 놓기 스프링을 덮어쓰지 않도록)
+            _isGrapRamping = false;
+
+            // 집게를 열기 전에, 잡혀 있는 인형을 아래로 털어낸다 (뚫림으로 인한 매달림 방지)
+            ShakeOffHeldDolls();
+
             foreach (var joint in _craneHingeJoints)
             {
                 if (joint != null)
