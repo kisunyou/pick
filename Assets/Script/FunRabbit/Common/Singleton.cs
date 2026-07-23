@@ -92,7 +92,7 @@ namespace FunRabbit
             }
         }
 
-        void OnDestroy()
+        protected virtual void OnDestroy()
         {
             applicationIsQuitting = true;
         }

@@ -1,10 +1,11 @@
 {
   "items": [
-    { "key": 1, "name": "100Coin",   "icon_path": "UI2/Icons/ShopItem_Coin_1", "count": 100 },
-    { "key": 2, "name": "500Coin",   "icon_path": "UI2/Icons/ShopItem_Coin_1", "count": 500 },
-    { "key": 3, "name": "1000Coin",  "icon_path": "UI2/Icons/ShopItem_Coin_2", "count": 1000 },
-    { "key": 4, "name": "5000Coin",  "icon_path": "UI2/Icons/ShopItem_Coin_3", "count": 5000 },
-    { "key": 5, "name": "10000Coin", "icon_path": "UI2/Icons/ShopItem_Coin_4", "count": 10000 },
-    { "key": 6, "name": "10000Coin", "icon_path": "UI2/Icons/ShopItem_Coin_5", "count": 10000 }
+    { "key": 1, "name": "100Coin",   "icon_path": "UI2/Images/Icon_ShopItems/ShopItem_Coin_1", "count": 100,   "itemType": "coin",  "itemDescription": "Coins you can use to play." },
+    { "key": 2, "name": "500Coin",   "icon_path": "UI2/Images/Icon_ShopItems/ShopItem_Coin_1", "count": 500,   "itemType": "coin",  "itemDescription": "Coins you can use to play." },
+    { "key": 3, "name": "1000Coin",  "icon_path": "UI2/Images/Icon_ShopItems/ShopItem_Coin_2", "count": 1000,  "itemType": "coin",  "itemDescription": "Coins you can use to play." },
+    { "key": 4, "name": "5000Coin",  "icon_path": "UI2/Images/Icon_ShopItems/ShopItem_Coin_3", "count": 5000,  "itemType": "coin",  "itemDescription": "Coins you can use to play." },
+    { "key": 5, "name": "10000Coin", "icon_path": "UI2/Images/Icon_ShopItems/ShopItem_Coin_4", "count": 10000, "itemType": "coin",  "itemDescription": "Coins you can use to play." },
+    { "key": 6, "name": "10000Coin", "icon_path": "UI2/Images/Icon_ShopItems/ShopItem_Coin_5", "count": 10000, "itemType": "coin",  "itemDescription": "Coins you can use to play." },
+	{ "key": 7, "name": "Reset", "icon_path": "UI2/Images/Components/IconMisc/Icon_PictoIcon_Resume", "count": 1, "itemType": "reset", "itemDescription": "Resets the dolls in the machine." }
   ]
 }

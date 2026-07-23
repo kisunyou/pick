@@ -11,6 +11,8 @@ namespace FunRabbit
         // 랜덤박스 진행 게이지 (0~1). 1을 넘으면 RandomBoxCount가 증가한다.
         public static DataObserver<float> RandomBoxProgressValue = new DataObserver<float>();
         public static System.Action OnFullDollCountGage { get; set; }
+        // 보유한 리셋 아이템 개수
+        public static DataObserver<int> ResetItemCount = new DataObserver<int>();
 
 
         public static void Initialize()
@@ -21,6 +23,7 @@ namespace FunRabbit
             DollCountGage.Value = PlayerPrefs.GetInt("DollCountGage", 0);
             RandomBoxCount.Value = PlayerPrefs.GetInt("RandomBoxCount", 0);
             RandomBoxProgressValue.Value = PlayerPrefs.GetFloat("RandomBoxProgress", 0f);
+            ResetItemCount.Value = PlayerPrefs.GetInt("ResetItemCount", 0);
         }
 
         public static void SetCoinAmount(long amount)
@@ -112,6 +115,20 @@ namespace FunRabbit
                 OnFullDollCountGage?.Invoke();
                 SetDollCountGage(0);
             }
+        }
+
+        // ===== 리셋 아이템 =====
+
+        public static void SetResetItemCount(int count)
+        {
+            ResetItemCount.Value = count;
+            PlayerPrefs.SetInt("ResetItemCount", count);
+            PlayerPrefs.Save();
+        }
+
+        public static void AddResetItemCount(int amount = 1)
+        {
+            SetResetItemCount(ResetItemCount.Value + amount);
         }
     }
 }

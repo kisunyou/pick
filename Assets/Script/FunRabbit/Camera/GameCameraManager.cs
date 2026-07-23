@@ -20,6 +20,12 @@ namespace FunRabbit
             get { return _activeCamera != null ? _activeCamera.MainCamera : null; }
         }
 
+        // 현재 활성 모드의 GameCamera (모드별 카메라 기능 접근용 - 예: CollectionCamera.FocusOn)
+        public GameCamera ActiveGameCamera
+        {
+            get { return _activeCamera; }
+        }
+
         private void Start()
         {
             GameMain.SubscribeStatus(OnChangedGameStatus);

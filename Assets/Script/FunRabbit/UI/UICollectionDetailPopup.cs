@@ -6,7 +6,7 @@ namespace FunRabbit
 {
     [UIOption(
         Path = "UI2/Prefabs/UICollectionDetailPopup",
-        Layer = UILayer.Hud,
+        Layer = UILayer.Contents,
         OpenMode = UIOpenMode.Single,
         isPool = false)]
     public class UICollectionDetailPopup : BaseUIView<UICollectionDetailPopup>

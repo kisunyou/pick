@@ -25,15 +25,15 @@ namespace FunRabbit
         [SerializeField] Image playTimerIcon;
         [SerializeField] TextMeshProUGUI playTimerText;
 
-        [SerializeField] TextMeshProUGUI coinText;
         [SerializeField] Button playButton;
 
         [SerializeField] GameObject grap;
         [SerializeField] Button grapButton;
-        [SerializeField] Button collectionButton;
 
         [SerializeField] Button resetButton;
         [SerializeField] Button backButton;
+        [SerializeField] GameObject resetCount;
+        [SerializeField] TextMeshProUGUI resetCountText;
 
         /// <summary>
         /// coin timer
@@ -69,54 +69,6 @@ namespace FunRabbit
 
         public System.Action OnEnterStageButtonClicked { get; set; }
 
-        // 코인 표시 연출: 최초 셋팅은 즉시, 이후 변경은 매 프레임 10씩 목표값까지 카운팅.
-        private const long CoinCountStep = 10;
-        private long _displayedCoin;        // 현재 화면에 표시 중인 값
-        private long _targetCoin;           // 카운팅 목표 값
-        private bool _coinInitialized;      // 최초 셋팅 여부
-        private Coroutine _coinCountCoroutine;
-
-        public void SetCoinText(long amount)
-        {
-            if (coinText == null)
-                return;
-
-            _targetCoin = amount;
-
-            // 초기화(최초 셋팅)는 연출 없이 즉시 반영
-            if (!_coinInitialized)
-            {
-                _coinInitialized = true;
-                _displayedCoin = amount;
-                ApplyCoinText(amount);
-                return;
-            }
-
-            // 이미 카운팅 중이면 목표값만 갱신 (진행 중인 코루틴이 새 목표로 이어감)
-            if (_coinCountCoroutine == null && _displayedCoin != _targetCoin)
-                _coinCountCoroutine = StartCoroutine(CoinCountCoroutine());
-        }
-
-        // 표시값을 목표값까지 매 프레임 10씩 증가/감소시킨다. (마지막 스텝은 목표값에 정확히 맞춤)
-        private IEnumerator CoinCountCoroutine()
-        {
-            while (_displayedCoin != _targetCoin)
-            {
-                long diff = _targetCoin - _displayedCoin;
-                long step = System.Math.Min(System.Math.Abs(diff), CoinCountStep) * System.Math.Sign(diff);
-                _displayedCoin += step;
-                ApplyCoinText(_displayedCoin);
-                yield return null;
-            }
-            _coinCountCoroutine = null;
-        }
-
-        // 세 자릿수마다 콤마를 붙여 표시한다. (예: 994299 → 994,299)
-        private void ApplyCoinText(long amount)
-        {
-            coinText.text = amount.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture);
-        }
-
         public void SetActivePlayButton(bool isActive)
         {
             if (playButton.gameObject.activeSelf == isActive)
@@ -138,12 +90,21 @@ namespace FunRabbit
             resetButton.gameObject.SetActive(isActive);
         }
 
+        // 리셋 아이템 보유 개수를 표시한다. 0개면 resetCount 오브젝트를 숨긴다.
+        public void SetResetCountText(int count)
+        {
+            if (resetCountText != null)
+                resetCountText.text = count.ToString();
+
+            if (resetCount != null)
+                resetCount.SetActive(count > 0);
+        }
+
         private void Start()
         {
             enterStageButton.onClick.AddListener(() => Control.OnClickStageEnterBtn());
             playButton.onClick.AddListener(() => Control.OnClickPlayBtn());
             grapButton.onClick.AddListener(()=> Control.OnClickGrapBtn());
-            collectionButton.onClick.AddListener(() => Control.OnClickCollectionBtn());
             resetButton.onClick.AddListener(() => Control.OnClickResetButton());
             if (backButton != null)
                 backButton.onClick.AddListener(() => Control.OnClickBackButton());
@@ -333,25 +294,28 @@ namespace FunRabbit
         private UIHud _hud;
         private Crane _crane;
 
-        // 컬렉션 화면 진입 직전 상태 (뒤로가기 시 복귀할 상태)
-        private GameStatus _statusBeforeCollection = GameStatus.LOBBY;
-
         // 크레인 조작 가능(CONTROL_MOVING) 시 표시할 제한 시간(초)
         private const float CraneControlTimeLimit = 15f;
 
-        // resetButton은 현재 스테이지 인형(Actor)이 이 개수 이하일 때만 활성화한다.
+        // resetButton은 현재 스테이지 인형(Actor)이 이 개수 이하이거나, 리셋 아이템을 보유 중이면 활성화한다.
         private const int ResetButtonMaxActorCount = 10;
+
+        private int _actorCount;
+        private int _resetItemCount;
 
         public void Initialize(UIHud hud)
         {
             _hud = hud;
 
-            PlayerContext.CoinAmount.Attach(OnChangedCoinAmount);
             GameMain.SubscribeStatus(OnChangedGameStatus);
 
             // 인형 수에 따라 resetButton 활성/비활성 갱신
             StageManager.OnActorCountChanged += OnChangedActorCount;
             OnChangedActorCount(StageManager.ActorCount); // 현재 값으로 초기 반영
+
+            // 리셋 아이템 보유 수에 따라 resetButton 활성/비활성 + 카운트 텍스트 갱신
+            // (Attach는 현재 값으로 즉시 1회 콜백되므로 초기 표시도 여기서 처리된다)
+            PlayerContext.ResetItemCount.Attach(OnChangedResetItemCount);
         }
 
         public void Deinitialize()
@@ -359,6 +323,7 @@ namespace FunRabbit
             GameMain.UnsubscribeStatus(OnChangedGameStatus);
             UnsubscribeCrane();
             StageManager.OnActorCountChanged -= OnChangedActorCount;
+            PlayerContext.ResetItemCount.Detach(OnChangedResetItemCount);
 
             if (GameQuestManager.IsCheckInstance())
             {
@@ -371,11 +336,29 @@ namespace FunRabbit
             _hud = null;
         }
 
-        // 스테이지 인형(Actor) 수 변경 시: 7개 이하이면 resetButton 활성화, 초과면 비활성화
+        // 스테이지 인형(Actor) 수 변경 시: 7개 이하이면 resetButton 활성화, 초과면 비활성화 (리셋 아이템 보유 조건과 별개로 갱신)
         private void OnChangedActorCount(int count)
         {
+            _actorCount = count;
+            RefreshResetButtonActive();
+        }
+
+        // 리셋 아이템 보유 수 변경 시: 카운트 텍스트 갱신 + resetButton 활성 조건 재평가
+        private void OnChangedResetItemCount(int count)
+        {
+            _resetItemCount = count;
+
             if (_hud != null)
-                _hud.SetActiveResetButton(count <= ResetButtonMaxActorCount);
+                _hud.SetResetCountText(count);
+
+            RefreshResetButtonActive();
+        }
+
+        // 인형 수 조건 OR 리셋 아이템 보유 조건 중 하나라도 만족하면 resetButton 활성화
+        private void RefreshResetButtonActive()
+        {
+            if (_hud != null)
+                _hud.SetActiveResetButton(_actorCount <= ResetButtonMaxActorCount || _resetItemCount > 0);
         }
 
         // 게임 상태 변경 시 HUD 갱신
@@ -438,6 +421,10 @@ namespace FunRabbit
                 });
             _hud.SetActivePlayButton(craneStatus == CraneStatus.READY);
             _hud.SetActiveGrabButton(craneStatus == CraneStatus.CONTROL_MOVING);
+
+            bool isCanUIActive = craneStatus == CraneStatus.READY || craneStatus == CraneStatus.CONTROL_MOVING;
+
+            UIManager.Instance.SetCanvasGroup(UILayer.Hud, isCanUIActive);
         }
 
         // GameQuestManager의 MissionCount 변경 시 호출되어 HUD 미션 텍스트를 갱신
@@ -495,6 +482,7 @@ namespace FunRabbit
 
         public void OnClickStageEnterBtn()
         {
+            FireBaseAnalyticsManager.Instance.LogEventOnce("click_enter_stage");
             GameMain.Instance.SetGameStatus(GameStatus.INGAME);
         }
 
@@ -502,7 +490,7 @@ namespace FunRabbit
         public void OnClickBackButton()
         {
             if (GameMain.Instance.CurrentStatus == GameStatus.COLLECTION)
-                GameMain.Instance.SetGameStatus(_statusBeforeCollection);
+                GameMain.Instance.SetGameStatus(GameMain.Instance.PreviousStatus);
             else if (GameMain.Instance.CurrentStatus == GameStatus.INGAME)
                 GameMain.Instance.SetGameStatus(GameStatus.LOBBY);
             else if(GameMain.Instance.CurrentStatus == GameStatus.LOBBY)
@@ -518,6 +506,7 @@ namespace FunRabbit
         {
             if (PlayerContext.TrySpendCoin(100))
             {
+                FireBaseAnalyticsManager.Instance.LogEventOnce("click_play");
                 Debug.Log("[UIHudControl] 플레이 버튼 클릭: 100 코인 차감");
             }
             else
@@ -538,24 +527,6 @@ namespace FunRabbit
             {
                 crane.StartGrabSequence();
             }
-        }
-
-        private void OnChangedCoinAmount(long newAmount)
-        {
-            if (_hud != null)
-                _hud.SetCoinText(newAmount);
-        }
-
-        public void OnClickCollectionBtn()
-        {
-            // 이미 컬렉션 화면이면 진입 전 상태를 덮어쓰지 않는다
-            if (GameMain.Instance.CurrentStatus != GameStatus.COLLECTION)
-                _statusBeforeCollection = GameMain.Instance.CurrentStatus;
-
-            GameMain.Instance.SetGameStatus(GameStatus.COLLECTION);
-
-            //if(UICollectionPanel.Get() == null)
-            //    UICollectionPanel.CreateOrGet();
         }
 
         public void OnClickResetButton()

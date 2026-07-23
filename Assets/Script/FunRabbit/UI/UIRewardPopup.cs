@@ -15,6 +15,7 @@ namespace FunRabbit
         [SerializeField] Transform popup;              // "짜잔" 스케일 인 대상 (Popup 오브젝트)
         [SerializeField] Image iconImage;
         [SerializeField] TextMeshProUGUI iconTitleText;
+        [SerializeField] TextMeshProUGUI iconDescText;
         [SerializeField] Button okButton;
 
         [Header("등장 연출")]
@@ -28,6 +29,9 @@ namespace FunRabbit
         // 팝업이 닫힐 때(파괴 직전) 호출되는 콜백. (외부에서 상태 복구 등에 사용)
         public System.Action OnClosed { get; set; }
 
+        // 코인 지급 연출(UIBottomBar.PlayCoinGetEffect)의 시작 지점으로 쓰기 위한 아이콘 RectTransform
+        public RectTransform IconTransform => iconImage != null ? iconImage.rectTransform : null;
+
         void Start()
         {
             if (okButton != null)
@@ -36,14 +40,20 @@ namespace FunRabbit
             PlayShowAnimation();
         }
 
-        // 아이콘 이미지 / 타이틀 / 확인 콜백 설정
-        public void Set(Sprite iconImageSprite, string iconTitleName, System.Action onOkButtonEvent)
+        // 아이콘 이미지 / 타이틀 / 설명 / 확인 콜백 설정
+        public void Set(Sprite iconImageSprite, string iconTitleName, System.Action onOkButtonEvent, string iconDescription = null)
         {
             if (iconImage != null)
+            {
                 iconImage.sprite = iconImageSprite;
+                iconImage.SetNativeSize();
+            }
 
             if (iconTitleText != null)
                 iconTitleText.text = iconTitleName;
+
+            if (iconDescText != null)
+                iconDescText.text = iconDescription;
 
             _onOk = onOkButtonEvent;
         }

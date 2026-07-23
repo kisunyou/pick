@@ -14,8 +14,7 @@ namespace FunRabbit
 
         [Header("코인 획득 연출")]
         [SerializeField] RectTransform coinFlyStart;    // 코인이 출발하는 지점
-        [SerializeField] RectTransform coinFlyTarget;   // 코인이 도착하는 지점
-        [SerializeField] RectTransform coinFlyTemplate; // 날아가는 코인 템플릿 (복제해서 사용)
+        // (도착점/템플릿은 UIBottomBar 프리팹이 보유 - 연출 재생도 UIBottomBar가 담당)
 
         // 5분마다 코인을 받는 타이머 (coinTimerText/getCoinTimerButton 사용)
         private CoinGetTimer _coinGetTimer;
@@ -25,7 +24,7 @@ namespace FunRabbit
             // 코인 받기 타이머 (5분 카운트다운 → "받기" → 클릭 시 코인 지급 후 재시작)
             // Resume: 재실행 시 저장된 상태 복원 (없으면 새로 시작)
             _coinGetTimer = new CoinGetTimer(this, coinTimerText, getCoinTimerButton,
-                coinFlyStart, coinFlyTarget, coinFlyTemplate, coinTimerSlider);
+                coinFlyStart, coinTimerSlider);
             _coinGetTimer.Resume();
         }
 

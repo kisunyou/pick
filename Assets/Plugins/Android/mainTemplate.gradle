@@ -5,14 +5,15 @@ apply from: '../shared/keepUnitySymbols.gradle'
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 // Android Resolver Dependencies Start
-    implementation 'com.google.android.gms:play-services-base:18.4.0' // Assets/Firebase/Editor/DatabaseDependencies.xml:17
-    implementation 'com.google.firebase:firebase-analytics:22.0.0' // Assets/Firebase/Editor/DatabaseDependencies.xml:15
-    implementation 'com.google.firebase:firebase-app-unity:12.0.0' // Assets/Firebase/Editor/AppDependencies.xml:22
-    implementation 'com.google.firebase:firebase-auth:23.0.0' // Assets/Firebase/Editor/AuthDependencies.xml:13
-    implementation 'com.google.firebase:firebase-auth-unity:12.0.0' // Assets/Firebase/Editor/AuthDependencies.xml:20
-    implementation 'com.google.firebase:firebase-common:21.0.0' // Assets/Firebase/Editor/AppDependencies.xml:13
-    implementation 'com.google.firebase:firebase-database:21.0.0' // Assets/Firebase/Editor/DatabaseDependencies.xml:13
-    implementation 'com.google.firebase:firebase-database-unity:12.0.0' // Assets/Firebase/Editor/DatabaseDependencies.xml:22
+    implementation 'com.google.android.gms:play-services-ads-identifier:18.1.0' // Assets/LevelPlay/Editor/IronSourceSDKDependencies.xml:12
+    implementation 'com.google.android.gms:play-services-base:18.10.0' // Assets/Firebase/Editor/AppDependencies.xml:20
+    implementation 'com.google.firebase:firebase-analytics:23.2.0' // Assets/Firebase/Editor/AppDependencies.xml:18
+    implementation 'com.google.firebase:firebase-analytics-unity:13.14.0' // Assets/Firebase/Editor/AnalyticsDependencies.xml:21
+    implementation 'com.google.firebase:firebase-app-unity:13.14.0' // Assets/Firebase/Editor/AppDependencies.xml:25
+    implementation 'com.google.firebase:firebase-common:22.1.0' // Assets/Firebase/Editor/AppDependencies.xml:16
+    implementation 'com.unity3d.ads:unity-ads:4.19.0' // Assets/LevelPlay/Editor/ISUnityAdsAdapterDependencies.xml:9
+    implementation 'com.unity3d.ads-mediation:mediation-sdk:9.5.0' // Assets/LevelPlay/Editor/IronSourceSDKDependencies.xml:5
+    implementation 'com.unity3d.ads-mediation:unityads-adapter:5.11.0' // Assets/LevelPlay/Editor/ISUnityAdsAdapterDependencies.xml:5
 // Android Resolver Dependencies End
 **DEPS**}
 
@@ -21,7 +22,6 @@ android {
     namespace "com.unity3d.player"
     ndkVersion "**NDKVERSION**"
   packaging {
-      // arm64-v8a 제외 제거: 64비트 기기 설치를 위해 arm64 라이브러리를 APK에 포함한다
       exclude ('/lib/armeabi/*' + '*')
       exclude ('/lib/mips/*' + '*')
       exclude ('/lib/mips64/*' + '*')

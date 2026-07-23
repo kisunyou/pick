@@ -7,7 +7,7 @@ namespace FunRabbit
 {
     [UIOption(
         Path = "UI2/Prefabs/UIMissionClearPanel",
-        Layer = UILayer.Hud,
+        Layer = UILayer.Contents,
         OpenMode = UIOpenMode.Single,
         isPool = false)]
     public class UIMissionClearPanel : BaseUIView<UIMissionClearPanel>
@@ -32,26 +32,14 @@ namespace FunRabbit
         [SerializeField] float slideDistance = 0f;
 
         [Header("코인 보상 연출")]
-        [SerializeField] RectTransform coinFlyImage;        // 날아가는 코인(비활성 템플릿, 복제해서 사용)
-        [SerializeField] RectTransform targetCoinImage;     // 코인 도착 지점(커졌다 원래 크기로 복귀)
-        [SerializeField] TextMeshProUGUI coinText;          // 코인 수치 텍스트
-        [SerializeField] int rewardCoin = 500;              // 가변 보상량. coinPerFly 단위로 코인 개수 결정(500→5개, 1000→10개)
-        [SerializeField] int coinPerFly = 100;              // 코인 1개가 더하는 값
-        [SerializeField] float coinFlyDuration = 0.6f;      // 코인 1개 비행 시간(초)
-        [SerializeField] float coinFlyInterval = 0.12f;     // 코인 발사 간격(초)
-        [SerializeField] float coinCurveHeightRatio = 0.4f; // 베지어 곡선 높이(비행 거리 대비 비율)
-        [SerializeField] float coinCountUpDuration = 0.3f;  // 코인 1개 도착 시 텍스트 카운트업 시간(초)
-        [SerializeField] float coinBounceScale = 1.3f;      // 도착 지점이 커지는 배율(이후 원래 크기로 복귀)
+        // 코인이 날아가기 시작하는 위치. 실제 비행/도착 바운스/카운트업 연출은 상시 노출되는
+        // UIBottomBar가 전담한다(도착 지점 = UIBottomBar의 coinImage) - 이 패널은 시작 위치만 제공한다.
+        [SerializeField] RectTransform coinFlyImage;
+        [SerializeField] int rewardCoin = 500;              // 코인 보상량
 
         Sequence _seq;
-        Sequence _coinSeq;
-        Tween _coinCountTween;
-        Tween _coinBounceTween;
         Tween _titleTween;
         Vector3 _titleBaseScale = Vector3.one;
-        long _startCoin;          // 연출 시작 시점의 PlayerContext.CoinAmount.Value
-        long _coinDisplay;        // 현재 coinText에 표시 중인 값
-        Vector3 _targetCoinBaseScale = Vector3.one;
 
         void Start()
         {
@@ -83,22 +71,10 @@ namespace FunRabbit
         void PlaySequence()
         {
             _seq?.Kill();
-            _coinSeq?.Kill();
-            _coinCountTween?.Kill();
 
             // 연출 시작 시 닫기 버튼 숨김 (모든 연출이 끝난 뒤 활성화)
             if (closeButton != null)
                 closeButton.gameObject.SetActive(false);
-
-            // 코인 텍스트 초기값: 현재 보유 코인(PlayerContext)을 그대로 표시
-            _startCoin = PlayerContext.CoinAmount.Value;
-            _coinDisplay = _startCoin;
-            if (coinText != null)
-                coinText.text = _coinDisplay.ToString();
-
-            // 도착 지점 원래 크기 기억 (커졌다 복귀 연출 기준)
-            if (targetCoinImage != null)
-                _targetCoinBaseScale = targetCoinImage.localScale;
 
             // 타이틀 원래 크기 기억 (스케일 팝 연출 기준)
             if (titleText != null)
@@ -168,119 +144,18 @@ namespace FunRabbit
                 .SetUpdate(true);
         }
 
-        // 코인 보상 연출: coinPerFly(=100)당 코인 1개씩 targetCoinImage로 베지어 곡선 비행 →
-        // 도착할 때마다 도착 지점 젤리 바운스 + 코인 텍스트 카운트업 → 모두 끝나면 닫기 버튼 활성화
+        // 코인 보상 연출: UIBottomBar가 소유한 공용 연출(비행/도착 바운스/분할 지급)에 위임한다.
+        // 도착 지점 = UIBottomBar의 coinImage(상시 노출), 시작 지점만 이 패널의 coinFlyImage를 사용.
+        // 연출이 끝나면(또는 재생 불가 시 즉시) 닫기 버튼을 활성화한다.
         void PlayCoinReward()
         {
-            _coinSeq?.Kill();
-
-            if (rewardCoin <= 0 || coinFlyImage == null || targetCoinImage == null)
+            if (rewardCoin <= 0 || coinFlyImage == null || UIBottomBar.Instance == null)
             {
-                // 코인 연출 생략 - 바로 닫기 버튼 활성화
                 ActivateCloseButton();
                 return;
             }
 
-            int coinCount = Mathf.Max(1, rewardCoin / Mathf.Max(1, coinPerFly));
-
-            _coinSeq = DOTween.Sequence().SetUpdate(true);
-            for (int i = 0; i < coinCount; i++)
-            {
-                int idx = i;
-                // idx번째 코인 도착 후 누적 표시값 (마지막은 정확히 _startCoin + rewardCoin)
-                long targetValue = _startCoin + (long)Mathf.RoundToInt(rewardCoin * (idx + 1f) / coinCount);
-                _coinSeq.Insert(idx * coinFlyInterval, CreateCoinFly(() => OnCoinArrived(targetValue)));
-            }
-
-            // 마지막 코인 도착 + 카운트업까지 끝난 뒤: 최종 코인값 반영 + 닫기 버튼 활성화
-            float lastArrival = (coinCount - 1) * coinFlyInterval + coinFlyDuration;
-            _coinSeq.InsertCallback(lastArrival + coinCountUpDuration + 0.05f, OnCoinRewardComplete);
-        }
-
-        // 코인 1개 비행 트윈 생성 (2차 베지어 곡선)
-        Tween CreateCoinFly(TweenCallback onArrived)
-        {
-            RectTransform coin = Instantiate(coinFlyImage, transform);
-            coin.SetAsLastSibling();
-            coin.gameObject.SetActive(true);
-
-            Vector3 p0 = coinFlyImage.position;                 // 시작(월드)
-            Vector3 p2 = targetCoinImage.position;              // 도착(월드)
-            Vector3 mid = (p0 + p2) * 0.5f;
-            float distance = Vector3.Distance(p0, p2);
-            Vector3 p1 = mid + transform.up * (distance * coinCurveHeightRatio); // 위로 볼록한 제어점
-
-            coin.position = p0;
-
-            float t = 0f;
-            return DOTween.To(() => t, x =>
-                {
-                    t = x;
-                    float u = 1f - t;
-                    coin.position = u * u * p0 + 2f * u * t * p1 + t * t * p2; // 2차 베지어
-                }, 1f, coinFlyDuration)
-                .SetEase(Ease.InQuad)
-                .SetUpdate(true)
-                .OnComplete(() =>
-                {
-                    if (coin != null)
-                        Destroy(coin.gameObject);
-                    onArrived?.Invoke();
-                });
-        }
-
-        // 코인 도착 시: 도착 지점이 커졌다 복귀 + 코인 텍스트 빠른 카운트업(+1씩)
-        void OnCoinArrived(long targetValue)
-        {
-            BounceTargetCoin();
-
-            if (coinText != null)
-            {
-                _coinCountTween?.Kill();
-                long from = _coinDisplay;
-                _coinCountTween = DOTween.To(() => from, v =>
-                    {
-                        _coinDisplay = v;
-                        coinText.text = _coinDisplay.ToString();
-                    }, targetValue, coinCountUpDuration)
-                    .SetEase(Ease.Linear)
-                    .SetUpdate(true);
-            }
-            else
-            {
-                _coinDisplay = targetValue;
-            }
-        }
-
-        // 도착 지점 이미지가 커졌다가 다시 원래 크기로 돌아오는 연출
-        void BounceTargetCoin()
-        {
-            if (targetCoinImage == null)
-                return;
-
-            _coinBounceTween?.Kill();
-            targetCoinImage.localScale = _targetCoinBaseScale;
-            _coinBounceTween = targetCoinImage
-                .DOScale(_targetCoinBaseScale * coinBounceScale, coinCountUpDuration * 0.5f)
-                .SetLoops(2, LoopType.Yoyo)   // 커짐 → 원래 크기 복귀
-                .SetEase(Ease.OutQuad)
-                .SetUpdate(true);
-        }
-
-        // 모든 코인 연출 종료: 최종 코인값을 정확히 표시하고 PlayerContext에 반영 후 닫기 버튼 활성화
-        void OnCoinRewardComplete()
-        {
-            long finalValue = _startCoin + rewardCoin;
-
-            _coinCountTween?.Kill();
-            _coinDisplay = finalValue;
-            if (coinText != null)
-                coinText.text = finalValue.ToString();
-
-            // 최종 코인값을 실제 데이터에 반영 (PlayerPrefs 저장 + HUD 등 옵저버 통지)
-            PlayerContext.SetCoinAmount(finalValue);
-
-            ActivateCloseButton();
+            UIBottomBar.Instance.PlayCoinGetEffect(coinFlyImage, rewardCoin, ActivateCloseButton);
         }
 
         void ActivateCloseButton()
@@ -292,9 +167,6 @@ namespace FunRabbit
         protected override void OnDestroy()
         {
             _seq?.Kill();
-            _coinSeq?.Kill();
-            _coinCountTween?.Kill();
-            _coinBounceTween?.Kill();
             _titleTween?.Kill();
             base.OnDestroy();
         }

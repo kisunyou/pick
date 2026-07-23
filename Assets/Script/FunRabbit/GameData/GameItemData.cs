@@ -10,6 +10,8 @@ namespace FunRabbit
         public string name;
         public string icon_path;   // JSON 키(icon_path)와 동일해야 매핑됨
         public int count;          // 지급 수량 (코인 아이템이면 코인 개수)
+        public string itemType;    // "coin", "reset" 등 아이템 종류
+        public string itemDescription; // 아이템 설명 (보상 팝업 등에 표시)
     }
 
     [System.Serializable]

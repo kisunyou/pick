@@ -86,7 +86,7 @@ namespace FunRabbit
             }
         }
 
-        // 화면 좌표에서 레이캐스트해 컬렉션 인형이 맞으면 울음소리를 재생한다.
+        // 화면 좌표에서 레이캐스트해 컬렉션 인형이 맞으면 울음소리 재생 + 카메라 포커스 이동.
         private void TryPlayTouchedDollSound(Vector2 screenPos)
         {
             Camera cam = GameCameraManager.Instance != null ? GameCameraManager.Instance.ActiveCamera : null;
@@ -102,6 +102,10 @@ namespace FunRabbit
                 return;
 
             AudioManager.Instance.PlaySfx(GameActorData.GetSound(actor.Data.animalKey));
+
+            // 탭한 인형이 화면 중앙에 오도록 카메라를 부드럽게 이동
+            if (GameCameraManager.Instance.ActiveGameCamera is CollectionCamera collectionCamera)
+                collectionCamera.FocusOn(actor.transform.position);
         }
 
         private void OnChangedGameStatus(GameStatus status)

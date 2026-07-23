@@ -8,7 +8,7 @@ namespace FunRabbit
 {
     [UIOption(
         Path = "UI2/Prefabs/UIRandomboxPanel",
-        Layer = UILayer.Hud,
+        Layer = UILayer.Contents,
         OpenMode = UIOpenMode.Single,
         isPool = false)]
     public class UIRandomboxPanel : BaseUIView<UIRandomboxPanel>
@@ -229,17 +229,28 @@ namespace FunRabbit
             Sprite icon = Resources.Load<Sprite>(item.icon_path);
 
             UIRewardPopup popup = UIRewardPopup.CreateOrGet();
-            popup.Set(icon, item.name, () => GrantReward(item));
+            popup.Set(icon, item.name, () => GrantReward(item, popup), item.itemDescription);
             popup.OnClosed = ResetPanel;
         }
 
-        // 보상 지급: 아이템 수량(코인)을 PlayerContext에 반영한다.
-        private void GrantReward(ItemData item)
+        // 보상 지급: 아이템 수량을 itemType에 맞춰 PlayerContext에 반영한다.
+        // 코인이면 팝업 아이콘 위치에서 UIBottomBar로 코인 비행 연출을 재생하며 지급한다.
+        private void GrantReward(ItemData item, UIRewardPopup popup)
         {
             if (item == null || item.count <= 0)
                 return;
 
-            PlayerContext.AddCoinAmount(item.count);
+            if (item.itemType == "reset")
+            {
+                PlayerContext.AddResetItemCount(item.count);
+                return;
+            }
+
+            RectTransform startPoint = popup != null ? popup.IconTransform : null;
+            if (startPoint != null && UIBottomBar.Instance != null)
+                UIBottomBar.Instance.PlayCoinGetEffect(startPoint, item.count);
+            else
+                PlayerContext.AddCoinAmount(item.count);
         }
 
         // 보상 팝업이 닫힐 때: 애니메이션을 재생 전 상태로 되돌리고 버튼/카운트 갱신

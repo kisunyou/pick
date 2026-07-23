@@ -1,3 +1,4 @@
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -36,6 +37,9 @@ namespace FunRabbit
         [SerializeField] float maxPanZPositive = 20f; // 최초 위치 기준 Z축 + 방향 최대 이동 범위
         [SerializeField] float maxPanZNegative = 5f;  // 최초 위치 기준 Z축 - 방향 최대 이동 범위
 
+        [Header("포커스 이동 (인형 탭)")]
+        [SerializeField] float focusMoveDuration = 0.6f; // 대상까지 이동하는 시간(초)
+
         public override CameraMode Mode => CameraMode.Collection;
 
         private bool _isDragging;
@@ -50,6 +54,9 @@ namespace FunRabbit
 
         // 최초(Awake 시점) 카메라 위치 - X/Z 이동 범위 제한의 기준점
         private Vector3 _basePosition;
+
+        // 인형 탭 포커스 이동 트윈 (드래그/줌 입력이 들어오면 즉시 중단)
+        private Tween _focusTween;
 
         protected override void Awake()
         {
@@ -75,6 +82,53 @@ namespace FunRabbit
 
             //if (pickMachine != null)
             //    pickMachine.SetActive(true);
+
+            CancelFocus();
+        }
+
+        // ── 인형 탭 포커스 이동 ─────────────────────────────────────
+        // 지정 월드 위치(인형)가 화면 중앙에 오도록 카메라를 부드럽게 평행 이동시킨다.
+        // 카메라가 내려다보는 각도이므로, "카메라 중앙 시선이 대상 높이 평면과 만나는 지점"과
+        // 대상의 XZ 차이만큼 이동해야 대상이 정중앙에 온다. (높이/줌은 유지)
+        public void FocusOn(Vector3 worldPosition)
+        {
+            Transform camTransform = MainCamera.transform;
+            Vector3 forward = camTransform.forward;
+
+            // 시선이 수평에 가까우면 평면 교점을 구할 수 없다 (현재 셋업에선 발생하지 않음)
+            if (Mathf.Abs(forward.y) < 0.01f)
+                return;
+
+            float distance = (worldPosition.y - camTransform.position.y) / forward.y;
+            if (distance <= 0f)
+                return; // 대상이 시선 뒤쪽 - 이동 불가
+
+            Vector3 lookPoint = camTransform.position + forward * distance;
+
+            Vector3 delta = worldPosition - lookPoint;
+            delta.y = 0f;
+
+            // 팬 범위 제한 안으로 클램프한 목표 위치
+            Vector3 target = camTransform.position + delta;
+            target.x = Mathf.Clamp(target.x, _basePosition.x - maxPanX, _basePosition.x + maxPanX);
+            target.z = Mathf.Clamp(target.z, _basePosition.z - maxPanZNegative, _basePosition.z + maxPanZPositive);
+
+            // 진행 중인 관성/이전 포커스는 중단하고 새 이동 시작
+            _dragVelocity = Vector3.zero;
+            CancelFocus();
+            _focusTween = camTransform.DOMove(target, focusMoveDuration)
+                .SetEase(Ease.InOutQuad)
+                .OnComplete(() => _focusTween = null);
+        }
+
+        // 포커스 이동 중단 (사용자 드래그/줌이 개입하면 즉시 제어권을 돌려준다)
+        private void CancelFocus()
+        {
+            if (_focusTween == null)
+                return;
+
+            _focusTween.Kill();
+            _focusTween = null;
         }
 
         // 이 카메라가 비활성(모드가 다름) 상태면 GameObject 자체가 꺼져 있어 Update가 호출되지 않는다.
@@ -151,6 +205,7 @@ namespace FunRabbit
             _isDragging = true;
             _lastPointerScreenPos = pointerScreenPos;
             _dragVelocity = Vector3.zero; // 새 드래그를 잡으면 이전 관성은 취소 (스크롤뷰를 손으로 잡아 멈추는 느낌)
+            CancelFocus();                // 포커스 이동 중이어도 손을 대면 즉시 제어권을 가져온다
         }
 
         private void ContinueDrag(Vector2 pointerScreenPos)
@@ -244,6 +299,8 @@ namespace FunRabbit
             float appliedDelta = newOffset - _zoomOffset;
             if (Mathf.Approximately(appliedDelta, 0f))
                 return;
+
+            CancelFocus(); // 포커스 이동 중 줌 입력이 들어오면 트윈이 위치를 덮어쓰지 않도록 중단
 
             _zoomOffset = newOffset;
             MainCamera.transform.position += MainCamera.transform.forward * appliedDelta;

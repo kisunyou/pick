@@ -5,7 +5,7 @@ namespace FunRabbit
 {
     [UIOption(
         Path = "UI2/Prefabs/UICollectionPanel",
-        Layer = UILayer.Hud,
+        Layer = UILayer.Contents,
         OpenMode = UIOpenMode.Single,
         isPool = false)]
     public class UICollectionPanel : BaseUIView<UICollectionPanel>

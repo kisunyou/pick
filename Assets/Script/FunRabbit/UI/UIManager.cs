@@ -11,6 +11,7 @@ namespace FunRabbit
         None,
         Ingame,
         Hud,
+        Contents,
         Popup,
         Message,
         Directing,
@@ -72,7 +73,7 @@ namespace FunRabbit
         /// 열려있으면 기존 반환, 없으면 새로 생성
         /// </summary>
         public static T CreateOrGet()
-        {
+        {            
             return UIManager.Instance.Open<T>();
         }
 
@@ -101,11 +102,12 @@ namespace FunRabbit
             { UILayer.None,      0   },
             { UILayer.Ingame,    10  },
             { UILayer.Hud,       100 },
-            { UILayer.Popup,     200 },
-            { UILayer.Message,   300 },
-            { UILayer.Directing, 400 },
-            { UILayer.Webview,   500 },
-            { UILayer.System,    600 },
+            { UILayer.Contents,  200 },
+            { UILayer.Popup,     300 },
+            { UILayer.Message,   400 },
+            { UILayer.Directing, 500 },
+            { UILayer.Webview,   600 },
+            { UILayer.System,    700 },
         };
 
         private readonly Dictionary<UILayer, Transform> _layerRoots
@@ -114,11 +116,63 @@ namespace FunRabbit
         private readonly Dictionary<Type, MonoBehaviour> _openedViews
             = new Dictionary<Type, MonoBehaviour>();
 
+        // 레이어에 열린 뷰가 하나도 없다가 생기면 OnLayerOpened, 있다가 없어지면 OnLayerClosed
+        public event Action<UILayer> OnLayerOpened;
+        public event Action<UILayer> OnLayerClosed;
+
+        private readonly Dictionary<UILayer, bool> _layerOpenState = new Dictionary<UILayer, bool>();
+
+        // 빈 레이어 캔버스 on/off용 캐시 (레이어 루트의 Canvas/Raycaster/정렬값)
+        private struct LayerCanvasEntry
+        {
+            public Canvas canvas;
+            public GraphicRaycaster raycaster;
+            public int sortOrder;
+        }
+        private readonly List<LayerCanvasEntry> _layerCanvasEntries = new List<LayerCanvasEntry>();
+
         protected override void Awake()
         {
             base.Awake();
             SetupRootCanvas();
             CreateLayerRoots();
+            RefreshLayerCanvases(); // 시작 시 전부 비어있으므로 전 레이어 캔버스 off
+        }
+
+        private void LateUpdate()
+        {
+            RefreshLayerCanvases();
+        }
+
+        // 하위에 아무것도 붙어 있지 않은 레이어 캔버스는 꺼서 빈 캔버스의
+        // 렌더 배칭/레이캐스트 오버헤드를 없앤다. (뷰가 생기면 다시 켠다)
+        // 뷰 생성/파괴 경로가 다양해(Open/Close/CloseAll/외부 Destroy) 훅 대신 매 프레임 검사한다
+        // - 레이어 9개의 childCount 확인이라 비용은 무시 가능하고, 뷰가 열린 프레임에도
+        //   LateUpdate가 렌더링 전에 캔버스를 켜므로 깜빡임이 없다.
+        private void RefreshLayerCanvases()
+        {
+            for (int i = 0; i < _layerCanvasEntries.Count; i++)
+            {
+                LayerCanvasEntry entry = _layerCanvasEntries[i];
+                if (entry.canvas == null)
+                    continue;
+
+                bool hasChild = entry.canvas.transform.childCount > 0;
+                if (entry.canvas.enabled == hasChild)
+                    continue;
+
+                entry.canvas.enabled = hasChild;
+
+                // 중첩 Canvas는 비활성화를 거치면 overrideSorting이 풀릴 수 있어 켤 때 재적용한다
+                if (hasChild)
+                {
+                    entry.canvas.overrideSorting = true;
+                    entry.canvas.sortingOrder = entry.sortOrder;
+                }
+
+                if (entry.raycaster != null)
+                    entry.raycaster.enabled = hasChild;
+            }
         }
 
         private void SetupRootCanvas()
@@ -166,9 +220,15 @@ namespace FunRabbit
                 canvasGroup.interactable = true;
                 canvasGroup.blocksRaycasts = true;
 
-                layerGo.AddComponent<GraphicRaycaster>();
+                GraphicRaycaster raycaster = layerGo.AddComponent<GraphicRaycaster>();
 
                 _layerRoots[layer] = rect;
+                _layerCanvasEntries.Add(new LayerCanvasEntry
+                {
+                    canvas = canvas,
+                    raycaster = raycaster,
+                    sortOrder = canvas.sortingOrder,
+                });
 
                 Debug.Log($"[UIManager] 레이어 생성: {layer} (SortOrder: {canvas.sortingOrder})");
             }
@@ -216,6 +276,8 @@ namespace FunRabbit
             _openedViews[type] = view;
             view.OnOpen();
 
+            CheckLayerOpenChanged(attr.Layer);
+
             return view;
         }
 
@@ -228,23 +290,58 @@ namespace FunRabbit
                 _openedViews.Remove(type);
 
             Destroy(view.gameObject);
+
+            UIOptionAttribute attr = type.GetCustomAttribute<UIOptionAttribute>();
+            if (attr != null)
+                CheckLayerOpenChanged(attr.Layer);
         }
 
-        public void SetLayerVisible(UILayer layer, bool visible)
+        public void SetCanvasGroup(UILayer layer, bool interactable)
         {
             if (!_layerRoots.TryGetValue(layer, out Transform root)) return;
 
             CanvasGroup cg = root.GetComponent<CanvasGroup>();
             if (cg == null) return;
 
-            cg.alpha = visible ? 1f : 0f;
-            cg.interactable = visible;
-            cg.blocksRaycasts = visible;
+            cg.interactable = interactable;
         }
 
         public bool IsOpen<T>() where T : BaseUIView<T>
         {
             return _openedViews.ContainsKey(typeof(T));
+        }
+
+        // 지정한 레이어에 열려있는 뷰(BaseUIView 상속 객체)가 하나라도 있는지 확인
+        public bool IsLayerOpen(UILayer layer)
+        {
+            foreach (KeyValuePair<Type, MonoBehaviour> kv in _openedViews)
+            {
+                if (kv.Value == null)
+                    continue;
+
+                UIOptionAttribute attr = kv.Key.GetCustomAttribute<UIOptionAttribute>();
+                if (attr != null && attr.Layer == layer)
+                    return true;
+            }
+
+            return false;
+        }
+
+        // 레이어의 열림 상태가 바뀌었을 때만 OnLayerOpened/OnLayerClosed를 발생시킨다
+        // (Multiple 모드로 뷰가 여러 개 열려도 비어있음 <-> 있음 전환 시에만 1회 발생)
+        private void CheckLayerOpenChanged(UILayer layer)
+        {
+            bool isOpen = IsLayerOpen(layer);
+            bool wasOpen = _layerOpenState.TryGetValue(layer, out bool prev) && prev;
+            if (isOpen == wasOpen)
+                return;
+
+            _layerOpenState[layer] = isOpen;
+
+            if (isOpen)
+                OnLayerOpened?.Invoke(layer);
+            else
+                OnLayerClosed?.Invoke(layer);
         }
 
         public T Get<T>() where T : BaseUIView<T>
@@ -259,13 +356,23 @@ namespace FunRabbit
         public void CloseAll()
         {
             List<Type> keys = new List<Type>(_openedViews.Keys);
+            HashSet<UILayer> affectedLayers = new HashSet<UILayer>();
             for (int i = 0; i < keys.Count; i++)
             {
                 MonoBehaviour view = _openedViews[keys[i]];
                 if (view != null)
+                {
+                    UIOptionAttribute attr = keys[i].GetCustomAttribute<UIOptionAttribute>();
+                    if (attr != null)
+                        affectedLayers.Add(attr.Layer);
+
                     Destroy(view.gameObject);
+                }
             }
             _openedViews.Clear();
+
+            foreach (UILayer layer in affectedLayers)
+                CheckLayerOpenChanged(layer);
         }
 
         public void CloseAllInLayer(UILayer layer)
@@ -283,6 +390,8 @@ namespace FunRabbit
                     _openedViews.Remove(keys[i]);
                 }
             }
+
+            CheckLayerOpenChanged(layer);
         }
     }
 }

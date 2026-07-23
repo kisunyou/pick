@@ -1,6 +1,8 @@
+using System;
 using System.IO;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
@@ -11,7 +13,8 @@ public static class BuildScript
 {
     public static void BuildAndroidApk()
     {
-        string outputPath = Path.GetFullPath("build/pick.apk");
+        string buildName = "pic_" + DateTime.Now.ToString("yyyy_MMdd_HHmm");
+        string outputPath = Path.GetFullPath($"build/{buildName}.apk");
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
 
         string[] scenes = EditorBuildSettings.scenes
@@ -29,6 +32,17 @@ public static class BuildScript
         // 확실히 Android 타깃 / APK(App Bundle 아님) 으로 빌드
         EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Android, BuildTarget.Android);
         EditorUserBuildSettings.buildAppBundle = false;
+
+        // Unity 6.3에서 URP Compatibility Mode 설정이 deprecated/hidden 처리되면서
+        // 빌드 전 검증(URPPreprocessBuild)이 이 심볼 없이는 실패한다 - 심볼 추가로 기존 Compatibility Mode 유지.
+        NamedBuildTarget androidTarget = NamedBuildTarget.Android;
+        string defines = PlayerSettings.GetScriptingDefineSymbols(androidTarget);
+        if (!defines.Split(';').Contains("URP_COMPATIBILITY_MODE"))
+        {
+            defines = string.IsNullOrEmpty(defines) ? "URP_COMPATIBILITY_MODE" : defines + ";URP_COMPATIBILITY_MODE";
+            PlayerSettings.SetScriptingDefineSymbols(androidTarget, defines);
+            Debug.Log("[BuildScript] URP_COMPATIBILITY_MODE 스크립팅 심볼 추가");
+        }
 
         var options = new BuildPlayerOptions
         {

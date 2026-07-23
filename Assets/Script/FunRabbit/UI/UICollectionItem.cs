@@ -43,7 +43,7 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
     }
 
     public void Set(string title, string fullPath, string modelFullPath, bool active)
-    {
+    {        
         _title = title;
         _modelFullPath = modelFullPath;
         _active = active;
@@ -52,6 +52,10 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
             titleName.text = title;
 
         SetActiveItem(active);
+
+        // 로드 전에는 무조건 숨겨서 이전 썸네일이 잠깐 보이는 것을 방지
+        if (thumbnailIcon != null)
+            thumbnailIcon.gameObject.SetActive(false);
 
         // 이전에 진행 중이던 로드가 있으면 취소 (중복 호출 대비)
         CancelLoad();
@@ -102,6 +106,7 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
                 {
                     thumbnailIcon.sprite = sprite;
                     thumbnailIcon.SetNativeSize();
+                    thumbnailIcon.gameObject.SetActive(true);
                 }
             }
             else

@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Firebase.Analytics;
+using UnityEngine;
 
 namespace FunRabbit
 {
@@ -83,6 +84,10 @@ namespace FunRabbit
             MissionCount++;
             PlayerPrefs.Save();
             Debug.Log($"[GameQuestManager] MissionCount: {MissionCount} / {TotalMissionCount}");
+
+            FireBaseAnalyticsManager.Instance.LogEvent("mission_complete",
+                new Parameter("stage", CurrentStage),
+                new Parameter("mission_count", MissionCount));
 
             if (IsStageClear())
             {

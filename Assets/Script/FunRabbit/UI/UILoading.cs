@@ -73,6 +73,8 @@ namespace FunRabbit
 
             _isTouchToStartBtnClicked = true;
 
+            FireBaseAnalyticsManager.Instance.LogEventOnce("touch_start");
+
             // 더 빠르게 깜빡임
             _touchToStartTween?.Kill();
             PlayTouchToStartBlink(0.15f);
