@@ -143,12 +143,18 @@ namespace FunRabbit
         {
             UIPopup.CreateOrGet().Set("Watch Ad", $"Watch an ad to earn {WatchAdRewardCoinAmount} coins?", () =>
             {
+                // 리워드 광고 시청 시도(광고 요청) 시점 - 매회 기록
+                FireBaseAnalyticsManager.Instance.LogEvent("watch_ad_try");
+
                 LevelPlayAds.Instance.ShowRewardedAd(() => ShowCoinRewardPopup(WatchAdRewardCoinAmount));
             });
         }
 
         private void ShowCoinRewardPopup(long coinAmount)
         {
+            // 리워드 광고 시청 완료(보상 지급 확정) 시점 - 매회 기록
+            FireBaseAnalyticsManager.Instance.LogEvent("watch_ad_complete");
+
             UIPopup rewardPopup = UIPopup.CreateOrGet();
             rewardPopup.Set("Reward", $"You received {coinAmount} coins!", null, showCoinIcon: true, showButtons: false);
 

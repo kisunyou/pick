@@ -167,6 +167,9 @@ namespace FunRabbit
             if (!PlayerContext.SpendRandomBox())
                 return;
 
+            // 랜덤박스 오픈 - 매회 기록
+            FireBaseAnalyticsManager.Instance.LogEvent("open_random_box");
+
             _opening = true;
             RefreshView(); // 소비된 카운트 반영 + 버튼 비활성화
 

@@ -122,6 +122,9 @@ namespace FunRabbit
 
             if (IsStageClear())
             {
+                // 스테이지 클리어 - 매회 기록 (몇 번째 스테이지인지 포함)
+                FireBaseAnalyticsManager.Instance.LogEvent("clear_stage", new Parameter("stage", CurrentStage));
+
                 // 클리어한 스테이지의 다음 스테이지 데이터 (마지막 스테이지면 null)
                 StageQuestData nextStageData = GameQuestData.GetStage(CurrentStage + 1);
                 OnStageClear?.Invoke(nextStageData);
