@@ -18,8 +18,8 @@ namespace FunRabbit
         [SerializeField] TextMeshProUGUI titleText;
 
         [Header("Title 텍스트")]
-        [SerializeField] string clearedTitle = "Clear Mission";
-        [SerializeField] string newTitle = "Try New Doll";
+        [SerializeField] string clearedTitle = "Clear Boss";
+        [SerializeField] string newTitle = "Try New Boss";
         [SerializeField] float titleScaleFrom = 0.5f;     // 타이틀 등장 시작 스케일 배율(원래 크기로 팝)
         [SerializeField] float titleScaleDuration = 0.4f; // 타이틀 스케일 연출 시간(초)
 
@@ -27,9 +27,16 @@ namespace FunRabbit
         // 새 모델 패널 전용 레이어. 클리어 모델(layer 9 "doll")과 분리해 두 인형이 서로의 카메라에 겹쳐 잡히지 않게 한다.
         [SerializeField] int newModelLayer = 10;
         [SerializeField] float showDuration = 2f;      // 클리어 모델 노출 시간(초)
+        // 클리어 모델 노출 중, 보스 인형이 일반 인형으로 "변신"하는 시점(초). showDuration보다 작아야 한다.
+        [SerializeField] float bossToNormalDelay = 1f;
         [SerializeField] float slideDuration = 0.5f;   // 슬라이드 애니메이션 시간(초)
         // 슬라이드 이동 거리. 0이면 런타임에 패널 폭(=화면 폭)으로 자동 계산해 화면 밖까지 확실히 보낸다.
         [SerializeField] float slideDistance = 0f;
+
+        [Header("변신 깜빡임 연출 (보스 → 일반 인형)")]
+        [SerializeField] int flickerCount = 4;           // 깜빡이는 횟수
+        [SerializeField] float flickerInterval = 0.08f;  // 깜빡임 한 번(꺼짐 또는 켜짐)의 시간(초)
+        [SerializeField] float revealPunchScale = 0.15f; // 일반 인형이 드러날 때의 스케일 펀치 크기
 
         [Header("코인 보상 연출")]
         // 코인이 날아가기 시작하는 위치. 실제 비행/도착 바운스/카운트업 연출은 상시 노출되는
@@ -39,7 +46,9 @@ namespace FunRabbit
 
         Sequence _seq;
         Tween _titleTween;
+        Sequence _flickerSeq;
         Vector3 _titleBaseScale = Vector3.one;
+        string _clearedAnimalKey; // bossToNormalDelay 시점에 "변신"시킬 일반 인형을 로드하기 위해 기억해둔다.
 
         void Start()
         {
@@ -47,23 +56,74 @@ namespace FunRabbit
                 closeButton.onClick.AddListener(Close);
         }
 
-        // clearedModelPath: 방금 클리어한 스테이지 모델 / newModelPath: 다음(새) 스테이지 모델
-        // reward: 코인 보상량(-1이면 인스펙터 rewardCoin 사용). 카운트 시작값은 PlayerContext.CoinAmount.Value를 사용한다.
-        public void SetData(string clearedModelPath, string newModelPath, int reward = -1)
+        // clearedAnimalKey: 방금 클리어한 스테이지의 animalKey / newAnimalKey: 다음(새) 스테이지의 animalKey.
+        // 두 쪽 다 처음엔 보스 인형을 보여준다 - 클리어 쪽은 bossToNormalDelay 후 일반 인형으로 "변신"한다.
+        // reward: 코인 보상량(-1이면 인스펙터 rewardCoin 사용). 카운트 시작값은 PlayerContext.GetItemAmount(PlayerContext.COIN_ITEM_KEY)를 사용한다.
+        //
+        // 필요한 모델 3종(클리어 보스/클리어 일반/새 보스)을 전부 동기 로드로 미리 준비해둔 뒤에
+        // 연출을 시작한다 - 비동기 로드가 아직 안 끝난 상태로 연출이 먼저 시작돼 모델이 뒤늦게
+        // 나타나 보이는 문제를 없애기 위함이다.
+        public void SetData(string clearedAnimalKey, string newAnimalKey, int reward = -1)
         {
             if (reward >= 0)
                 rewardCoin = reward;
+
+            _clearedAnimalKey = clearedAnimalKey;
 
             // 새 모델 패널은 별도 레이어(카메라 컬링 + 모델 레이어)로 분리해 겹침을 방지한다.
             if (uiModelViewPanelNew != null)
                 uiModelViewPanelNew.SetModelLayer(newModelLayer);
 
-            if (uiModelViewPanel != null)
-                _ = uiModelViewPanel.LoadModel(clearedModelPath);
-            if (uiModelViewPanelNew != null)
-                _ = uiModelViewPanelNew.LoadModel(newModelPath);
+            // 변신 시점(TransformClearedModelToNormal)에 쓸 일반 인형은 지금 화면엔 안 띄우고
+            // 에셋만 미리 캐시에 데워둔다 (그 순간 LoadModelImmediate가 지연 없이 인스턴스화하도록).
+            if (!string.IsNullOrEmpty(clearedAnimalKey))
+                UIModelViewPanelControl.Preload(GameCommon.GetModelPrefabFullPath(clearedAnimalKey));
+
+            if (uiModelViewPanel != null && !string.IsNullOrEmpty(clearedAnimalKey))
+                uiModelViewPanel.LoadModelImmediate(GameCommon.GetBossModelPrefabFullPath(clearedAnimalKey));
+            if (uiModelViewPanelNew != null && !string.IsNullOrEmpty(newAnimalKey))
+                uiModelViewPanelNew.LoadModelImmediate(GameCommon.GetBossModelPrefabFullPath(newAnimalKey));
 
             PlaySequence();
+        }
+
+        // 보스 인형 → 일반 인형 "변신". 화면이 빠르게 flickerCount번 깜빡이다 완전히 꺼진 순간
+        // 실제 모델을 교체(LoadModelImmediate가 기존 보스 인형을 파괴하고 일반 인형으로 바꿔준다)하고,
+        // 다시 나타날 때 스케일 펀치를 곁들여 "짠!" 하고 바뀐 느낌을 강조한다.
+        void TransformClearedModelToNormal()
+        {
+            if (uiModelViewPanel == null || string.IsNullOrEmpty(_clearedAnimalKey))
+                return;
+
+            RectTransform imgRect = uiModelViewPanel.ImageRect;
+            Graphic graphic = imgRect != null ? imgRect.GetComponent<Graphic>() : null;
+            if (graphic == null)
+            {
+                uiModelViewPanel.LoadModelImmediate(GameCommon.GetModelPrefabFullPath(_clearedAnimalKey));
+                return;
+            }
+
+            _flickerSeq?.Kill();
+            _flickerSeq = DOTween.Sequence().SetUpdate(true);
+            for (int i = 0; i < flickerCount; i++)
+            {
+                bool isLast = i == flickerCount - 1;
+
+                _flickerSeq.Append(graphic.DOFade(0f, flickerInterval * 0.5f));
+
+                if (isLast)
+                {
+                    // 완전히 꺼진(가장 안 보이는) 순간 모델을 교체한다. SetData에서 이미 Preload로
+                    // 캐시를 데워둬서 LoadModelImmediate가 지연 없이 바로 인스턴스화한다.
+                    _flickerSeq.AppendCallback(() => uiModelViewPanel.LoadModelImmediate(GameCommon.GetModelPrefabFullPath(_clearedAnimalKey)));
+                    _flickerSeq.Append(graphic.DOFade(1f, flickerInterval * 0.5f));
+                    _flickerSeq.Join(imgRect.DOPunchScale(Vector3.one * revealPunchScale, flickerInterval * 4f, 6, 0.8f));
+                }
+                else
+                {
+                    _flickerSeq.Append(graphic.DOFade(1f, flickerInterval * 0.5f));
+                }
+            }
         }
 
         // 클리어 모델 2초 노출 → 화면 밖 왼쪽으로 퇴장 → 새 모델이 화면 밖 오른쪽에서 중앙으로 등장
@@ -71,6 +131,7 @@ namespace FunRabbit
         void PlaySequence()
         {
             _seq?.Kill();
+            _flickerSeq?.Kill();
 
             // 연출 시작 시 닫기 버튼 숨김 (모든 연출이 끝난 뒤 활성화)
             if (closeButton != null)
@@ -105,7 +166,12 @@ namespace FunRabbit
 
             // 일시정지(timeScale 0)에서도 동작하도록 unscaled 타임 사용
             _seq = DOTween.Sequence().SetUpdate(true);
-            _seq.AppendInterval(showDuration);
+
+            // showDuration 노출 중 bossToNormalDelay 시점에 보스 인형 → 일반 인형 "변신"이 끼어든다.
+            float toNormalDelay = Mathf.Clamp(bossToNormalDelay, 0f, showDuration);
+            _seq.AppendInterval(toNormalDelay);
+            _seq.AppendCallback(TransformClearedModelToNormal);
+            _seq.AppendInterval(showDuration - toNormalDelay);
 
             // 클리어 RawImage: 중앙 → 화면 밖 왼쪽
             if (clearedImg != null)
@@ -168,6 +234,7 @@ namespace FunRabbit
         {
             _seq?.Kill();
             _titleTween?.Kill();
+            _flickerSeq?.Kill();
             base.OnDestroy();
         }
     }

@@ -36,6 +36,9 @@ namespace FunRabbit
         {
             PlayerContext.Initialize();
 
+            // UI2/Thumbnail 스프라이트를 미리 로드해둔다 (아이콘 표시 시마다 Resources.Load 하지 않도록)
+            SpriteCache.Preload();
+
             // 게임/크레인 상태를 구독해 BGM을 재생하는 사운드 매니저를 깨운다
             AudioManager.MakeInstance();
 
@@ -171,7 +174,24 @@ namespace FunRabbit
         {
             if (GUI.Button(new Rect(20f, 20f, 160f, 50f), "TEST"))
             {
-                PlayerContext.AddRandomBoxProgressValue(1);
+
+                //-- 테스트용 코드: 인형 획득 연출 및 전투 시스템에 추가
+                //ActorData actorData = GameActorData.Get("bear");
+                //DollData dollData = new DollData("bear");
+
+                //UIHud hud = UIHud.CreateOrGet();
+                //Transform trailTarget = hud.AllyStackActors != null ? hud.AllyStackActors.transform : null;
+
+                //hud.GetDollTrailHud.PlayGetDollTrail(dollData.GetIconPrefabFullPath(), trailTarget, () =>
+                //{
+                //    if (ActorBattleSystem.TryGetSetInstance(out ActorBattleSystem battleSystem))
+                //        battleSystem.AddAllyActor(actorData);
+                //});
+                //----------------------------------------------------------------
+
+                //PlayerContext.AddItemAmount(9, 10);
+
+                //PlayerContext.AddRandomBoxProgressValue(1);
 
                 //LevelPlayAds.Instance.ShowRewardedAd(
                 //    () => Debug.Log("[GameMain] 보상 광고 테스트: 보상 지급됨"),
@@ -181,22 +201,22 @@ namespace FunRabbit
                 //UIRandomboxPanel.CreateOrGet();
                 //UIHud.CreateOrGet().GetDollTrailHud.PlayGetDollTrail(Vector3.zero, "UI2/Prefabs/MissionIconPrefab/pigMissionIcon", null);
                 //UIHud.CreateOrGet().OnTestPlayCoinGetEffect();
-                //var questData = GameQuestData.GetStage(5);
-                //var nextData = GameQuestData.GetStage(6);
-                //var panel = UIMissionClearPanel.CreateOrGet();
-                //if (panel != null)
-                //    panel.SetData(questData?.GetModelPrefabFullPath(), nextData?.GetModelPrefabFullPath());
-                //UIHud.CreateOrGet().ShowTimer(10);
-                //int stage = GameQuestManager.Instance.CurrentStage;
-                //if (stage >= 0)
-                //{
-                //    StageManager.Save(stage);
-                //    Debug.Log($"[GameMain] StageManager.Save({stage}) 완료");
-                //}
-                //else
-                //{
-                //    Debug.LogWarning($"[GameMain] 잘못된 stage 값({stage}), 저장 스킵.");
-                //}
+                var questData = GameQuestData.GetStage(5);
+                var nextData = GameQuestData.GetStage(6);
+                var panel = UIMissionClearPanel.CreateOrGet();
+                if (panel != null)
+                    panel.SetData(questData?.animalKey, nextData?.animalKey);
+                UIHud.CreateOrGet().ShowTimer(10);
+                int stage = GameQuestManager.Instance.CurrentStage;
+                if (stage >= 0)
+                {
+                    StageManager.Save(stage);
+                    Debug.Log($"[GameMain] StageManager.Save({stage}) 완료");
+                }
+                else
+                {
+                    Debug.LogWarning($"[GameMain] 잘못된 stage 값({stage}), 저장 스킵.");
+                }
             }
         }
     }

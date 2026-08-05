@@ -77,23 +77,7 @@ ModelImporter:
       mirror: 0
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
-      events:
-      - time: 0.44591027
-        functionName: OnHit
-        data: 
-        objectReferenceParameter: {fileID: 11500000, guid: 56e6c031a2f4bed4bae341180d834b7d,
-          type: 3}
-        floatParameter: 0
-        intParameter: 0
-        messageOptions: 0
-      - time: 0.9910714
-        functionName: OnEndAnim
-        data: 
-        objectReferenceParameter: {fileID: 11500000, guid: 56e6c031a2f4bed4bae341180d834b7d,
-          type: 3}
-        floatParameter: 0
-        intParameter: 0
-        messageOptions: 0
+      events: []
       transformMask:
       - path: 
         weight: 1

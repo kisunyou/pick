@@ -79,7 +79,7 @@ namespace FunRabbit
 
             if (active && coinIcon.sprite == null)
             {
-                Sprite sprite = Resources.Load<Sprite>(CoinIconPath);
+                Sprite sprite = SpriteCache.Get(CoinIconPath);
                 if (sprite != null)
                     coinIcon.sprite = sprite;
             }

@@ -9,7 +9,6 @@ namespace FunRabbit
     public class UIGetDollTrailHud : MonoBehaviour
     {
         [SerializeField] Transform getDollStartTransform;
-        [SerializeField] Transform getDollTargetTransform;
         [SerializeField] Transform getRandomBoxTargetTransform;
 
         [Header("연출")]
@@ -23,7 +22,6 @@ namespace FunRabbit
         // 재생 중인 트윈 (파괴 시 정리용)
         private readonly List<Tween> _activeTweens = new List<Tween>();
 
-        public Transform GetDollTargetTransform => getDollTargetTransform;
         public Transform GetRandomBoxTargetTransform => getRandomBoxTargetTransform;
 
         // 획득 연출 전용 이펙트 프리팹의 Resources 경로 (프리팹 캐시/풀 키로도 그대로 사용)
@@ -31,10 +29,10 @@ namespace FunRabbit
         const string GetDollEffectPrefabName = "FX/get_doll_effect/uiGetDollTrailEffect";
 
         // uiGetDollEffect 프리팹을 로드해 인형 획득 트레일을 재생한다. (기존과 동일하게 풀링)
-        public void PlayGetDollTrailEffect(System.Action onArriveEvent)
-        {
-            PlayGetDollTrail(GetDollEffectPrefabName, onArriveEvent);
-        }
+        //public void PlayGetDollTrailEffect(System.Action onArriveEvent)
+        //{
+        //    PlayGetDollTrail(GetDollEffectPrefabName, onArriveEvent);
+        //}
 
         // uiGetDollEffect 프리팹을 로드해 랜덤박스 획득 트레일을 재생한다. (기존과 동일하게 풀링)
         public void PlayGetRandomBoxTrailEffect(System.Action onArriveEvent)
@@ -43,16 +41,16 @@ namespace FunRabbit
         }
 
 
-        public void PlayGetDollTrail(string prefabName, System.Action onArriveEvent)
+        public void PlayGetDollTrail(string prefabName, Transform targetTransform, System.Action onArriveEvent)
         {
-            if (getDollTargetTransform == null)
+            if (targetTransform == null)
             {
-                Debug.LogError("[UIGetDollTrailHud] PlayGetDollTrail: getDollTargetTransform이 없습니다.");
+                Debug.LogError("[UIGetDollTrailHud] PlayGetDollTrail: targetTransform이 없습니다.");
                 onArriveEvent?.Invoke();
                 return;
             }
 
-            PlayTrail(getDollStartTransform.position, getDollTargetTransform.position, prefabName, onArriveEvent);
+            PlayTrail(getDollStartTransform.position, targetTransform.position, prefabName, onArriveEvent);
         }
 
         public void PlayGetRandomBoxTrail(string prefabName, System.Action onArriveEvent)

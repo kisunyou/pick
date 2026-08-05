@@ -187,13 +187,20 @@ namespace FunRabbit
             if (scaler == null)
                 scaler = gameObject.AddComponent<CanvasScaler>();
 
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080, 1920);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
+            ConfigureCanvasScaler(scaler);
 
             if (GetComponent<GraphicRaycaster>() == null)
                 gameObject.AddComponent<GraphicRaycaster>();
+        }
+
+        // Scale With Screen Size / 1080x1920 / Match Width Or Height(0=Width) / PPU 100 - 모든 Canvas 공통 설정
+        private static void ConfigureCanvasScaler(CanvasScaler scaler)
+        {
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080, 1920);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0f;
+            scaler.referencePixelsPerUnit = 100f;
         }
 
         private void CreateLayerRoots()
@@ -215,6 +222,8 @@ namespace FunRabbit
                 canvas.sortingOrder = LayerSortOrders.ContainsKey(layer)
                     ? LayerSortOrders[layer]
                     : 0;
+
+                ConfigureCanvasScaler(layerGo.AddComponent<CanvasScaler>());
 
                 CanvasGroup canvasGroup = layerGo.AddComponent<CanvasGroup>();
                 canvasGroup.interactable = true;

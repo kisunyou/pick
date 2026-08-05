@@ -49,38 +49,50 @@ namespace FunRabbit
                 return;
             }
 
-            // 찾으면 Actor가 붙은 오브젝트 이름을, 없으면 콜라이더 오브젝트 이름을 사용한다.
-            string dollName = actor != null ? actor.gameObject.name : dollCollider.gameObject.name;
-
             // 인형이 들어간 3D 위치에 획득 히트 버스트 이펙트를 재생한다. (월드 공간, 풀링)
             WorldFxPlayer.Instance.Play(HitEffectPrefabName, dollCollider.transform.position);
 
+            if (actor is RandomBoxDollActor)
+                OnRandomBoxCollected();
+            else
+                OnAllyDollCollected(actor);
+
+            // Actor 루트를 통째로 파괴한다. (자식 콜라이더만 남지 않도록)
+            Destroy(actor != null ? actor.gameObject : dollCollider.gameObject);
+        }
+
+        // 랜덤박스(doll_random_prefab) 획득: ally 합류 없이 전용 트레일 연출 후 보유 개수만 늘린다.
+        private void OnRandomBoxCollected()
+        {
+            UIHud hud = UIHud.CreateOrGet();
+            hud.GetDollTrailHud.PlayGetRandomBoxTrailEffect(() => PlayerContext.AddRandomBox());
+        }
+
+        // 미션 동물 인형 획득: 울음소리 + ally 트레일 연출 후 ActorBattleSystem에 ally로 합류시킨다.
+        private void OnAllyDollCollected(Actor actor)
+        {
             // 뽑은 동물의 울음소리를 재생한다. (actor.json의 animalKey별 sound 필드 매핑)
-            if (actor != null && actor.Data != null)
-                AudioManager.Instance.PlaySfx(GameActorData.GetSound(actor.Data.animalKey));
+            if (actor != null && actor.Context.Data != null)
+                AudioManager.Instance.PlaySfx(GameActorData.GetSound(actor.Context.Data.animalKey));
 
             // 울음소리에 뒤이어 획득 효과음을 재생한다
             AudioManager.Instance.PlaySfxDelayed(AllyUpSoundName, AllyUpSoundDelay);
 
             // 트레일로 날릴 아이콘 프리팹 경로 (Actor가 없으면 null - PlayTrail이 로그 후 콜백만 보장)
-            string iconPath = actor != null ? actor.Data.GetIconPrefabFullPath() : null;
+            string iconPath = actor != null ? actor.Context.Data.GetIconPrefabFullPath() : null;
 
-            // 카운트는 즉시 올리지 않고, 트레일이 도착하는 시점(onArrive)에 증가시킨다.
-            if (GameQuestManager.Instance.IsMissionTarget(dollName))
-            {
-                // 미션 대상: 미션 아이콘 자리로 날아가 도착하면 미션 카운트 증가
-                UIHud.CreateOrGet().GetDollTrailHud.PlayGetDollTrail(iconPath,
-                    () => GameQuestManager.Instance.AddMission());
-            }
-            else
-            {
-                // 미션 무관: 랜덤박스 자리로 날아가 도착하면 진행 게이지 누적 (1이 차면 박스 +1)
-                UIHud.CreateOrGet().GetDollTrailHud.PlayGetRandomBoxTrail(iconPath,
-                    () => PlayerContext.AddRandomBoxProgressValue(_randomBoxProgressPerDoll));
-            }
+            // Actor는 호출 직후 파괴되므로, 트레일 도착(나중 시점) 콜백에서 쓸 ActorData(hp/attackPower)를
+            // animalKey 기준으로 미리 조회해 캡처해둔다. (actor.Context.Data는 DollData - 정체성/경로 정보일 뿐 다른 타입)
+            ActorData actorData = actor != null ? GameActorData.Get(actor.Context.Data.animalKey) : null;
 
-            // Actor 루트를 통째로 파괴한다. (자식 콜라이더만 남지 않도록)
-            Destroy(actor != null ? actor.gameObject : dollCollider.gameObject);
+            UIHud hud = UIHud.CreateOrGet();
+            Transform trailTarget = hud.AllyStackActors != null ? hud.AllyStackActors.transform : null;
+
+            hud.GetDollTrailHud.PlayGetDollTrail(iconPath, trailTarget, () =>
+            {
+                if (ActorBattleSystem.TryGetSetInstance(out ActorBattleSystem battleSystem))
+                    battleSystem.AddAllyActor(actorData);
+            });
         }
     }
 }

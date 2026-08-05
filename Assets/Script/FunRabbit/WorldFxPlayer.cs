@@ -18,6 +18,9 @@ namespace FunRabbit
         private readonly List<Tween> _activeTweens = new List<Tween>();
 
         // prefabName 프리팹을 월드 위치에 1회 재생한다. 재생이 끝나면 자동으로 풀에 반환된다.
+        // (TransparentFX 레이어 오브젝트를 다른 무엇에도 가리지 않고 항상 최상단에 보이게 하는 처리는
+        // 머터리얼로는 불가능해 - Standard 셰이더가 _ZTest를 프로퍼티로 노출하지 않음 - bossCamera의
+        // 카메라 스택(Stage0.unity의 bossCameraFxOverlay 오버레이 카메라, Clear Depth)이 담당한다)
         public void Play(string prefabName, Vector3 worldPos, float scale = 1f)
         {
             if (string.IsNullOrEmpty(prefabName))

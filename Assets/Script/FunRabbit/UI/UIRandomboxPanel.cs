@@ -226,7 +226,7 @@ namespace FunRabbit
         // 보상 팝업 표시 + 콜백 연결 (OK: 보상 지급 / 닫힘: 패널 초기화)
         private void ShowRewardPopup(ItemData item)
         {
-            Sprite icon = Resources.Load<Sprite>(item.icon_path);
+            Sprite icon = SpriteCache.Get(item.icon_path);
 
             UIRewardPopup popup = UIRewardPopup.CreateOrGet();
             popup.Set(icon, item.name, () => GrantReward(item, popup), item.itemDescription);
@@ -243,6 +243,14 @@ namespace FunRabbit
             if (item.itemType == "reset")
             {
                 PlayerContext.AddResetItemCount(item.count);
+                return;
+            }
+
+            if (item.itemType == "apUp" || item.itemType == "deffenseUp")
+            {
+                BuffType buffType = item.itemType == "apUp" ? BuffType.AttackPowerUp : BuffType.DefensePowerUp;
+                if (UIHud.Instance != null && UIHud.Instance.BuffManager != null)
+                    UIHud.Instance.BuffManager.AddBuff(buffType, item.count);
                 return;
             }
 

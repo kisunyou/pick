@@ -21,7 +21,7 @@ namespace FunRabbit
         const float TOUCH_RAY_DISTANCE = 500f; // 인형 터치 레이캐스트 최대 거리
 
         // animalKey -> 생성된 도감 인형 (중복 생성 방지)
-        private readonly Dictionary<string, Actor> _spawnedDolls = new Dictionary<string, Actor>();
+        private readonly Dictionary<string, CollectionActor> _spawnedDolls = new Dictionary<string, CollectionActor>();
 
         // 배회 가능 영역 (Plane 렌더러들의 월드 bounds) - Actor들과 공유
         private readonly List<Bounds> _roamAreas = new List<Bounds>();
@@ -98,10 +98,10 @@ namespace FunRabbit
                 return;
 
             Actor actor = hit.collider.GetComponentInParent<Actor>();
-            if (actor == null || !actor.IsCollectionMode || actor.Data == null)
+            if (actor == null || !actor.IsCollectionMode || actor.Context.Data == null)
                 return;
 
-            AudioManager.Instance.PlaySfx(GameActorData.GetSound(actor.Data.animalKey));
+            AudioManager.Instance.PlaySfx(GameActorData.GetSound(actor.Context.Data.animalKey));
 
             // 탭한 인형이 화면 중앙에 오도록 카메라를 부드럽게 이동
             if (GameCameraManager.Instance.ActiveGameCamera is CollectionCamera collectionCamera)
@@ -126,7 +126,7 @@ namespace FunRabbit
         {
             foreach (var pair in _spawnedDolls)
             {
-                Actor actor = pair.Value;
+                CollectionActor actor = pair.Value;
                 if (actor == null)
                     continue;
 
@@ -141,9 +141,9 @@ namespace FunRabbit
         }
 
         // 테이블의 collectionScale과 다르면 스케일을 갱신하고 바닥 접지를 다시 잡는다
-        private void ApplyCollectionScale(Actor actor)
+        private void ApplyCollectionScale(CollectionActor actor)
         {
-            string animalKey = actor.Data != null ? actor.Data.animalKey : null;
+            string animalKey = actor.Context.Data != null ? actor.Context.Data.animalKey : null;
             Vector3 targetScale = Vector3.one * GameActorData.GetCollectionScale(animalKey);
 
             if (actor.transform.localScale == targetScale)
@@ -198,7 +198,8 @@ namespace FunRabbit
             return true;
         }
 
-        // 획득한 스테이지(도감 패널과 동일 기준: stage <= CurrentStage)의 인형을 순서대로 생성한다.
+        // 획득한(이미 클리어한) 스테이지의 인형만 순서대로 생성한다.
+        // 현재 도전 중인 스테이지 자신은 아직 클리어 전이라 미포함 - UICollectionPanel/GameDollCreator.GetStageQuestPool과 동일 기준.
         private IEnumerator SpawnClearedStageDolls()
         {
             _isSpawning = true;
@@ -207,14 +208,14 @@ namespace FunRabbit
                 ? GameQuestManager.Instance.CurrentStage
                 : 1;
 
-            for (int stage = 1; stage <= currentStage; stage++)
+            for (int stage = 1; stage < currentStage; stage++)
             {
                 StageQuestData stageData = GameQuestData.GetStage(stage);
                 if (stageData == null || string.IsNullOrEmpty(stageData.animalKey))
                     continue;
 
                 // 이미 생성된 동물은 중복 생성하지 않는다
-                if (_spawnedDolls.TryGetValue(stageData.animalKey, out Actor existing) && existing != null)
+                if (_spawnedDolls.TryGetValue(stageData.animalKey, out CollectionActor existing) && existing != null)
                     continue;
 
                 yield return SpawnDoll(stageData);
@@ -246,15 +247,20 @@ namespace FunRabbit
             // (GroundToFloor보다 먼저 적용해야 스케일 반영된 bounds로 바닥 접지가 계산된다)
             doll.transform.localScale = Vector3.one * GameActorData.GetCollectionScale(stageData.animalKey);
 
-            Actor actor = doll.GetComponent<Actor>();
-            if (actor == null)
+            Actor baseActor = doll.GetComponent<Actor>();
+            if (baseActor == null)
             {
                 Debug.LogError($"[CollectionManager] Actor 컴포넌트 없음: {path}");
                 Destroy(doll);
                 yield break;
             }
 
-            actor.Data = stageData.Doll;
+            // 프리팹에 baked-in된 base Actor를 CollectionActor로 교체한다
+            // (Collection/Battle 모드가 동일 프리팹을 공유하므로, 타입 분기는 스폰 시점의 컴포넌트 교체로 처리)
+            DestroyImmediate(baseActor);
+            CollectionActor actor = doll.AddComponent<CollectionActor>();
+
+            actor.Context.Data = stageData.Doll;
             actor.SetupCollectionMode(_roamAreas);
 
             GroundToFloor(doll);
@@ -292,7 +298,7 @@ namespace FunRabbit
 
             foreach (var pair in _spawnedDolls)
             {
-                Actor other = pair.Value;
+                CollectionActor other = pair.Value;
                 if (other == null)
                     continue;
 

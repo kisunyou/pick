@@ -60,10 +60,23 @@ public class UIModelViewPanel : MonoBehaviour
     // 패널/카메라/모델은 고정한 채 이 RawImage만 움직여 슬라이드 연출에 사용한다.
     public RectTransform ImageRect => RawImage != null ? RawImage.rectTransform : null;
 
+    // RawImage(3D 렌더 결과) 색상을 지정한다. 미획득 인형을 검은 실루엣으로 표현하는 등에 사용.
+    public void SetImageColor(Color color)
+    {
+        if (RawImage != null)
+            RawImage.color = color;
+    }
+
     // 모델을 비동기로 로드한다. (control로 위임)
     public Awaitable LoadModel(string fullPath)
     {
         return _control.LoadModel(fullPath, modelLayer);
+    }
+
+    // 모델을 동기로 즉시 로드/표시한다. (control로 위임) - 연출 시작 전 로딩 지연이 보이면 안 되는 경우 사용.
+    public void LoadModelImmediate(string fullPath)
+    {
+        _control.LoadModelImmediate(fullPath, modelLayer);
     }
 
     void OnDestroy()
@@ -127,23 +140,9 @@ public class UIModelViewPanelControl
             token.ThrowIfCancellationRequested();
 
             if (request.asset is GameObject prefab)
-            {
-                // UIModelViewPanel.transform을 부모로 생성 후 로컬 좌표/회전을 0으로 초기화
-                _modelInstance = UnityEngine.Object.Instantiate(prefab, _parent, false);
-                _modelInstance.transform.localPosition = Vector3.zero;
-                _modelInstance.transform.localEulerAngles = new Vector3(0, 180, 0);
-
-                // Rigidbody가 있으면 물리(중력/충돌 등) 영향을 받지 않도록 kinematic 처리
-                DisablePhysics(_modelInstance);
-
-                // 전용 레이어가 지정된 경우 모델 전체를 해당 레이어로 옮긴다. (패널별 카메라 분리)
-                if (_modelLayer >= 0)
-                    SetLayerRecursively(_modelInstance, _modelLayer);
-            }
+                InstantiateModel(prefab);
             else
-            {
                 Debug.LogError($"[UIModelViewPanelControl] 모델 로드 실패: {fullPath}");
-            }
         }
         catch (OperationCanceledException)
         {
@@ -153,6 +152,55 @@ public class UIModelViewPanelControl
         {
             Debug.LogError($"[UIModelViewPanelControl] 모델 로드 중 예외: {fullPath}\n{e}");
         }
+    }
+
+    // fullPath의 프리팹을 동기(Resources.Load)로 즉시 로드해 표시한다. 연출 시작 전 모든 모델을
+    // 미리 준비해둬야 할 때(예: UIMissionClearPanel) 로딩 지연 없이 바로 인스턴스화하기 위해 사용한다.
+    // Resources.Load는 이미 로드된 에셋에 대해 캐시를 즉시 반환하므로, Preload로 미리 데워둔 경로를
+    // 넘기면 사실상 지연이 없다.
+    public void LoadModelImmediate(string fullPath, int layer = -1)
+    {
+        _modelLayer = layer;
+
+        if (string.IsNullOrEmpty(fullPath))
+            return;
+
+        CancelLoad();
+        DestroyModel();
+
+        GameObject prefab = Resources.Load<GameObject>(fullPath);
+        if (prefab == null)
+        {
+            Debug.LogError($"[UIModelViewPanelControl] 모델 로드 실패: {fullPath}");
+            return;
+        }
+
+        InstantiateModel(prefab);
+    }
+
+    // fullPath의 프리팹 에셋을 미리 Resources 캐시에 올려둔다(표시는 하지 않음).
+    // 여러 모델을 나중에 LoadModelImmediate로 순간 전환해야 할 때 미리 호출해두면 그 시점의 로딩 지연이 없다.
+    public static void Preload(string fullPath)
+    {
+        if (!string.IsNullOrEmpty(fullPath))
+            Resources.Load<GameObject>(fullPath);
+    }
+
+    // 로드된 prefab을 이 패널의 transform 아래에 생성하고 위치/물리/레이어를 정리한다.
+    // (LoadModel의 비동기 경로와 LoadModelImmediate의 동기 경로가 공통으로 사용)
+    private void InstantiateModel(GameObject prefab)
+    {
+        // UIModelViewPanel.transform을 부모로 생성 후 로컬 좌표/회전을 0으로 초기화
+        _modelInstance = UnityEngine.Object.Instantiate(prefab, _parent, false);
+        _modelInstance.transform.localPosition = Vector3.zero;
+        _modelInstance.transform.localEulerAngles = new Vector3(0, 180, 0);
+
+        // Rigidbody가 있으면 물리(중력/충돌 등) 영향을 받지 않도록 kinematic 처리
+        DisablePhysics(_modelInstance);
+
+        // 전용 레이어가 지정된 경우 모델 전체를 해당 레이어로 옮긴다. (패널별 카메라 분리)
+        if (_modelLayer >= 0)
+            SetLayerRecursively(_modelInstance, _modelLayer);
     }
 
     // 오브젝트와 모든 자식의 레이어를 재귀적으로 설정한다.

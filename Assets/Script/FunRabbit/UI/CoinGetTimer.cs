@@ -6,13 +6,13 @@ using DG.Tweening;
 
 namespace FunRabbit
 {
-    // 5분 카운트다운 → "받기" → 버튼 클릭 시 코인 지급 후 다시 5분 카운트다운을 반복하는 컨트롤.
+    // 10분 카운트다운 → "받기" → 버튼 클릭 시 코인 지급 후 다시 10분 카운트다운을 반복하는 컨트롤.
     // 표시(coinTimerText)와 입력(getCoinTimerButton)은 UIHud의 것을 사용하고,
     // 코루틴 구동만 UIHud(MonoBehaviour)에 위임한다.
     // 코인 비행 연출(도착 분할 지급 포함)은 UIBottomBar가 담당한다 - 여기서는 출발점만 넘긴다.
     public class CoinGetTimer
     {
-        private const float Duration = 300f;        // 타이머 길이(초) = 5분
+        private const float Duration = 600f;        // 타이머 길이(초) = 10분
         private const long RewardCoinAmount = 1000;  // "받기" 시 지급할 코인
         private const string ClaimLabel = "Get!";   // 0:00 도달 후 표시할 문구
         private const string KeyEndTime = "CoinTimerEndTimeUtc"; // 종료 목표 시각(UTC ticks) 저장 키

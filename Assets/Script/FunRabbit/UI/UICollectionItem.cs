@@ -34,9 +34,10 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
             titleName.color = c;
         }
 
+        // 미획득 인형은 썸네일을 검은 실루엣으로 표현한다 (색상을 검은색으로, 알파는 그대로 유지).
         if (thumbnailIcon != null)
         {
-            Color c = thumbnailIcon.color;
+            Color c = active ? Color.white : Color.black;
             c.a = alpha;
             thumbnailIcon.color = c;
         }
@@ -80,7 +81,7 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
 
         var popup = UICollectionDetailPopup.CreateOrGet();
         if (popup != null)
-            popup.SetData(_title, _modelFullPath);
+            popup.SetData(_title, _modelFullPath, _active);
     }
 
     private async Awaitable LoadThumbnailAsync(string fullPath, CancellationToken token)

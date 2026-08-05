@@ -49,6 +49,7 @@ namespace FunRabbit
                 bool[] actives = new bool[questDataList.stages.Count];
 
                 // 현재 스테이지보다 낮은(이미 클리어한) 스테이지만 획득(active) 처리
+                // (현재 도전 중인 스테이지 자신은 아직 클리어 전이라 미포함 - GameDollCreator.GetStageQuestPool과 동일 기준)
                 int currentStage = GameQuestManager.IsCheckInstance()
                     ? GameQuestManager.Instance.CurrentStage
                     : 1;
@@ -59,7 +60,7 @@ namespace FunRabbit
                     titles[i] = stageData.animalKey;
                     fullPaths[i] = stageData.Doll.GetIconFullPath();
                     modelPaths[i] = stageData.Doll.GetModelPrefabFullPath();
-                    actives[i] = stageData.stage <= currentStage;
+                    actives[i] = stageData.stage < currentStage;
                 }
 
                 view.SetCollectionItems(titles, fullPaths, modelPaths, actives);

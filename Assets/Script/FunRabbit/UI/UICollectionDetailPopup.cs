@@ -21,14 +21,17 @@ namespace FunRabbit
                 closeButton.onClick.AddListener(Close);
         }
 
-        // 타이틀 설정 + 모델 비동기 로드
-        public void SetData(string title, string modelFullPath)
+        // 타이틀 설정 + 모델 비동기 로드. active가 false(미획득)면 모델 렌더 이미지를 검은 실루엣으로 표현한다.
+        public void SetData(string title, string modelFullPath, bool active = true)
         {
             if (titleText != null)
                 titleText.text = title;
 
             if (uIModelViewPanel != null)
+            {
+                uIModelViewPanel.SetImageColor(active ? Color.white : Color.black);
                 _ = uIModelViewPanel.LoadModel(modelFullPath);
+            }
         }
     }
 }
