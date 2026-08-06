@@ -223,7 +223,8 @@ namespace FunRabbit
                     ? LayerSortOrders[layer]
                     : 0;
 
-                ConfigureCanvasScaler(layerGo.AddComponent<CanvasScaler>());
+                // CanvasScaler는 최상단 루트 캔버스(SetupRootCanvas) 하나만 갖는다 - 하위 레이어 캔버스는
+                // overrideSorting만 쓰고 스케일은 루트에서 그대로 상속받으므로 중복 계산이 불필요하다.
 
                 CanvasGroup canvasGroup = layerGo.AddComponent<CanvasGroup>();
                 canvasGroup.interactable = true;

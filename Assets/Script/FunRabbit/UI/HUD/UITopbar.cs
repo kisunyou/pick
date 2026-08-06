@@ -45,7 +45,7 @@ namespace FunRabbit
 
                 case GameStatus.COLLECTION:
                     topbarBack.SetActive(true);
-                    topbarTitle.text = "Collection";
+                    topbarTitle.text = LanguageManager.Instance.Get("topbar_collection_title");
                     break;
             }
         }

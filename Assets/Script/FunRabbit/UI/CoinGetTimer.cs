@@ -14,7 +14,7 @@ namespace FunRabbit
     {
         private const float Duration = 600f;        // 타이머 길이(초) = 10분
         private const long RewardCoinAmount = 1000;  // "받기" 시 지급할 코인
-        private const string ClaimLabel = "Get!";   // 0:00 도달 후 표시할 문구
+        private const string ClaimLabelKey = "coin_timer_get"; // 0:00 도달 후 표시할 문구 (LanguageManager 키)
         private const string KeyEndTime = "CoinTimerEndTimeUtc"; // 종료 목표 시각(UTC ticks) 저장 키
 
         // "받기" 가능 상태 텍스트 펄스 연출 설정
@@ -149,7 +149,7 @@ namespace FunRabbit
             _claimable = true;
 
             if (_timerText != null)
-                _timerText.text = ClaimLabel;
+                _timerText.text = LanguageManager.Instance.Get(ClaimLabelKey);
 
             SetButtonInteractable(true); // "받기" 상태에서 버튼 활성화
             StartClaimTextPulse();       // "받기" 텍스트 강조 펄스 시작

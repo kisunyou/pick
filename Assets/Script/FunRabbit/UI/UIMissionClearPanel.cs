@@ -17,9 +17,9 @@ namespace FunRabbit
         [SerializeField] Button closeButton;
         [SerializeField] TextMeshProUGUI titleText;
 
-        [Header("Title 텍스트")]
-        [SerializeField] string clearedTitle = "Clear Boss";
-        [SerializeField] string newTitle = "Try New Boss";
+        [Header("Title 텍스트 (LanguageManager 키)")]
+        [SerializeField] string clearedTitleKey = "mission_clear_title";
+        [SerializeField] string newTitleKey = "mission_new_title";
         [SerializeField] float titleScaleFrom = 0.5f;     // 타이틀 등장 시작 스케일 배율(원래 크기로 팝)
         [SerializeField] float titleScaleDuration = 0.4f; // 타이틀 스케일 연출 시간(초)
 
@@ -162,7 +162,7 @@ namespace FunRabbit
                 newImg.anchoredPosition = new Vector2(dist, newImg.anchoredPosition.y);
 
             // 클리어 타이틀 등장 (스케일 팝)
-            ShowTitle(clearedTitle);
+            ShowTitle(LanguageManager.Instance.Get(clearedTitleKey));
 
             // 일시정지(timeScale 0)에서도 동작하도록 unscaled 타임 사용
             _seq = DOTween.Sequence().SetUpdate(true);
@@ -183,7 +183,7 @@ namespace FunRabbit
                 if (uiModelViewPanel != null)
                     uiModelViewPanel.gameObject.SetActive(false);
                 // 새 타이틀 등장 (스케일 팝)
-                ShowTitle(newTitle);
+                ShowTitle(LanguageManager.Instance.Get(newTitleKey));
             });
 
             // 새 RawImage: 화면 밖 오른쪽 → 중앙

@@ -496,7 +496,9 @@ namespace FunRabbit
             else if (GameMain.Instance.CurrentStatus == GameStatus.INGAME)
                 GameMain.Instance.SetGameStatus(GameStatus.LOBBY);
             else if(GameMain.Instance.CurrentStatus == GameStatus.LOBBY)
-                UIPopup.CreateOrGet().Set("Exit", "Are you sure you want to quit?", () =>
+                UIPopup.CreateOrGet().Set(
+                    LanguageManager.Instance.Get("popup_exit_title"),
+                    LanguageManager.Instance.Get("popup_exit_body"), () =>
                 {
 #if !UNITY_EDITOR
                     Application.Quit();

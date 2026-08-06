@@ -67,9 +67,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 3
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: c1482dbce654844b9ba1c753cbea5d80, type: 2}
-  m_sharedMaterial: {fileID: 7374927986402738804, guid: c1482dbce654844b9ba1c753cbea5d80,
-    type: 2}
+  m_fontAsset: {fileID: 11400000, guid: d3fe63decab9d7344b411afb6e84b208, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 7ff4968de3bf92345ac4e32c5e72d006, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -289,6 +288,7 @@ GameObject:
   - component: {fileID: 6945512587991253392}
   - component: {fileID: 8074066260492448916}
   - component: {fileID: 3373495856877707600}
+  - component: {fileID: 3919999877710003540}
   m_Layer: 5
   m_Name: titleText
   m_TagString: Untagged
@@ -345,9 +345,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Shop
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 50c12c23294124aa48490c44ac65a9e4, type: 2}
-  m_sharedMaterial: {fileID: 7746803525459343344, guid: 50c12c23294124aa48490c44ac65a9e4,
-    type: 2}
+  m_fontAsset: {fileID: 11400000, guid: d3fe63decab9d7344b411afb6e84b208, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 7ff4968de3bf92345ac4e32c5e72d006, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -483,9 +482,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 3
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: c1482dbce654844b9ba1c753cbea5d80, type: 2}
-  m_sharedMaterial: {fileID: 7374927986402738804, guid: c1482dbce654844b9ba1c753cbea5d80,
-    type: 2}
+  m_fontAsset: {fileID: 11400000, guid: d3fe63decab9d7344b411afb6e84b208, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 7ff4968de3bf92345ac4e32c5e72d006, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -697,9 +695,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 100
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: c1482dbce654844b9ba1c753cbea5d80, type: 2}
-  m_sharedMaterial: {fileID: 7374927986402738804, guid: c1482dbce654844b9ba1c753cbea5d80,
-    type: 2}
+  m_fontAsset: {fileID: 11400000, guid: d3fe63decab9d7344b411afb6e84b208, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 7ff4968de3bf92345ac4e32c5e72d006, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -799,6 +796,7 @@ GameObject:
   - component: {fileID: 2075715850156591647}
   - component: {fileID: 644359998213362089}
   - component: {fileID: 5710524487303236489}
+  - component: {fileID: 3728180148778287429}
   m_Layer: 5
   m_Name: titleText
   m_TagString: Untagged
@@ -855,9 +853,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: My Dolls
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 50c12c23294124aa48490c44ac65a9e4, type: 2}
-  m_sharedMaterial: {fileID: 7746803525459343344, guid: 50c12c23294124aa48490c44ac65a9e4,
-    type: 2}
+  m_fontAsset: {fileID: 11400000, guid: d3fe63decab9d7344b411afb6e84b208, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 7ff4968de3bf92345ac4e32c5e72d006, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1716,9 +1713,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 3
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: c1482dbce654844b9ba1c753cbea5d80, type: 2}
-  m_sharedMaterial: {fileID: 7374927986402738804, guid: c1482dbce654844b9ba1c753cbea5d80,
-    type: 2}
+  m_fontAsset: {fileID: 11400000, guid: d3fe63decab9d7344b411afb6e84b208, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 7ff4968de3bf92345ac4e32c5e72d006, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1798,6 +1794,7 @@ GameObject:
   - component: {fileID: 1142742880592541644}
   - component: {fileID: 2030203486944839576}
   - component: {fileID: 5522870776652013242}
+  - component: {fileID: 6525412433687304120}
   m_Layer: 5
   m_Name: titleText
   m_TagString: Untagged
@@ -1854,9 +1851,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Free
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 50c12c23294124aa48490c44ac65a9e4, type: 2}
-  m_sharedMaterial: {fileID: 7746803525459343344, guid: 50c12c23294124aa48490c44ac65a9e4,
-    type: 2}
+  m_fontAsset: {fileID: 11400000, guid: d3fe63decab9d7344b411afb6e84b208, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 7ff4968de3bf92345ac4e32c5e72d006, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -6829,6 +6825,7 @@ GameObject:
   - component: {fileID: 5412174623051034304}
   - component: {fileID: 5428533353087591817}
   - component: {fileID: 2768562754275963403}
+  - component: {fileID: 2895110181968037302}
   m_Layer: 5
   m_Name: titleText
   m_TagString: Untagged
@@ -6885,9 +6882,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Dollpedia
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 50c12c23294124aa48490c44ac65a9e4, type: 2}
-  m_sharedMaterial: {fileID: 7746803525459343344, guid: 50c12c23294124aa48490c44ac65a9e4,
-    type: 2}
+  m_fontAsset: {fileID: 11400000, guid: d3fe63decab9d7344b411afb6e84b208, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 7ff4968de3bf92345ac4e32c5e72d006, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -7294,9 +7290,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 3
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: c1482dbce654844b9ba1c753cbea5d80, type: 2}
-  m_sharedMaterial: {fileID: 7374927986402738804, guid: c1482dbce654844b9ba1c753cbea5d80,
-    type: 2}
+  m_fontAsset: {fileID: 11400000, guid: d3fe63decab9d7344b411afb6e84b208, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 7ff4968de3bf92345ac4e32c5e72d006, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -7954,3 +7949,55 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &3919999877710003540
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 636373015845205500}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de3a09cbbd16456ab967975c11c887a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  key: bottombar_shop
+--- !u!114 &3728180148778287429
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2875575479890239919}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de3a09cbbd16456ab967975c11c887a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  key: bottombar_my_dolls
+--- !u!114 &6525412433687304120
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5190383176626370964}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de3a09cbbd16456ab967975c11c887a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  key: bottombar_free
+--- !u!114 &2895110181968037302
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5490273694406965441}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de3a09cbbd16456ab967975c11c887a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  key: collection_panel_name

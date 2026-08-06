@@ -36,6 +36,10 @@ namespace FunRabbit
         {
             PlayerContext.Initialize();
 
+            // 다국어 문자열 매니저 - 다른 UI가 텍스트를 그리기 전에 가장 먼저 깨운다
+            // (저장된 언어가 없으면 OS 시스템 언어를 감지해 기본값으로 사용)
+            LanguageManager.MakeInstance();
+
             // UI2/Thumbnail 스프라이트를 미리 로드해둔다 (아이콘 표시 시마다 Resources.Load 하지 않도록)
             SpriteCache.Preload();
 
@@ -141,7 +145,10 @@ namespace FunRabbit
         // 1초 후 코인 비행 연출 + 지급 → 1초 후 팝업 자동 닫힘
         public void ShowWatchAdForCoinsPopup()
         {
-            UIPopup.CreateOrGet().Set("Watch Ad", $"Watch an ad to earn {WatchAdRewardCoinAmount} coins?", () =>
+            UIPopup.CreateOrGet().Set(
+                LanguageManager.Instance.Get("popup_watchad_title"),
+                LanguageManager.Instance.Get("popup_watchad_body", WatchAdRewardCoinAmount),
+                () =>
             {
                 // 리워드 광고 시청 시도(광고 요청) 시점 - 매회 기록
                 FireBaseAnalyticsManager.Instance.LogEvent("watch_ad_try");
@@ -156,7 +163,10 @@ namespace FunRabbit
             FireBaseAnalyticsManager.Instance.LogEvent("watch_ad_complete");
 
             UIPopup rewardPopup = UIPopup.CreateOrGet();
-            rewardPopup.Set("Reward", $"You received {coinAmount} coins!", null, showCoinIcon: true, showButtons: false);
+            rewardPopup.Set(
+                LanguageManager.Instance.Get("popup_reward_title"),
+                LanguageManager.Instance.Get("popup_reward_body", coinAmount),
+                null, showCoinIcon: true, showButtons: false);
 
             StartCoroutine(PlayCoinRewardSequence(rewardPopup, coinAmount));
         }

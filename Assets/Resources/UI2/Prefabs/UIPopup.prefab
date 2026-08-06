@@ -67,9 +67,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Under Maintenance
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 605433b68313d491a8ab88bc03a41651, type: 2}
-  m_sharedMaterial: {fileID: 2830636965969884548, guid: 605433b68313d491a8ab88bc03a41651,
-    type: 2}
+  m_fontAsset: {fileID: 11400000, guid: d3fe63decab9d7344b411afb6e84b208, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 7ff4968de3bf92345ac4e32c5e72d006, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -148,6 +147,7 @@ GameObject:
   - component: {fileID: 8166035754248505890}
   - component: {fileID: 2634003559668554840}
   - component: {fileID: 4802225248056488455}
+  - component: {fileID: 2635666088364667755}
   m_Layer: 5
   m_Name: Text_Ok
   m_TagString: Untagged
@@ -207,9 +207,8 @@ MonoBehaviour:
 
 '
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: c2f49fe8c22d94f9a9e6cd06ad490155, type: 2}
-  m_sharedMaterial: {fileID: 3074828514974314926, guid: c2f49fe8c22d94f9a9e6cd06ad490155,
-    type: 2}
+  m_fontAsset: {fileID: 11400000, guid: d3fe63decab9d7344b411afb6e84b208, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 7ff4968de3bf92345ac4e32c5e72d006, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -889,9 +888,8 @@ MonoBehaviour:
 
     Please check our announcment.'
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: c1482dbce654844b9ba1c753cbea5d80, type: 2}
-  m_sharedMaterial: {fileID: 7374927986402738804, guid: c1482dbce654844b9ba1c753cbea5d80,
-    type: 2}
+  m_fontAsset: {fileID: 11400000, guid: d3fe63decab9d7344b411afb6e84b208, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 7ff4968de3bf92345ac4e32c5e72d006, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1091,6 +1089,7 @@ GameObject:
   - component: {fileID: 1898177693076868794}
   - component: {fileID: 6733086240679037201}
   - component: {fileID: 1601718472046240021}
+  - component: {fileID: 3584336257323459711}
   m_Layer: 5
   m_Name: Text_Ok
   m_TagString: Untagged
@@ -1148,9 +1147,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Ok
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: c2f49fe8c22d94f9a9e6cd06ad490155, type: 2}
-  m_sharedMaterial: {fileID: 3074828514974314926, guid: c2f49fe8c22d94f9a9e6cd06ad490155,
-    type: 2}
+  m_fontAsset: {fileID: 11400000, guid: d3fe63decab9d7344b411afb6e84b208, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 7ff4968de3bf92345ac4e32c5e72d006, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1552,3 +1550,29 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &2635666088364667755
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 192717116484985595}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de3a09cbbd16456ab967975c11c887a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  key: button_cancel
+--- !u!114 &3584336257323459711
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4521032153407273718}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de3a09cbbd16456ab967975c11c887a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  key: button_ok

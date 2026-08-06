@@ -111,7 +111,7 @@ namespace FunRabbit
 
             while (true)
             {
-                _loadText.text = "Now Loading" + dots[index];
+                _loadText.text = LanguageManager.Instance.Get("loading_now_loading") + dots[index];
                 index = (index + 1) % dots.Length;
                 yield return new WaitForSeconds(0.5f);
             }
