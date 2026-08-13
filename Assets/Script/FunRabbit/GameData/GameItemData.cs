@@ -7,11 +7,12 @@ namespace FunRabbit
     public class ItemData
     {
         public int key;
-        public string name;
+        public string name;        // 아이템 이름의 stringData 키 (표시 시 LanguageManager.Get으로 변환)
         public string icon_path;   // JSON 키(icon_path)와 동일해야 매핑됨
         public int count;          // 지급 수량 (코인 아이템이면 코인 개수)
-        public string itemType;    // "coin", "reset" 등 아이템 종류
-        public string itemDescription; // 아이템 설명 (보상 팝업 등에 표시)
+        public string itemType;    // "coin", "reset", "allyActor" 등 아이템 종류
+        public string itemDescription; // 아이템 설명의 stringData 키 (표시 시 LanguageManager.Get으로 변환)
+        public string animalKey;   // itemType "allyActor" 전용 - 지급할 아군 액터 (actor.json의 animalKey). 다른 타입은 빈 값
     }
 
     [System.Serializable]

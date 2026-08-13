@@ -21,6 +21,16 @@ namespace FunRabbit
 
         private void Start()
         {
+            // 크레인 동작 중 UIManager.SetCanvasGroup(UILayer.Hud, false)로 HUD 레이어 전체의
+            // 상호작용이 잠기더라도, 코인 받기 타이머는 독립적으로 계속 동작(버튼 클릭 가능)해야 한다.
+            // 자체 CanvasGroup의 ignoreParentGroups로 부모(레이어 루트) 그룹의 잠금을 무시한다.
+            CanvasGroup selfGroup = GetComponent<CanvasGroup>();
+            if (selfGroup == null)
+                selfGroup = gameObject.AddComponent<CanvasGroup>();
+            selfGroup.ignoreParentGroups = true;
+            selfGroup.interactable = true;
+            selfGroup.blocksRaycasts = true;
+
             // 코인 받기 타이머 (5분 카운트다운 → "받기" → 클릭 시 코인 지급 후 재시작)
             // Resume: 재실행 시 저장된 상태 복원 (없으면 새로 시작)
             _coinGetTimer = new CoinGetTimer(this, coinTimerText, getCoinTimerButton,

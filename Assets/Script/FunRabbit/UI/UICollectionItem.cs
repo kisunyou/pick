@@ -17,7 +17,6 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
     // 선택(클릭) 시 사용할 데이터
     private string _title;
     private string _modelFullPath;
-    private bool _active;
 
     // active일 때 alpha 255(1.0), 비활성일 때 alpha 120(약 0.47)
     private const float ActiveAlpha = 255f / 255f;
@@ -34,20 +33,20 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
             titleName.color = c;
         }
 
-        // 미획득 인형은 썸네일을 검은 실루엣으로 표현한다 (색상을 검은색으로, 알파는 그대로 유지).
+        // 미획득(미클리어) 인형은 보스 버전 썸네일({animalKey}_boss)이 대신 표시되므로
+        // 검은 실루엣 처리 없이 알파만 낮춰 미획득 상태를 표현한다.
         if (thumbnailIcon != null)
         {
-            Color c = active ? Color.white : Color.black;
+            Color c = Color.white;
             c.a = alpha;
             thumbnailIcon.color = c;
         }
     }
 
     public void Set(string title, string fullPath, string modelFullPath, bool active)
-    {        
+    {
         _title = title;
         _modelFullPath = modelFullPath;
-        _active = active;
 
         if (titleName != null)
             titleName.text = title;
@@ -67,12 +66,9 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
         _ = LoadThumbnailAsync(fullPath, _loadCts.Token);
     }
 
-    // 클릭 시: 획득(active)한 아이템만 상세 팝업을 열고 모델을 로드한다.
+    // 클릭 시: 상세 팝업을 열고 모델을 로드한다. (미클리어 아이템은 보스 모델 경로가 전달돼 있음)
     public void OnPointerClick(PointerEventData eventData)
     {
-        //if (!_active)
-        //    return;
-
         if (string.IsNullOrEmpty(_modelFullPath))
         {
             Debug.LogWarning($"[UICollectionItem] 모델 경로가 비어있습니다: {_title}");
@@ -81,7 +77,7 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
 
         var popup = UICollectionDetailPopup.CreateOrGet();
         if (popup != null)
-            popup.SetData(_title, _modelFullPath, _active);
+            popup.SetData(_title, _modelFullPath);
     }
 
     private async Awaitable LoadThumbnailAsync(string fullPath, CancellationToken token)

@@ -10,7 +10,7 @@ namespace FunRabbit
         [SerializeField] float _randomBoxProgressPerDoll = 0.2f;
 
         // 인형 획득 시 인형 위치(3D)에 재생할 히트 버스트 이펙트 (Hit & Slashes 팩에서 독립시킨 사본)
-        const string HitEffectPrefabName = "FunRabbit/FX/hit-outer-1";
+        const string HitEffectPrefabName = "FX/hit-outer-1";
 
         // 인형 획득 시 울음소리에 뒤이어 재생할 효과음과 지연 시간
         const string AllyUpSoundName = "ally_up";
@@ -51,6 +51,9 @@ namespace FunRabbit
 
             // 인형이 들어간 3D 위치에 획득 히트 버스트 이펙트를 재생한다. (월드 공간, 풀링)
             WorldFxPlayer.Instance.Play(HitEffectPrefabName, dollCollider.transform.position);
+
+            // 획득 피드백 진동 (설정이 꺼져 있거나 모바일이 아니면 내부에서 무시)
+            VibrationManager.Play();
 
             if (actor is RandomBoxDollActor)
                 OnRandomBoxCollected();

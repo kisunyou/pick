@@ -25,6 +25,12 @@ namespace FunRabbit
             return GameCommon.GetModelPrefabFullPath(animalKey);
         }
 
+        // 보스 전용 모델 프리팹 전체 경로 (_mon_prefab)
+        public string GetBossModelPrefabFullPath()
+        {
+            return GameCommon.GetBossModelPrefabFullPath(animalKey);
+        }
+
         public string GetIconPrefabFullPath()
         {
             return GameCommon.GetIconPrefabFullPath(animalKey);
@@ -33,6 +39,18 @@ namespace FunRabbit
         public string GetIconFullPath()
         {
             return GameCommon.GetIconFullPath(animalKey);
+        }
+
+        // 보스 버전 썸네일 (미클리어 스테이지의 도감 표시용)
+        public string GetBossIconFullPath()
+        {
+            return GameCommon.GetBossIconFullPath(animalKey);
+        }
+
+        // 인형 표시 이름의 stringData 키 (표시 시점에 LanguageManager.Get으로 변환해서 사용)
+        public string GetNameStringKey()
+        {
+            return GameCommon.GetDollNameStringKey(animalKey);
         }
     }
 }

@@ -21,6 +21,7 @@ namespace FunRabbit
         [SerializeField] UIMenuButton collectionButton;
         [SerializeField] UIMenuButton collectionListButton;
         [SerializeField] UIMenuButton adButton;
+        [SerializeField] UIMenuButton settingButton;
         [SerializeField] RectTransform coinImage;  // 코인 비행 연출이 도착하는 코인 아이콘
         [SerializeField] RectTransform effectCoin; // 날아가는 코인 템플릿 (복제 원본, 런타임엔 숨김)
         [SerializeField] GameObject mainMenu;
@@ -34,6 +35,7 @@ namespace FunRabbit
         public UIMenuButton CollectionListButton => collectionListButton;
         public UIMenuButton ShopButton => shopButton;
         public UIMenuButton AdButton => adButton;
+        public UIMenuButton SettingButton => settingButton;
         public GameObject MainMenu => mainMenu;
 
         // 코인 표시 연출: 최초 셋팅은 즉시, 이후 변경은 매 프레임 10씩 목표값까지 카운팅.
@@ -272,6 +274,9 @@ namespace FunRabbit
             if (_bottomBar.AdButton != null)
                 _bottomBar.AdButton.SetButton(true, () => OnClickAdBtn());
 
+            if (_bottomBar.SettingButton != null)
+                _bottomBar.SettingButton.SetButton(true, () => OnClickSettingBtn());
+
             GameMain.SubscribeStatus(OnChangedGameStatus);
 
             UIManager.Instance.OnLayerOpened += OnLayerOpened;
@@ -333,6 +338,15 @@ namespace FunRabbit
         public void OnClickAdBtn()
         {
             GameMain.Instance.ShowWatchAdForCoinsPopup();
+        }
+
+        // 설정 패널(사운드/음악 볼륨 등)을 띄운다.
+        public void OnClickSettingBtn()
+        {
+            if (UISettingPanel.Get() != null)
+                return;
+
+            UISettingPanel.CreateOrGet();
         }
 
         public void OnClickCollectionListBtn()

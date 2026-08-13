@@ -13,7 +13,7 @@ namespace FunRabbit
     public class CoinGetTimer
     {
         private const float Duration = 600f;        // 타이머 길이(초) = 10분
-        private const long RewardCoinAmount = 1000;  // "받기" 시 지급할 코인
+        private const long RewardCoinAmount = 400;  // "받기" 시 지급할 코인
         private const string ClaimLabelKey = "coin_timer_get"; // 0:00 도달 후 표시할 문구 (LanguageManager 키)
         private const string KeyEndTime = "CoinTimerEndTimeUtc"; // 종료 목표 시각(UTC ticks) 저장 키
 
@@ -222,6 +222,22 @@ namespace FunRabbit
                 return false;
 
             endTimeUtc = new System.DateTime(ticks, System.DateTimeKind.Utc);
+            return true;
+        }
+
+        // 저장된 종료 목표 시각 기준 남은 초 (음수 = 이미 "받기" 가능 상태).
+        // 저장된 타이머가 없으면 false. 인스턴스 없이도 조회할 수 있도록 static -
+        // 백그라운드 진입 시 로컬 알림 예약(CoinRewardNotificationScheduler)이 사용한다.
+        public static bool TryGetRemainingSeconds(out double remainingSeconds)
+        {
+            remainingSeconds = 0;
+
+            string s = PlayerPrefs.GetString(KeyEndTime, "");
+            if (string.IsNullOrEmpty(s) || !long.TryParse(s, out long ticks))
+                return false;
+
+            var endTimeUtc = new System.DateTime(ticks, System.DateTimeKind.Utc);
+            remainingSeconds = (endTimeUtc - System.DateTime.UtcNow).TotalSeconds;
             return true;
         }
 

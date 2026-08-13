@@ -55,6 +55,17 @@ namespace FunRabbit
 
             SetCoinIconActive(showCoinIcon);
             SetButtonsActive(showButtons);
+
+            // 팝업은 재사용(Single)되므로, 이전 사용에서 꺼둔 확인 버튼을 기본 활성으로 되돌린다.
+            SetOkButtonInteractable(true);
+        }
+
+        // 확인 버튼 활성/비활성 (예: 하루 광고 시청 횟수 소진 시 비활성).
+        // 비활성이어도 취소/닫기/딤 배경으로 팝업은 닫을 수 있다.
+        public void SetOkButtonInteractable(bool interactable)
+        {
+            if (okButton != null)
+                okButton.interactable = interactable;
         }
 
         // 닫기/OK/Cancel 버튼 표시 여부. 딤 배경은 보여주기 연출을 위해 화면엔 계속 남기되,

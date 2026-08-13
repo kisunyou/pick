@@ -26,6 +26,14 @@ namespace FunRabbit
         private bool _isGrapRamping = false;
         private float _grapRampElapsed = 0f;
 
+        // ── 하강 얹힘(soft) 모드 ──────────────────────────────────
+        // 기존 하강은 매 스텝 vy를 0으로 리셋하고 힘을 재주입하는 "속도원" 방식이라,
+        // 인형이 밀어내도 다음 스텝에 다시 2.94 m/s로 내려꽂혀 더미를 짓누른다.
+        // 집게 중심 반경 내에 인형이 감지되면 속도 재주입을 멈추고 약한 힘만 가해,
+        // 접촉 솔버가 크레인을 실제로 밀어낼 수 있게 한다 → 집게가 더미 위에 얹힌다.
+        const float DOWN_SOFT_CHECK_RADIUS = 1.5f; // 인형 감지 반경 (잡힘 판정 holdCheckRadius와 동일 값)
+        const float DOWN_SOFT_FORCE_RATIO = 0.2f;  // 감지 시 하강력·가라앉기 속도 상한 배율 (기존 등속 대비)
+
         public Vector3 PivotPosition => _pivotRigidbody.position;
 
         // 시작(중간) 위치 - READY 상태에서 이동 목표
@@ -133,6 +141,32 @@ namespace FunRabbit
             }
 
             float downSpeed = GameMain.Instance.DownSpeed;
+
+            // 집게 중심 반경 내 인형 감지 → 얹힘(soft) 모드
+            Rigidbody center = _craneRigidbodys[CraneBodyType.CENTER_BODY];
+            bool nearDoll = center != null
+                && StageManager.IsAnyActorNear(center.position, DOWN_SOFT_CHECK_RADIUS);
+
+            if (nearDoll)
+            {
+                // 속도 재주입을 멈추고 (vy 리셋 없음 - 솔버의 밀어내기 허용),
+                // 매달린 하중·중력으로 인한 과속만 상한으로 막는다.
+                float softMaxDown = 9.81f * downSpeed * Time.fixedDeltaTime * DOWN_SOFT_FORCE_RATIO; // ≈0.59 m/s
+                Vector3 softVel = _pivotRigidbody.linearVelocity;
+                if (softVel.y < -softMaxDown)
+                {
+                    softVel.y = -softMaxDown;
+                    _pivotRigidbody.linearVelocity = softVel;
+                }
+
+                // 기존의 20% 힘만 가함 - 인형 더미가 버티면 그 위에 얹힌 채 멈춘다
+                _pivotRigidbody.AddForce(
+                    Vector3.up * -9.81f * downSpeed * DOWN_SOFT_FORCE_RATIO * _pivotRigidbody.mass,
+                    ForceMode.Force);
+                return;
+            }
+
+            // 자유 하강 (기존 방식): 매 스텝 vy 리셋 + 힘 재주입 = 등속 ≈2.94 m/s
             Vector3 vel = _pivotRigidbody.linearVelocity;
             vel.y = 0;
             _pivotRigidbody.linearVelocity = vel;

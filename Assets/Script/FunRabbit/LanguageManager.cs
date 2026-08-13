@@ -32,6 +32,14 @@ namespace FunRabbit
     // 앱 최초 실행 시 저장된 언어가 없으면 OS 시스템 언어를 기본값으로 사용한다.
     public class LanguageManager : Singleton<LanguageManager>
     {
+        // ── 테스트용 언어 강제 설정 ─────────────────────────────────
+        // useTestLanguage = true 이면 저장된 언어/OS 시스템 언어를 무시하고
+        // testLanguage 로 고정된다 (SetLanguage 로 바꾸려 해도 유지, PlayerPrefs 미저장).
+        // 테스트가 끝나면 useTestLanguage 를 false 로 되돌릴 것.
+        public static bool useTestLanguage = false;
+        public static LanguageType testLanguage = LanguageType.ENG;
+        // ──────────────────────────────────────────────────────────
+
         private const string PLAYER_PREFS_KEY = "LanguageType";
         private const string STRING_DATA_PATH = "Table/stringData";
 
@@ -59,6 +67,11 @@ namespace FunRabbit
             LoadStringData();
 
             LanguageType initialLanguage = LoadSavedLanguage() ?? SystemLanguageToLanguageType(Application.systemLanguage);
+            if (useTestLanguage)
+            {
+                initialLanguage = testLanguage;
+                Debug.LogWarning($"[LanguageManager] 테스트 언어 강제 적용: {testLanguage} (useTestLanguage=true)");
+            }
             SetLanguage(initialLanguage, save: false);
         }
 
@@ -110,6 +123,13 @@ namespace FunRabbit
         // 언어 변경 (설정 메뉴 등에서 사용자가 직접 바꿀 때 save=true로 호출)
         public void SetLanguage(LanguageType language, bool save = true)
         {
+            if (useTestLanguage && language != testLanguage)
+            {
+                Debug.LogWarning($"[LanguageManager] useTestLanguage=true — 언어 변경 요청({language}) 무시, {testLanguage} 유지.");
+                language = testLanguage;
+                save = false; // 테스트 강제 언어는 PlayerPrefs에 저장하지 않는다
+            }
+
             CurrentLanguage = language;
             if (save)
                 PlayerPrefs.SetString(PLAYER_PREFS_KEY, language.ToString());

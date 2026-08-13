@@ -63,6 +63,20 @@ namespace FunRabbit
                 SetBoss(GameActorData.Get(stageData.animalKey));
 
             RestoreAllyBattleState();
+
+            // 랜덤박스 패널이 열린 채 앱이 종료됐던 경우: 지급 대기 중인 아군 액터 보상을
+            // 트레일 연출 없이 바로 대기열에 넣는다. (평상시 지급은 UIRandomboxPanel이 패널 닫힘 시 처리)
+            GrantPendingAllyRewards();
+        }
+
+        // 지급 대기 중인 랜덤박스 아군 액터 보상을 모두 지급한다 (재시작 복원 전용).
+        private void GrantPendingAllyRewards()
+        {
+            foreach (PlayerContext.PendingAllyReward reward in PlayerContext.GetPendingAllyRewards())
+            {
+                PlayerContext.RemovePendingAllyReward(reward.animalKey, reward.count);
+                AddAllyActors(reward.animalKey, reward.count);
+            }
         }
 
         private void InitSlots()
@@ -144,6 +158,21 @@ namespace FunRabbit
                 return;
 
             EnqueuePendingAlly(actorData.animalKey);
+        }
+
+        // 랜덤박스 아군 액터 보상 지급: animalKey ally를 count마리 대기열에 넣는다.
+        // (패널 닫힘 트레일 도착 시 UIRandomboxPanelControl이, 재시작 복원은 GrantPendingAllyRewards가 호출)
+        public void AddAllyActors(string animalKey, int count)
+        {
+            ActorData actorData = GameActorData.Get(animalKey);
+            if (actorData == null)
+            {
+                Debug.LogError($"[ActorBattleSystem] AddAllyActors: 알 수 없는 animalKey {animalKey}");
+                return;
+            }
+
+            for (int i = 0; i < count; i++)
+                AddAllyActor(actorData);
         }
 
         private bool TryFindFreeSlot(out int slotIndex)

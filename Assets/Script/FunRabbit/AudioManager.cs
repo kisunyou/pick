@@ -13,6 +13,8 @@ namespace FunRabbit
         const string SoundResourceRoot = "Sound/";
         const string ReadyBgmName = "ready_bgm";
         const string PlayBgmName = "play_bgm";
+        const string SfxVolumePrefsKey = "SfxVolume";
+        const string BgmVolumePrefsKey = "BgmVolume";
 
         private AudioSource _bgmSource;
         private AudioSource _sfxSource;
@@ -21,6 +23,33 @@ namespace FunRabbit
         private string _currentLoopSfxName;
         private readonly Dictionary<string, AudioClip> _clipCache = new Dictionary<string, AudioClip>();
         private Crane _crane;
+        private float _sfxVolume = 1f;
+        private float _bgmVolume = 1f;
+
+        // 효과음 볼륨 (0~1). 변경 즉시 모든 SFX 소스에 반영되고 PlayerPrefs에 저장된다.
+        public float SfxVolume
+        {
+            get => _sfxVolume;
+            set
+            {
+                _sfxVolume = Mathf.Clamp01(value);
+                _sfxSource.volume = _sfxVolume;
+                _loopSfxSource.volume = _sfxVolume;
+                PlayerPrefs.SetFloat(SfxVolumePrefsKey, _sfxVolume);
+            }
+        }
+
+        // BGM 볼륨 (0~1). 변경 즉시 반영되고 PlayerPrefs에 저장된다.
+        public float BgmVolume
+        {
+            get => _bgmVolume;
+            set
+            {
+                _bgmVolume = Mathf.Clamp01(value);
+                _bgmSource.volume = _bgmVolume;
+                PlayerPrefs.SetFloat(BgmVolumePrefsKey, _bgmVolume);
+            }
+        }
 
         protected override void Awake()
         {
@@ -37,6 +66,13 @@ namespace FunRabbit
             _loopSfxSource = gameObject.AddComponent<AudioSource>();
             _loopSfxSource.loop = true;
             _loopSfxSource.playOnAwake = false;
+
+            // 저장된 볼륨 설정 로드 (없으면 1)
+            _sfxVolume = Mathf.Clamp01(PlayerPrefs.GetFloat(SfxVolumePrefsKey, 1f));
+            _bgmVolume = Mathf.Clamp01(PlayerPrefs.GetFloat(BgmVolumePrefsKey, 1f));
+            _sfxSource.volume = _sfxVolume;
+            _loopSfxSource.volume = _sfxVolume;
+            _bgmSource.volume = _bgmVolume;
         }
 
         private void Start()
@@ -146,6 +182,7 @@ namespace FunRabbit
             source.loop = false;
             source.playOnAwake = false;
             source.pitch = pitch;
+            source.volume = _sfxVolume;
             source.clip = clip;
             source.Play();
             Destroy(source, clip.length / Mathf.Max(0.01f, pitch) + 0.1f);

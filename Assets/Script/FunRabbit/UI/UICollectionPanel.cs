@@ -57,10 +57,17 @@ namespace FunRabbit
                 for (int i = 0; i < questDataList.stages.Count; i++)
                 {
                     var stageData = questDataList.stages[i];
-                    titles[i] = stageData.animalKey;
-                    fullPaths[i] = stageData.Doll.GetIconFullPath();
-                    modelPaths[i] = stageData.Doll.GetModelPrefabFullPath();
+                    // animalKey 원문 대신 stringData의 다국어 이름으로 표시 (상세 팝업 타이틀에도 그대로 전달됨)
+                    titles[i] = LanguageManager.Instance.Get(stageData.Doll.GetNameStringKey());
                     actives[i] = stageData.stage < currentStage;
+                    // 클리어(획득)한 스테이지는 일반 인형, 미클리어 스테이지는 보스 버전을 보여준다
+                    // (썸네일 = _boss 아이콘, 상세 팝업 3D 모델 = _mon_prefab 보스 프리팹)
+                    fullPaths[i] = actives[i]
+                        ? stageData.Doll.GetIconFullPath()
+                        : stageData.Doll.GetBossIconFullPath();
+                    modelPaths[i] = actives[i]
+                        ? stageData.Doll.GetModelPrefabFullPath()
+                        : stageData.Doll.GetBossModelPrefabFullPath();
                 }
 
                 view.SetCollectionItems(titles, fullPaths, modelPaths, actives);

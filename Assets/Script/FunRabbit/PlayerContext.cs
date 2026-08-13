@@ -194,5 +194,106 @@ namespace FunRabbit
         {
             AddItemAmount(RESET_ITEM_KEY, amount);
         }
+
+        // ===== 랜덤박스 아군 액터 보상 (지급 대기) =====
+        // 랜덤박스에서 뽑은 아군 액터 아이템은 보상 팝업 확인 시점에 여기 쌓이고,
+        // 랜덤박스 패널이 닫힐 때 트레일 연출과 함께 지급된다. 패널이 열린 채 앱이 종료되면
+        // 재시작 시 ActorBattleSystem이 연출 없이 바로 지급한다.
+
+        public struct PendingAllyReward
+        {
+            public string animalKey;
+            public int count;
+        }
+
+        private const string KEY_PENDING_ALLY_REWARDS = "PendingAllyRewards";
+        private const char PENDING_ALLY_ENTRY_DELIMITER = ',';
+        private const char PENDING_ALLY_FIELD_DELIMITER = ':';
+
+        public static void AddPendingAllyReward(string animalKey, int count)
+        {
+            if (string.IsNullOrEmpty(animalKey) || count <= 0)
+                return;
+
+            string saved = PlayerPrefs.GetString(KEY_PENDING_ALLY_REWARDS, string.Empty);
+            string entry = $"{animalKey}{PENDING_ALLY_FIELD_DELIMITER}{count}";
+            saved = string.IsNullOrEmpty(saved) ? entry : saved + PENDING_ALLY_ENTRY_DELIMITER + entry;
+
+            PlayerPrefs.SetString(KEY_PENDING_ALLY_REWARDS, saved);
+            PlayerPrefs.Save();
+        }
+
+        public static List<PendingAllyReward> GetPendingAllyRewards()
+        {
+            List<PendingAllyReward> rewards = new List<PendingAllyReward>();
+
+            string saved = PlayerPrefs.GetString(KEY_PENDING_ALLY_REWARDS, string.Empty);
+            if (string.IsNullOrEmpty(saved))
+                return rewards;
+
+            foreach (string entry in saved.Split(PENDING_ALLY_ENTRY_DELIMITER))
+            {
+                string[] fields = entry.Split(PENDING_ALLY_FIELD_DELIMITER);
+                if (fields.Length != 2 || !int.TryParse(fields[1], out int count))
+                    continue;
+
+                rewards.Add(new PendingAllyReward { animalKey = fields[0], count = count });
+            }
+
+            return rewards;
+        }
+
+        // 지급이 끝난 항목을 목록에서 제거한다 (같은 내용이 여러 개면 첫 항목만).
+        public static void RemovePendingAllyReward(string animalKey, int count)
+        {
+            List<PendingAllyReward> rewards = GetPendingAllyRewards();
+            int index = rewards.FindIndex(r => r.animalKey == animalKey && r.count == count);
+            if (index < 0)
+                return;
+
+            rewards.RemoveAt(index);
+
+            List<string> entries = new List<string>(rewards.Count);
+            foreach (PendingAllyReward reward in rewards)
+                entries.Add($"{reward.animalKey}{PENDING_ALLY_FIELD_DELIMITER}{reward.count}");
+
+            PlayerPrefs.SetString(KEY_PENDING_ALLY_REWARDS, string.Join(PENDING_ALLY_ENTRY_DELIMITER.ToString(), entries));
+            PlayerPrefs.Save();
+        }
+
+        // ===== 하루 광고 시청 횟수 제한 =====
+        // 날짜(로컬 자정 기준)가 바뀌면 자동으로 0부터 다시 시작한다.
+        // 차감은 보상 지급 시점(광고 끝까지 시청)에만 한다 - 중도 이탈/로드 실패는 소모 안 됨.
+
+        public const int WATCH_AD_DAILY_LIMIT = 10;
+
+        private const string KEY_WATCH_AD_DATE = "WatchAdDate";
+        private const string KEY_WATCH_AD_COUNT = "WatchAdCount";
+
+        private static string TodayString() => DateTime.Now.ToString("yyyyMMdd");
+
+        // 오늘 시청한 광고 횟수. 저장된 날짜가 오늘이 아니면 0 (자동 리셋).
+        public static int GetTodayWatchAdCount()
+        {
+            if (PlayerPrefs.GetString(KEY_WATCH_AD_DATE, string.Empty) != TodayString())
+                return 0;
+
+            return PlayerPrefs.GetInt(KEY_WATCH_AD_COUNT, 0);
+        }
+
+        // 오늘 남은 광고 시청 가능 횟수 (0 이상)
+        public static int GetRemainingWatchAdCount()
+        {
+            return Mathf.Max(0, WATCH_AD_DAILY_LIMIT - GetTodayWatchAdCount());
+        }
+
+        // 광고 시청 1회 기록 (보상 지급 시점에 호출)
+        public static void AddWatchAdCount()
+        {
+            int count = GetTodayWatchAdCount() + 1; // 날짜가 바뀌었으면 0+1부터
+            PlayerPrefs.SetString(KEY_WATCH_AD_DATE, TodayString());
+            PlayerPrefs.SetInt(KEY_WATCH_AD_COUNT, count);
+            PlayerPrefs.Save();
+        }
     }
 }

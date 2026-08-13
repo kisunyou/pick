@@ -99,7 +99,7 @@ namespace FunRabbit
             resetButton.gameObject.SetActive(isActive);
         }
 
-        // 리셋 아이템 보유 개수를 표시한다. 0개면 resetCount 오브젝트를 숨긴다.
+        // 사용 가능한 리셋 횟수를 표시한다 (아이템 보유 수 + 인형 수 조건 무료 리셋). 0이면 resetCount 오브젝트를 숨긴다.
         public void SetResetCountText(int count)
         {
             if (resetCountText != null)
@@ -379,29 +379,31 @@ namespace FunRabbit
             _hud = null;
         }
 
-        // 스테이지 인형(Actor) 수 변경 시: 7개 이하이면 resetButton 활성화, 초과면 비활성화 (리셋 아이템 보유 조건과 별개로 갱신)
+        // 스테이지 인형(Actor) 수 변경 시: ResetButtonMaxActorCount 이하이면 resetButton 활성화, 초과면 비활성화 (리셋 아이템 보유 조건과 별개로 갱신)
         private void OnChangedActorCount(int count)
         {
             _actorCount = count;
             RefreshResetButtonActive();
         }
 
-        // 리셋 아이템 보유 수 변경 시: 카운트 텍스트 갱신 + resetButton 활성 조건 재평가
+        // 리셋 아이템 보유 수 변경 시: resetButton 활성 조건 + 카운트 표시 재평가
         private void OnChangedResetItemCount(long count)
         {
             _resetItemCount = (int)count;
-
-            if (_hud != null)
-                _hud.SetResetCountText(_resetItemCount);
-
             RefreshResetButtonActive();
         }
 
-        // 인형 수 조건 OR 리셋 아이템 보유 조건 중 하나라도 만족하면 resetButton 활성화
+        // 인형 수 조건 OR 리셋 아이템 보유 조건 중 하나라도 만족하면 resetButton 활성화.
+        // 카운트 배지는 아이템 보유 수에 인형 수 조건으로 열리는 리셋 1회를 더해 표시한다.
         private void RefreshResetButtonActive()
         {
-            if (_hud != null)
-                _hud.SetActiveResetButton(_actorCount <= ResetButtonMaxActorCount || _resetItemCount > 0);
+            if (_hud == null)
+                return;
+
+            bool resetByActorCount = _actorCount <= ResetButtonMaxActorCount;
+
+            _hud.SetActiveResetButton(resetByActorCount || _resetItemCount > 0);
+            _hud.SetResetCountText(_resetItemCount + (resetByActorCount ? 1 : 0));
         }
 
         // 게임 상태 변경 시 HUD 갱신

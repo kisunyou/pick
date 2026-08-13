@@ -111,6 +111,15 @@ namespace FunRabbit
             return 1f;
         }
 
+        // 명시적 닫기(closeButton -> Close)에만 호출된다. 지급 대기 중인 아군 액터 보상을
+        // 트레일 연출과 함께 지급한다. (앱 종료로 파괴될 때는 호출되지 않으므로
+        // 남은 보상은 재시작 시 ActorBattleSystem이 연출 없이 지급한다)
+        public override void OnClose()
+        {
+            base.OnClose();
+            Control.GrantPendingAllyRewardsWithTrail();
+        }
+
         protected override void OnDestroy()
         {
             Control.Deinitialize();
@@ -202,28 +211,69 @@ namespace FunRabbit
         }
 
         // Probability 가중치로 랜덤박스 하나를 추첨한다.
+        // 아군 액터 아이템은 현재까지 클리어한 스테이지의 액터만 추첨 대상에 포함한다.
         private RandomBoxData PickRandomBox()
         {
             List<RandomBoxData> boxes = GameRandomBoxData.GetAll();
             if (boxes == null || boxes.Count == 0)
                 return null;
 
-            int total = 0;
+            List<RandomBoxData> candidates = new List<RandomBoxData>(boxes.Count);
             foreach (var b in boxes)
+            {
+                if (IsBoxAvailable(b))
+                    candidates.Add(b);
+            }
+
+            if (candidates.Count == 0)
+                return null;
+
+            int total = 0;
+            foreach (var b in candidates)
                 total += Mathf.Max(0, b.Probability);
 
             if (total <= 0)
-                return boxes[0];
+                return candidates[0];
 
             int r = Random.Range(0, total);
             int acc = 0;
-            foreach (var b in boxes)
+            foreach (var b in candidates)
             {
                 acc += Mathf.Max(0, b.Probability);
                 if (r < acc)
                     return b;
             }
-            return boxes[boxes.Count - 1];
+            return candidates[candidates.Count - 1];
+        }
+
+        // 아군 액터 아이템은 해당 액터의 스테이지를 클리어했을 때만 추첨할 수 있다. 그 외 아이템은 항상 가능.
+        private static bool IsBoxAvailable(RandomBoxData box)
+        {
+            ItemData item = GameItemData.Get(box.itemkey);
+            if (item == null)
+                return false;
+
+            if (item.itemType != "allyActor")
+                return true;
+
+            return IsActorStageCleared(item.animalKey);
+        }
+
+        // animalKey를 목표로 하는 스테이지가 현재 스테이지보다 앞(= 이미 클리어됨)인지
+        private static bool IsActorStageCleared(string animalKey)
+        {
+            List<StageQuestData> stages = GameQuestData.StageQuestDataList?.stages;
+            if (stages == null)
+                return false;
+
+            int currentStage = GameQuestManager.Instance.CurrentStage;
+            foreach (StageQuestData stage in stages)
+            {
+                if (stage.animalKey == animalKey)
+                    return stage.stage < currentStage;
+            }
+
+            return false;
         }
 
         // 보상 팝업 표시 + 콜백 연결 (OK: 보상 지급 / 닫힘: 패널 초기화)
@@ -231,9 +281,24 @@ namespace FunRabbit
         {
             Sprite icon = SpriteCache.Get(item.icon_path);
 
+            // item.json의 name/itemDescription 필드는 stringData 키 - 현재 언어 문자열로 변환해 표시
             UIRewardPopup popup = UIRewardPopup.CreateOrGet();
-            popup.Set(icon, item.name, () => GrantReward(item, popup), item.itemDescription);
+            popup.Set(icon,
+                GetItemText(item, item.name),
+                () => GrantReward(item, popup),
+                GetItemText(item, item.itemDescription));
             popup.OnClosed = ResetPanel;
+        }
+
+        // stringKey를 현재 언어 문자열로 변환한다.
+        // 아군 액터 아이템은 템플릿 문자열({0}=동물 이름, {1}=마리수)을 채워 반환한다.
+        private static string GetItemText(ItemData item, string stringKey)
+        {
+            if (item.itemType == "allyActor")
+                return LanguageManager.Instance.Get(stringKey,
+                    LanguageManager.Instance.Get($"doll_name_{item.animalKey}"), item.count);
+
+            return LanguageManager.Instance.Get(stringKey);
         }
 
         // 보상 지급: 아이템 수량을 itemType에 맞춰 PlayerContext에 반영한다.
@@ -246,6 +311,15 @@ namespace FunRabbit
             if (item.itemType == "reset")
             {
                 PlayerContext.AddResetItemCount(item.count);
+                return;
+            }
+
+            if (item.itemType == "allyActor")
+            {
+                // 즉시 합류시키지 않고 지급 대기 목록에 저장만 한다 - 패널이 닫힐 때
+                // GrantPendingAllyRewardsWithTrail이 트레일 연출과 함께 지급하고,
+                // 닫기 전에 앱이 종료되면 재시작 시 ActorBattleSystem이 연출 없이 지급한다.
+                PlayerContext.AddPendingAllyReward(item.animalKey, item.count);
                 return;
             }
 
@@ -262,6 +336,41 @@ namespace FunRabbit
                 UIBottomBar.Instance.PlayCoinGetEffect(startPoint, item.count);
             else
                 PlayerContext.AddCoinAmount(item.count);
+        }
+
+        // 패널이 닫힐 때(UIRandomboxPanel.OnClose): 지급 대기 중인 아군 액터 보상을
+        // 화면 가운데 -> ally 대기열(UIAllyStackActors)로 날아가는 트레일 연출과 함께 지급한다.
+        // 대기 목록 제거는 트레일 도착 시점에 하므로, 연출 도중 앱이 종료돼도
+        // 재시작 시 ActorBattleSystem이 남은 보상을 연출 없이 지급한다.
+        public void GrantPendingAllyRewardsWithTrail()
+        {
+            List<PlayerContext.PendingAllyReward> rewards = PlayerContext.GetPendingAllyRewards();
+            if (rewards.Count == 0)
+                return;
+
+            // HUD가 없으면 연출 불가 - 대기 목록에 그대로 남겨 재시작 지급 경로에 맡긴다
+            UIHud hud = UIHud.Instance;
+            if (hud == null || hud.GetDollTrailHud == null || hud.AllyStackActors == null)
+                return;
+
+            // 트레일 시작점 = 화면 가운데 (UIHud 루트는 풀스크린 스트레치)
+            RectTransform hudRect = (RectTransform)hud.transform;
+            Vector3 startPosition = hudRect.TransformPoint(hudRect.rect.center);
+            Vector3 targetPosition = hud.AllyStackActors.transform.position;
+
+            foreach (PlayerContext.PendingAllyReward reward in rewards)
+            {
+                hud.GetDollTrailHud.PlayTrail(
+                    startPosition,
+                    targetPosition,
+                    GameCommon.GetIconPrefabFullPath(reward.animalKey),
+                    () =>
+                    {
+                        PlayerContext.RemovePendingAllyReward(reward.animalKey, reward.count);
+                        if (ActorBattleSystem.TryGetSetInstance(out ActorBattleSystem battleSystem))
+                            battleSystem.AddAllyActors(reward.animalKey, reward.count);
+                    });
+            }
         }
 
         // 보상 팝업이 닫힐 때: 애니메이션을 재생 전 상태로 되돌리고 버튼/카운트 갱신
