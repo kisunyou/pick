@@ -469,19 +469,14 @@ namespace FunRabbit
         // 스테이지 클리어 시 호출되어 다음 스테이지의 인형 정보를 미션 클리어 패널로 표시
         private void OnStageClear(StageQuestData nextStageData)
         {
-            if (nextStageData == null)
-            {
-                // 마지막 스테이지 클리어 - 표시할 다음 인형이 없음
-                Debug.Log("[UIHudControl] 마지막 스테이지 클리어 - 미션 클리어 패널 생략");
-                return;
-            }
-
             // 이 시점의 CurrentStage는 아직 방금 클리어한 스테이지 (GoNextStage 호출 전)
             StageQuestData clearedStageData = GameQuestManager.Instance.GetCurrentStageData();
 
+            // 마지막 스테이지 클리어(nextStageData == null)면 newAnimalKey를 null로 넘겨 올클리어 연출을 재생한다
+            // (보스 → 일반 인형 변신 후, 다음 보스 등장 대신 ALL CLEAR 타이틀)
             var panel = UIMissionClearPanel.CreateOrGet();
             if (panel != null)
-                panel.SetData(clearedStageData?.animalKey, nextStageData.animalKey);
+                panel.SetData(clearedStageData?.animalKey, nextStageData?.animalKey);
         }
 
         public void OnClickStageEnterBtn()

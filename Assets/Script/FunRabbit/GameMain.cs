@@ -235,54 +235,55 @@ namespace FunRabbit
             rewardPopup.Close();
         }
 
-        //private void OnGUI()
-        //{
-        //    if (GUI.Button(new Rect(20f, 20f, 160f, 50f), "TEST"))
-        //    {
+        private void OnGUI()
+        {
+            if (GUI.Button(new Rect(20f, 20f, 160f, 50f), "TEST"))
+            {
 
-        //        //-- 테스트용 코드: 인형 획득 연출 및 전투 시스템에 추가
-        //        //ActorData actorData = GameActorData.Get("bear");
-        //        //DollData dollData = new DollData("bear");
+                PlayerContext.AddRandomBox();
+                //-- 테스트용 코드: 인형 획득 연출 및 전투 시스템에 추가
+                //ActorData actorData = GameActorData.Get("bear");
+                //DollData dollData = new DollData("bear");
 
-        //        //UIHud hud = UIHud.CreateOrGet();
-        //        //Transform trailTarget = hud.AllyStackActors != null ? hud.AllyStackActors.transform : null;
+                //UIHud hud = UIHud.CreateOrGet();
+                //Transform trailTarget = hud.AllyStackActors != null ? hud.AllyStackActors.transform : null;
 
-        //        //hud.GetDollTrailHud.PlayGetDollTrail(dollData.GetIconPrefabFullPath(), trailTarget, () =>
-        //        //{
-        //        //    if (ActorBattleSystem.TryGetSetInstance(out ActorBattleSystem battleSystem))
-        //        //        battleSystem.AddAllyActor(actorData);
-        //        //});
-        //        //----------------------------------------------------------------
+                //hud.GetDollTrailHud.PlayGetDollTrail(dollData.GetIconPrefabFullPath(), trailTarget, () =>
+                //{
+                //    if (ActorBattleSystem.TryGetSetInstance(out ActorBattleSystem battleSystem))
+                //        battleSystem.AddAllyActor(actorData);
+                //});
+                //----------------------------------------------------------------
 
-        //        //PlayerContext.AddItemAmount(9, 10);
+                //PlayerContext.AddItemAmount(9, 10);
 
-        //        //PlayerContext.AddRandomBoxProgressValue(1);
+                //PlayerContext.AddRandomBoxProgressValue(1);
 
-        //        //LevelPlayAds.Instance.ShowRewardedAd(
-        //        //    () => Debug.Log("[GameMain] 보상 광고 테스트: 보상 지급됨"),
-        //        //    () => Debug.Log("[GameMain] 보상 광고 테스트: 보상 실패/취소"));
-        //        //UIHud.CreateOrGet().GetDollTrailHud.PlayGetDollTrail("UI2/Prefabs/MissionIconPrefab/pigMissionIcon",
-        //        //    () => PlayerContext.AddRandomBoxProgressValue(0.1f));
-        //        //UIRandomboxPanel.CreateOrGet();
-        //        //UIHud.CreateOrGet().GetDollTrailHud.PlayGetDollTrail(Vector3.zero, "UI2/Prefabs/MissionIconPrefab/pigMissionIcon", null);
-        //        //UIHud.CreateOrGet().OnTestPlayCoinGetEffect();
-        //        var questData = GameQuestData.GetStage(5);
-        //        var nextData = GameQuestData.GetStage(6);
-        //        var panel = UIMissionClearPanel.CreateOrGet();
-        //        if (panel != null)
-        //            panel.SetData(questData?.animalKey, nextData?.animalKey);
-        //        UIHud.CreateOrGet().ShowTimer(10);
-        //        int stage = GameQuestManager.Instance.CurrentStage;
-        //        if (stage >= 0)
-        //        {
-        //            StageManager.Save(stage);
-        //            Debug.Log($"[GameMain] StageManager.Save({stage}) 완료");
-        //        }
-        //        else
-        //        {
-        //            Debug.LogWarning($"[GameMain] 잘못된 stage 값({stage}), 저장 스킵.");
-        //        }
-        //    }
-        //}
+                //LevelPlayAds.Instance.ShowRewardedAd(
+                //    () => Debug.Log("[GameMain] 보상 광고 테스트: 보상 지급됨"),
+                //    () => Debug.Log("[GameMain] 보상 광고 테스트: 보상 실패/취소"));
+                //UIHud.CreateOrGet().GetDollTrailHud.PlayGetDollTrail("UI2/Prefabs/MissionIconPrefab/pigMissionIcon",
+                //    () => PlayerContext.AddRandomBoxProgressValue(0.1f));
+                //UIRandomboxPanel.CreateOrGet();
+                //UIHud.CreateOrGet().GetDollTrailHud.PlayGetDollTrail(Vector3.zero, "UI2/Prefabs/MissionIconPrefab/pigMissionIcon", null);
+                //UIHud.CreateOrGet().OnTestPlayCoinGetEffect();
+                //var questData = GameQuestData.GetStage(5);
+                //var nextData = GameQuestData.GetStage(6);
+                //var panel = UIMissionClearPanel.CreateOrGet();
+                //if (panel != null)
+                //    panel.SetData(questData?.animalKey, nextData?.animalKey);
+                //UIHud.CreateOrGet().ShowTimer(10);
+                //int stage = GameQuestManager.Instance.CurrentStage;
+                //if (stage >= 0)
+                //{
+                //    StageManager.Save(stage);
+                //    Debug.Log($"[GameMain] StageManager.Save({stage}) 완료");
+                //}
+                //else
+                //{
+                //    Debug.LogWarning($"[GameMain] 잘못된 stage 값({stage}), 저장 스킵.");
+                //}
+            }
+        }
     }
 }

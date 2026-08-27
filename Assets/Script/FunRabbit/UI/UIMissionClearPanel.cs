@@ -20,6 +20,7 @@ namespace FunRabbit
         [Header("Title 텍스트 (LanguageManager 키)")]
         [SerializeField] string clearedTitleKey = "mission_clear_title";
         [SerializeField] string newTitleKey = "mission_new_title";
+        [SerializeField] string allClearTitleKey = "mission_all_clear_title"; // 마지막 스테이지 클리어(올클리어) 타이틀
         [SerializeField] float titleScaleFrom = 0.5f;     // 타이틀 등장 시작 스케일 배율(원래 크기로 팝)
         [SerializeField] float titleScaleDuration = 0.4f; // 타이틀 스케일 연출 시간(초)
 
@@ -49,6 +50,7 @@ namespace FunRabbit
         Sequence _flickerSeq;
         Vector3 _titleBaseScale = Vector3.one;
         string _clearedAnimalKey; // bossToNormalDelay 시점에 "변신"시킬 일반 인형을 로드하기 위해 기억해둔다.
+        bool _isAllClear;         // newAnimalKey 없음 = 마지막 스테이지 클리어. 다음 보스 등장 대신 ALL CLEAR 타이틀을 띄운다.
 
         void Start()
         {
@@ -58,6 +60,7 @@ namespace FunRabbit
 
         // clearedAnimalKey: 방금 클리어한 스테이지의 animalKey / newAnimalKey: 다음(새) 스테이지의 animalKey.
         // 두 쪽 다 처음엔 보스 인형을 보여준다 - 클리어 쪽은 bossToNormalDelay 후 일반 인형으로 "변신"한다.
+        // newAnimalKey가 null/빈 값이면 올클리어 연출 - 변신까지는 같고, 다음 보스 등장 없이 ALL CLEAR 타이틀로 마무리한다.
         // reward: 코인 보상량(-1이면 인스펙터 rewardCoin 사용). 카운트 시작값은 PlayerContext.GetItemAmount(PlayerContext.COIN_ITEM_KEY)를 사용한다.
         //
         // 필요한 모델 3종(클리어 보스/클리어 일반/새 보스)을 전부 동기 로드로 미리 준비해둔 뒤에
@@ -69,6 +72,7 @@ namespace FunRabbit
                 rewardCoin = reward;
 
             _clearedAnimalKey = clearedAnimalKey;
+            _isAllClear = string.IsNullOrEmpty(newAnimalKey);
 
             // 새 모델 패널은 별도 레이어(카메라 컬링 + 모델 레이어)로 분리해 겹침을 방지한다.
             if (uiModelViewPanelNew != null)
@@ -154,7 +158,7 @@ namespace FunRabbit
             if (uiModelViewPanel != null)
                 uiModelViewPanel.gameObject.SetActive(true);
             if (uiModelViewPanelNew != null)
-                uiModelViewPanelNew.gameObject.SetActive(true);
+                uiModelViewPanelNew.gameObject.SetActive(!_isAllClear); // 올클리어면 새 보스 패널은 쓰지 않는다
 
             if (clearedImg != null)
                 clearedImg.anchoredPosition = new Vector2(0f, clearedImg.anchoredPosition.y);
@@ -172,6 +176,15 @@ namespace FunRabbit
             _seq.AppendInterval(toNormalDelay);
             _seq.AppendCallback(TransformClearedModelToNormal);
             _seq.AppendInterval(showDuration - toNormalDelay);
+
+            if (_isAllClear)
+            {
+                // 올클리어: 일반 인형으로 변신한 클리어 모델을 중앙에 그대로 둔 채,
+                // 다음 보스 등장 대신 ALL CLEAR 타이틀(다국어)을 띄우고 코인 보상으로 마무리한다.
+                _seq.AppendCallback(() => ShowTitle(LanguageManager.Instance.Get(allClearTitleKey)));
+                _seq.AppendCallback(PlayCoinReward);
+                return;
+            }
 
             // 클리어 RawImage: 중앙 → 화면 밖 왼쪽
             if (clearedImg != null)

@@ -27,6 +27,10 @@ namespace FunRabbit
             }
         }
 
+        // 모든 스테이지 클리어 상태 (CurrentStage == TotalStageCount + 1). 보스가 없고, 전 동물이
+        // "클리어됨"(stage < CurrentStage) 판정을 받아 도감/뽑기 풀/랜덤박스 아군에 마지막 동물까지 포함된다.
+        public bool IsAllCleared => CurrentStage > GameQuestData.TotalStageCount;
+
         public void SetCurrentStage(int stage, bool isClear = false)
         {
             PlayerPrefs.SetInt(KEY_STAGE, stage);
@@ -60,7 +64,9 @@ namespace FunRabbit
                 if (!PlayerPrefs.HasKey(KEY_BOSS_HP))
                     ResetBossHp();
 
-                return PlayerPrefs.GetInt(KEY_BOSS_HP, 0);
+                // actor.json bossHp 하향 조정 뒤 이전 저장값이 새 최대치를 넘을 수 있다 - 최대치로 잘라 준다
+                // (게이지 비율 1 초과 방지). 잘린 값은 다음 DamageBoss에서 저장된다.
+                return Mathf.Min(PlayerPrefs.GetInt(KEY_BOSS_HP, 0), MaxBossHp);
             }
             private set
             {
@@ -81,9 +87,9 @@ namespace FunRabbit
             if (!ActorBattleSystem.TryGetSetInstance(out ActorBattleSystem battleSystem))
                 return;
 
+            // 올클리어 단계(stageData == null)면 null을 넘겨 보스와 남은 아군을 정리한다
             StageQuestData stageData = GameQuestData.GetStage(stage);
-            if (stageData != null)
-                battleSystem.SetBoss(GameActorData.Get(stageData.animalKey));
+            battleSystem.SetBoss(stageData != null ? GameActorData.Get(stageData.animalKey) : null);
         }
 
         // 현재 스테이지 데이터
@@ -110,6 +116,10 @@ namespace FunRabbit
         public void DamageBoss(int damage)
         {
             if (damage <= 0)
+                return;
+
+            // 올클리어 뒤에는 보스가 없다 - 데미지/클리어 이벤트가 반복 발생하지 않도록 무시한다
+            if (IsAllCleared)
                 return;
 
             BossHp = Mathf.Max(0, BossHp - damage);
@@ -143,12 +153,15 @@ namespace FunRabbit
         // 다음 스테이지로 이동
         public void GoNextStage()
         {
+            // 이미 올클리어 단계면 더 진행하지 않는다
+            if (IsAllCleared)
+                return;
+
+            // 마지막 스테이지 클리어 시 next = TotalStageCount + 1 = 올클리어 단계로 진입한다
+            // (GetCurrentStageData() == null, MaxBossHp 0, RefreshBattleBoss가 보스를 제거, 인형 풀에 마지막 동물 포함)
             int next = CurrentStage + 1;
             if (next > GameQuestData.TotalStageCount)
-            {
                 Debug.Log("[GameQuestManager] All stages cleared!");
-                return;
-            }
 
             SetCurrentStage(next, true);
             PlayerPrefs.Save();

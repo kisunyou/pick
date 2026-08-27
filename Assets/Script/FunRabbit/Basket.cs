@@ -81,6 +81,10 @@ namespace FunRabbit
             // 울음소리에 뒤이어 획득 효과음을 재생한다
             AudioManager.Instance.PlaySfxDelayed(AllyUpSoundName, AllyUpSoundDelay);
 
+            // 보스 액터가 없으면(올클리어 단계 등) 아군이 합류하지 않는다 - 트레일 연출 없이 사운드만 재생하고 끝낸다
+            if (ActorBattleSystem.TryGetSetInstance(out ActorBattleSystem battleSystemCheck) && !battleSystemCheck.HasBoss)
+                return;
+
             // 트레일로 날릴 아이콘 프리팹 경로 (Actor가 없으면 null - PlayTrail이 로그 후 콜백만 보장)
             string iconPath = actor != null ? actor.Context.Data.GetIconPrefabFullPath() : null;
 

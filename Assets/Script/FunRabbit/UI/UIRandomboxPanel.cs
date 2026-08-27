@@ -207,11 +207,79 @@ namespace FunRabbit
                 return;
             }
 
+            // animalKey가 비어 있는 아군 액터 아이템(item.json key 11/12)은 클리어한 액터 중 하나를
+            // 랜덤으로 뽑아 animalKey/icon_path를 채운 복사본으로 바꿔 팝업·지급에 사용한다.
+            if (IsRandomAllyItem(item))
+            {
+                item = ResolveRandomAllyItem(item);
+                if (item == null)
+                {
+                    Debug.LogError($"[UIRandomboxPanelControl] itemkey {box.itemkey}: 클리어한 액터가 없어 아군 액터를 지급할 수 없습니다.");
+                    ResetPanel();
+                    return;
+                }
+            }
+
             ShowRewardPopup(item);
+        }
+
+        // animalKey가 비어 있는 아군 액터 아이템 = 클리어한 액터 중 랜덤 지급 아이템
+        private static bool IsRandomAllyItem(ItemData item)
+        {
+            return item != null && item.itemType == "allyActor" && string.IsNullOrEmpty(item.animalKey);
+        }
+
+        // 클리어한 액터 중 하나를 랜덤으로 뽑아 animalKey/icon_path를 채운 ItemData 복사본을 만든다.
+        // GameItemData가 캐시하는 원본을 바꾸지 않도록 반드시 복사본을 반환한다. 후보가 없으면 null.
+        private static ItemData ResolveRandomAllyItem(ItemData item)
+        {
+            List<string> clearedActors = GetClearedActorKeys();
+            if (clearedActors.Count == 0)
+                return null;
+
+            string animalKey = clearedActors[Random.Range(0, clearedActors.Count)];
+
+            return new ItemData
+            {
+                key = item.key,
+                name = item.name,
+                icon_path = GameCommon.GetIconFullPath(animalKey),
+                count = item.count,
+                itemType = item.itemType,
+                itemDescription = item.itemDescription,
+                animalKey = animalKey,
+            };
+        }
+
+        // 현재 스테이지보다 앞(= 이미 클리어된) 스테이지의 목표 액터 animalKey 목록.
+        // actor.json에 없는 animalKey는 AddAllyActors가 지급하지 못하므로 제외한다.
+        private static List<string> GetClearedActorKeys()
+        {
+            List<string> result = new List<string>();
+
+            List<StageQuestData> stages = GameQuestData.StageQuestDataList?.stages;
+            if (stages == null)
+                return result;
+
+            int currentStage = GameQuestManager.Instance.CurrentStage;
+            foreach (StageQuestData stage in stages)
+            {
+                if (stage.stage >= currentStage || string.IsNullOrEmpty(stage.animalKey))
+                    continue;
+
+                if (GameActorData.Get(stage.animalKey) == null)
+                    continue;
+
+                if (!result.Contains(stage.animalKey))
+                    result.Add(stage.animalKey);
+            }
+
+            return result;
         }
 
         // Probability 가중치로 랜덤박스 하나를 추첨한다.
         // 아군 액터 아이템은 현재까지 클리어한 스테이지의 액터만 추첨 대상에 포함한다.
+        // (animalKey가 빈 아군 액터 아이템은 추첨 후 OnOpenAnimationComplete에서 클리어한 액터 중 랜덤 확정)
         private RandomBoxData PickRandomBox()
         {
             List<RandomBoxData> boxes = GameRandomBoxData.GetAll();
@@ -247,6 +315,7 @@ namespace FunRabbit
         }
 
         // 아군 액터 아이템은 해당 액터의 스테이지를 클리어했을 때만 추첨할 수 있다. 그 외 아이템은 항상 가능.
+        // animalKey가 비어 있는(랜덤 지급) 아군 액터 아이템은 클리어한 액터가 1종 이상일 때만 추첨 가능.
         private static bool IsBoxAvailable(RandomBoxData box)
         {
             ItemData item = GameItemData.Get(box.itemkey);
@@ -255,6 +324,9 @@ namespace FunRabbit
 
             if (item.itemType != "allyActor")
                 return true;
+
+            if (IsRandomAllyItem(item))
+                return GetClearedActorKeys().Count > 0;
 
             return IsActorStageCleared(item.animalKey);
         }

@@ -126,13 +126,23 @@ namespace FunRabbit
         }
 
         // 스테이지의 보스 몬스터 모델을 (재)스폰한다. GameQuestManager가 스테이지 전환마다 호출한다.
+        // actorData == null(올클리어 단계)이면 보스를 없애고, 공격 대상이 사라진 아군/대기열도 함께 정리한다.
         public void SetBoss(ActorData actorData)
         {
-            if (bossTransform == null || actorData == null)
+            if (bossTransform == null)
                 return;
 
             if (_bossInstance != null)
+            {
                 Destroy(_bossInstance);
+                _bossInstance = null;
+            }
+
+            if (actorData == null)
+            {
+                ClearAllAllies();
+                return;
+            }
 
             GameObject prefab = LoadDollPrefab(GameCommon.GetBossModelPrefabFullPath(actorData.animalKey), "보스");
             if (prefab == null)
@@ -146,6 +156,33 @@ namespace FunRabbit
             battleActor?.Setup(actorData);
         }
 
+        // 슬롯의 아군과 대기열을 모두 정리한다 (올클리어 - 보스 없음). 대기열 UI 아이콘도 같은 수만큼 비운다.
+        private void ClearAllAllies()
+        {
+            if (_slotActors == null)
+                return;
+
+            for (int i = 0; i < _slotActors.Length; i++)
+            {
+                if (_slotActors[i] != null)
+                    Destroy(_slotActors[i].gameObject);
+
+                _slotActors[i] = null;
+                _slotAnimalKeys[i] = null;
+                _slotWasOccupied[i] = false;
+            }
+
+            int pendingCount = _pendingQueue.Count;
+            _pendingQueue.Clear();
+            for (int i = 0; i < pendingCount; i++)
+                RemoveStackUIItem();
+
+            SaveAllyBattleState();
+        }
+
+        // 보스 액터가 필드에 있는지. 없으면(올클리어 단계, 프리팹 로드 실패 등) 아군을 추가/스폰하지 않는다.
+        public bool HasBoss => _bossInstance != null;
+
         // 현재 슬롯에 있는 ally 목록(빈 슬롯은 null 포함)을 반환한다.
         // BossBattleActor가 타겟 검색에 사용한다 (FindObjectsByType 대신 이미 추적 중인 목록을 재사용).
         public IReadOnlyList<AllyBattleActor> GetAllySlotActors() => _slotActors;
@@ -155,6 +192,10 @@ namespace FunRabbit
         public void AddAllyActor(ActorData actorData)
         {
             if (actorData == null || _slotActors == null || _slotActors.Length == 0)
+                return;
+
+            // 보스 액터가 없으면(올클리어 단계, 보스 프리팹 로드 실패 등) 공격할 대상이 없으므로 아군을 추가하지 않는다
+            if (!HasBoss)
                 return;
 
             EnqueuePendingAlly(actorData.animalKey);
@@ -201,6 +242,10 @@ namespace FunRabbit
         private void TryDequeuePendingAlly()
         {
             if (_pendingQueue.Count == 0)
+                return;
+
+            // 보스 액터가 없으면 스폰하지 않고 대기열에 그대로 둔다 (보스가 생기면 그때 스폰)
+            if (!HasBoss)
                 return;
 
             PendingAllyEntry entry = _pendingQueue.Peek();
