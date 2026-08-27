@@ -145,7 +145,9 @@ PlayerSettings:
   visionOSBundleVersion: 1.0
   tvOSBundleVersion: 1.0
   bundleVersion: 1.0.2
-  preloadedAssets: []
+  preloadedAssets:
+  - {fileID: 11400000, guid: b34aa73a2248d0248bdba74e0faa6dcb, type: 2}
+  - {fileID: 8679311607537988939, guid: 9919b6895a2e507428df4489a70a0dac, type: 2}
   metroInputSource: 0
   wsaTransparentSwapchain: 0
   m_HolographicPauseOnTrackingLoss: 1
@@ -475,32 +477,44 @@ PlayerSettings:
       m_Height: 36
       m_Kind: 0
       m_SubKind: 
-    - m_Textures: []
+    - m_Textures:
+      - {fileID: 2800000, guid: 0c672c691da847a3a0d3ca96b2dbbd2d, type: 3}
+      - {fileID: 2800000, guid: ca111a1487734d50ae5804fdd45cbbd7, type: 3}
       m_Width: 432
       m_Height: 432
       m_Kind: 2
       m_SubKind: 
-    - m_Textures: []
+    - m_Textures:
+      - {fileID: 2800000, guid: 0c672c691da847a3a0d3ca96b2dbbd2d, type: 3}
+      - {fileID: 2800000, guid: ca111a1487734d50ae5804fdd45cbbd7, type: 3}
       m_Width: 324
       m_Height: 324
       m_Kind: 2
       m_SubKind: 
-    - m_Textures: []
+    - m_Textures:
+      - {fileID: 2800000, guid: 0c672c691da847a3a0d3ca96b2dbbd2d, type: 3}
+      - {fileID: 2800000, guid: ca111a1487734d50ae5804fdd45cbbd7, type: 3}
       m_Width: 216
       m_Height: 216
       m_Kind: 2
       m_SubKind: 
-    - m_Textures: []
+    - m_Textures:
+      - {fileID: 2800000, guid: 0c672c691da847a3a0d3ca96b2dbbd2d, type: 3}
+      - {fileID: 2800000, guid: ca111a1487734d50ae5804fdd45cbbd7, type: 3}
       m_Width: 162
       m_Height: 162
       m_Kind: 2
       m_SubKind: 
-    - m_Textures: []
+    - m_Textures:
+      - {fileID: 2800000, guid: 0c672c691da847a3a0d3ca96b2dbbd2d, type: 3}
+      - {fileID: 2800000, guid: ca111a1487734d50ae5804fdd45cbbd7, type: 3}
       m_Width: 108
       m_Height: 108
       m_Kind: 2
       m_SubKind: 
-    - m_Textures: []
+    - m_Textures:
+      - {fileID: 2800000, guid: 0c672c691da847a3a0d3ca96b2dbbd2d, type: 3}
+      - {fileID: 2800000, guid: ca111a1487734d50ae5804fdd45cbbd7, type: 3}
       m_Width: 81
       m_Height: 81
       m_Kind: 2
