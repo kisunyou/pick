@@ -25,8 +25,17 @@ public class RenderPixelatedFeature : ScriptableRendererFeature
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
-        var t = renderingData.cameraData.cameraType;
+        var camData = renderingData.cameraData;
+        var t = camData.cameraType;
         if (t == CameraType.Preview || t == CameraType.Reflection) return;
+
+        // 카메라 스택의 Overlay 카메라(Stage0 bossCameraFxOverlay: TransparentFX 이펙트 전용, Clear Depth)는 건너뛴다.
+        // Base 카메라가 이미 픽셀화한 컬러 위에 이펙트만 덧그리는 단계라 다시 픽셀화/엣지 처리할 이유가 없고,
+        // Overlay 는 자체 depth/normal 텍스처가 없어(Compatibility 경로는 직전 카메라의 전역 _CameraDepthTexture /
+        // _CameraNormalsTexture 를, RenderGraph 경로는 폴백을 쓰게 됨) 엉뚱한 텍스처로 엣지가 판정돼
+        // 이펙트와 그 주변이 어둡게 눌리고, 디오라마 외곽선은 두 번 어두워지는 부작용이 있었다.
+        if (camData.renderType == CameraRenderType.Overlay) return;
+
         _pass.Setup(settings);
         renderer.EnqueuePass(_pass);
     }
@@ -106,6 +115,8 @@ public class RenderPixelatedFeature : ScriptableRendererFeature
 
             bool hasDepth = res.cameraDepthTexture.IsValid();
             bool hasNormal = res.cameraNormalsTexture.IsValid();
+            // depth/normal 텍스처가 없으면 바인딩용으로 beauty 를 대신 물리되, 아래에서 해당 엣지 강도를 0 으로 꺼서
+            // 컬러 대비가 depth/normal 엣지로 오판되어 화면이 어둡게 눌리지 않게 한다.
             TextureHandle depthHandle = hasDepth ? res.cameraDepthTexture : beautyHandle;
             TextureHandle normalHandle = hasNormal ? res.cameraNormalsTexture : beautyHandle;
 
@@ -128,8 +139,8 @@ public class RenderPixelatedFeature : ScriptableRendererFeature
                 cd.normal = normalHandle;
                 cd.hasNormal = hasNormal;
                 cd.resolution = new Vector4(rw, rh, 1f / rw, 1f / rh);
-                cd.normalStrength = _settings.normalEdgeStrength;
-                cd.depthStrength = _settings.depthEdgeStrength;
+                cd.normalStrength = hasNormal ? _settings.normalEdgeStrength : 0f;
+                cd.depthStrength = hasDepth ? _settings.depthEdgeStrength : 0f;
 
                 builder.UseTexture(cd.beauty, AccessFlags.Read);
                 builder.UseTexture(cd.depth, AccessFlags.Read);
