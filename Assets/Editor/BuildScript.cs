@@ -8,13 +8,22 @@ using UnityEngine;
 
 // 커맨드라인 batchmode 빌드용 스크립트.
 // 사용: Unity.exe -quit -batchmode -projectPath <proj> -buildTarget Android
-//       -executeMethod BuildScript.BuildAndroidApk
+//       -executeMethod BuildScript.BuildAndroidApk   (APK)
+//       -executeMethod BuildScript.BuildAndroidAab   (AAB, Google Play)
+// ⚠️ 같은 프로젝트가 에디터에 열려 있으면 batchmode 인스턴스가 열리지 않는다 — 먼저 닫을 것.
 public static class BuildScript
 {
-    public static void BuildAndroidApk()
+    // APK (테스트 배포용)
+    public static void BuildAndroidApk() => BuildAndroid(appBundle: false);
+
+    // AAB (Google Play 업로드용). 사용: ... -executeMethod BuildScript.BuildAndroidAab
+    public static void BuildAndroidAab() => BuildAndroid(appBundle: true);
+
+    static void BuildAndroid(bool appBundle)
     {
-        string buildName = "pic_" + DateTime.Now.ToString("yyyy_MMdd_HHmm");
-        string outputPath = Path.GetFullPath($"build/{buildName}.apk");
+        string ext = appBundle ? "aab" : "apk";
+        string buildName = "pick_" + DateTime.Now.ToString("yyMMddHHmm");
+        string outputPath = Path.GetFullPath($"build/{buildName}.{ext}");
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
 
         string[] scenes = EditorBuildSettings.scenes
@@ -29,9 +38,9 @@ public static class BuildScript
             return;
         }
 
-        // 확실히 Android 타깃 / APK(App Bundle 아님) 으로 빌드
+        // 확실히 Android 타깃으로 전환하고 APK / App Bundle 을 명시 선택
         EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Android, BuildTarget.Android);
-        EditorUserBuildSettings.buildAppBundle = false;
+        EditorUserBuildSettings.buildAppBundle = appBundle;
 
         // Unity 6.3에서 URP Compatibility Mode 설정이 deprecated/hidden 처리되면서
         // 빌드 전 검증(URPPreprocessBuild)이 이 심볼 없이는 실패한다 - 심볼 추가로 기존 Compatibility Mode 유지.

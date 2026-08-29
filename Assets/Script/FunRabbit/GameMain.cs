@@ -64,6 +64,9 @@ namespace FunRabbit
             // Firebase Analytics 초기화
             FireBaseAnalyticsManager.MakeInstance();
 
+            // 인앱 결제 매니저 - 스토어(Google Play / App Store) 연결 + 상품 가격 조회 시작
+            ShopManager.MakeInstance();
+
             // 코인 타이머 완료 로컬 알림 - 채널 등록 + (Android 13+) 알림 권한 요청
             CoinRewardNotificationScheduler.Init();
 

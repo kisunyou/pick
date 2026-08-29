@@ -67,6 +67,20 @@
     { "key": "doll_name_monk", "kor": "원숭이", "eng": "Monkey", "jpn": "サル", "tha": "ลิง" },
     { "key": "doll_name_panda", "kor": "판다", "eng": "Panda", "jpn": "パンダ", "tha": "แพนด้า" },
     { "key": "doll_name_lion", "kor": "사자", "eng": "Lion", "jpn": "ライオン", "tha": "สิงโต" },
-    { "key": "doll_name_elephant", "kor": "코끼리", "eng": "Elephant", "jpn": "ゾウ", "tha": "ช้าง" }
+    { "key": "doll_name_elephant", "kor": "코끼리", "eng": "Elephant", "jpn": "ゾウ", "tha": "ช้าง" },
+    { "key": "shop_item_coin_format", "kor": "{0}\n코인", "eng": "{0}\nCoins", "jpn": "{0}\nコイン", "tha": "{0}\nเหรียญ" },
+    { "key": "shop_popup_purchase_success_title", "kor": "구매 완료", "eng": "Purchase Complete", "jpn": "購入完了", "tha": "ซื้อสำเร็จ" },
+    { "key": "shop_popup_purchase_success_body", "kor": "코인 {0}개가 지급되었습니다.", "eng": "{0} coins have been added.", "jpn": "コイン{0}枚を獲得しました。", "tha": "ได้รับเหรียญ {0} เหรียญแล้ว" },
+    { "key": "shop_popup_purchase_fail_title", "kor": "구매 실패", "eng": "Purchase Failed", "jpn": "購入失敗", "tha": "การซื้อล้มเหลว" },
+    { "key": "shop_popup_purchase_fail_body", "kor": "구매를 완료할 수 없습니다.\n({0})", "eng": "The purchase could not be completed.\n({0})", "jpn": "購入を完了できませんでした。\n({0})", "tha": "ไม่สามารถทำการซื้อได้\n({0})" },
+    { "key": "shop_fail_store_not_ready", "kor": "스토어에 연결되지 않았습니다", "eng": "Store is not connected", "jpn": "ストアに接続されていません", "tha": "ไม่ได้เชื่อมต่อกับสโตร์" },
+    { "key": "shop_fail_product_unavailable", "kor": "구매할 수 없는 상품입니다", "eng": "This product is unavailable", "jpn": "購入できない商品です", "tha": "สินค้านี้ไม่พร้อมจำหน่าย" },
+    { "key": "shop_fail_in_progress", "kor": "다른 결제가 진행 중입니다", "eng": "Another purchase is in progress", "jpn": "別の決済が進行中です", "tha": "มีการซื้ออื่นกำลังดำเนินการอยู่" },
+    { "key": "shop_fail_payment_declined", "kor": "결제가 거절되었습니다", "eng": "Payment was declined", "jpn": "決済が拒否されました", "tha": "การชำระเงินถูกปฏิเสธ" },
+    { "key": "shop_fail_not_supported", "kor": "이 기기에서는 결제를 지원하지 않습니다", "eng": "Purchases are not supported on this device", "jpn": "この端末では決済に対応していません", "tha": "อุปกรณ์นี้ไม่รองรับการซื้อ" },
+    { "key": "shop_fail_unknown", "kor": "알 수 없는 오류", "eng": "Unknown error", "jpn": "不明なエラー", "tha": "ข้อผิดพลาดที่ไม่ทราบสาเหตุ" },
+    { "key": "shop_price_unavailable", "kor": "N/A", "eng": "N/A", "jpn": "N/A", "tha": "N/A" },
+    { "key": "popup_coin_short_title", "kor": "코인 부족", "eng": "Not Enough Coins", "jpn": "コイン不足", "tha": "เหรียญไม่เพียงพอ" },
+    { "key": "popup_coin_short_body", "kor": "플레이하려면 코인 {0}개가 필요합니다.\n상점에서 코인을 구매하시겠습니까?", "eng": "You need {0} coins to play.\nWould you like to buy coins in the shop?", "jpn": "プレイにはコインが{0}枚必要です。\nショップでコインを購入しますか？", "tha": "ต้องใช้เหรียญ {0} เหรียญเพื่อเล่น\nต้องการซื้อเหรียญในร้านค้าหรือไม่?" }
   ]
 }

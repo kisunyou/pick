@@ -57,10 +57,19 @@ namespace FunRabbit
 
             string animalKey = _battleActor.AnimalKey;
 
+            // 스윙 시점의 보스 세대. HIT_DELAY 사이에 보스가 죽어 교체됐으면(세대 변경) 이 타격은 버린다 -
+            // 이전 보스에게 날린 마지막 타격이 새 보스의 hp 를 깎지 않도록.
+            int bossGeneration = ActorBattleSystem.TryGetSetInstance(out ActorBattleSystem battleSystemAtSwing)
+                ? battleSystemAtSwing.BossGeneration : -1;
+
             // hitFx/데미지 텍스트/실제 데미지 적용은 타격 타이밍(HIT_DELAY)에 맞춰 함께 늦춘다.
             DOVirtual.DelayedCall(BattleActor.HIT_DELAY, () =>
             {
                 if (bossTransform == null)
+                    return;
+
+                if (!ActorBattleSystem.TryGetSetInstance(out ActorBattleSystem battleSystem)
+                    || !battleSystem.HasBoss || battleSystem.BossGeneration != bossGeneration)
                     return;
 
                 BattleActor.PlayHitFx(animalKey, bossTransform.position);

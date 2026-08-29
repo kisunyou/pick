@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -40,6 +41,23 @@ namespace FunRabbit
         }
 
         private GameObject _bossInstance;
+
+        // 스테이지 클리어 뒤 미션 클리어 연출(UIMissionClearPanel)이 끝날 때까지 스폰을 미뤄둔 다음 보스.
+        // null 이 아니면 "보스 교체 대기" 상태 - 아군은 Idle 로 기다리고, 새로 획득한 아군은 대기열에만 쌓인다.
+        private ActorData _pendingBossData;
+        private Coroutine _pendingBossWatcher;
+
+        // 클리어 패널이 이 시간 이상 보이지 않으면(연출을 못 띄운 경우 등) 대기 중인 보스를 그냥 스폰한다
+        private const float PENDING_BOSS_NO_PANEL_TIMEOUT = 3f;
+        private const float PENDING_BOSS_POLL_INTERVAL = 0.25f;
+
+        // 보스가 바뀔 때마다(파괴/스폰) 1씩 증가. ActorAttackState 가 스윙 시점의 값을 기억해두고
+        // HIT_DELAY 뒤 실제 타격 시 값이 달라졌으면(그 사이 보스가 죽고 교체됨) 데미지를 버린다 -
+        // 이전 보스에게 날린 마지막 타격이 새 보스 hp 를 깎는 문제 방지.
+        public int BossGeneration { get; private set; }
+
+        // 새 보스 스폰을 기다리는 중인지 (클리어 연출 구간)
+        public bool IsWaitingNextBoss => _pendingBossData != null;
 
         // 슬롯별 상태 (allyTransforms와 같은 길이). Start에서 초기화한다.
         private AllyBattleActor[] _slotActors;
@@ -127,16 +145,15 @@ namespace FunRabbit
 
         // 스테이지의 보스 몬스터 모델을 (재)스폰한다. GameQuestManager가 스테이지 전환마다 호출한다.
         // actorData == null(올클리어 단계)이면 보스를 없애고, 공격 대상이 사라진 아군/대기열도 함께 정리한다.
-        public void SetBoss(ActorData actorData)
+        // deferSpawn == true(스테이지 클리어로 넘어온 경우)면 이전 보스만 치우고 새 보스 스폰은
+        // 미션 클리어 연출이 끝날 때(SpawnPendingBoss)까지 미룬다 - 그동안 아군은 Idle 로 대기한다.
+        public void SetBoss(ActorData actorData, bool deferSpawn = false)
         {
             if (bossTransform == null)
                 return;
 
-            if (_bossInstance != null)
-            {
-                Destroy(_bossInstance);
-                _bossInstance = null;
-            }
+            DestroyBossInstance();
+            CancelPendingBoss();
 
             if (actorData == null)
             {
@@ -144,16 +161,117 @@ namespace FunRabbit
                 return;
             }
 
+            if (deferSpawn)
+            {
+                _pendingBossData = actorData;
+                SetAlliesWaiting();
+                _pendingBossWatcher = StartCoroutine(PendingBossWatcher());
+                return;
+            }
+
+            SpawnBoss(actorData);
+        }
+
+        // 미션 클리어 연출이 끝났을 때(UIMissionClearPanel 파괴) 호출된다. 대기 중인 새 보스를 스폰하고
+        // Idle 로 기다리던 아군을 다시 이동(새 보스 사거리 기준 재정렬) → 공격으로 되돌린다.
+        public void SpawnPendingBoss()
+        {
+            if (_pendingBossData == null)
+                return;
+
+            ActorData actorData = _pendingBossData;
+            CancelPendingBoss();
+
+            SpawnBoss(actorData);
+            ResumeAllies();
+        }
+
+        private void SpawnBoss(ActorData actorData)
+        {
             GameObject prefab = LoadDollPrefab(GameCommon.GetBossModelPrefabFullPath(actorData.animalKey), "보스");
             if (prefab == null)
                 return;
 
             _bossInstance = Instantiate(prefab, bossTransform.position, bossTransform.rotation, bossTransform);
             _bossInstance.transform.localScale = Vector3.one * GameActorData.GetInGameScale(actorData.animalKey);
+            BossGeneration++;
 
             // 보스도 ally와 동일하게 자신의 hp/공격 스탯을 채운다.
             BossBattleActor battleActor = SetupBattleActor<BossBattleActor>(_bossInstance);
             battleActor?.Setup(actorData);
+        }
+
+        private void DestroyBossInstance()
+        {
+            if (_bossInstance == null)
+                return;
+
+            Destroy(_bossInstance);
+            _bossInstance = null;
+            BossGeneration++;
+        }
+
+        private void CancelPendingBoss()
+        {
+            _pendingBossData = null;
+            if (_pendingBossWatcher != null)
+            {
+                StopCoroutine(_pendingBossWatcher);
+                _pendingBossWatcher = null;
+            }
+        }
+
+        // 클리어 패널이 닫히는 순간은 UIMissionClearPanel.OnDestroy 가 SpawnPendingBoss 로 알려주지만,
+        // 패널이 아예 뜨지 않았거나(HUD 없음 등) 알림이 유실된 경우를 위해 주기적으로 패널 존재를 확인한다 -
+        // 패널이 PENDING_BOSS_NO_PANEL_TIMEOUT 동안 계속 없으면 그냥 스폰한다.
+        private IEnumerator PendingBossWatcher()
+        {
+            float noPanelTime = 0f;
+            while (_pendingBossData != null)
+            {
+                yield return new WaitForSeconds(PENDING_BOSS_POLL_INTERVAL);
+
+                if (UIMissionClearPanel.Get() != null)
+                {
+                    noPanelTime = 0f;
+                    continue;
+                }
+
+                noPanelTime += PENDING_BOSS_POLL_INTERVAL;
+                if (noPanelTime >= PENDING_BOSS_NO_PANEL_TIMEOUT)
+                {
+                    _pendingBossWatcher = null;
+                    SpawnPendingBoss();
+                    yield break;
+                }
+            }
+            _pendingBossWatcher = null;
+        }
+
+        // 슬롯의 살아있는 아군을 모두 Idle(대기)로 전환한다 - 보스가 없는 동안 허공을 때리지 않도록.
+        private void SetAlliesWaiting()
+        {
+            if (_slotActors == null)
+                return;
+
+            foreach (AllyBattleActor ally in _slotActors)
+            {
+                if (ally != null && ally.Hp > 0)
+                    ally.EnterWaiting();
+            }
+        }
+
+        // 대기 중이던 아군을 다시 전투로 - Move 재진입이라 새 보스의 사거리에 맞춰 위치를 다시 잡은 뒤 공격한다.
+        private void ResumeAllies()
+        {
+            if (_slotActors == null)
+                return;
+
+            foreach (AllyBattleActor ally in _slotActors)
+            {
+                if (ally != null && ally.Hp > 0)
+                    ally.ResumeBattle();
+            }
         }
 
         // 슬롯의 아군과 대기열을 모두 정리한다 (올클리어 - 보스 없음). 대기열 UI 아이콘도 같은 수만큼 비운다.
@@ -194,8 +312,9 @@ namespace FunRabbit
             if (actorData == null || _slotActors == null || _slotActors.Length == 0)
                 return;
 
-            // 보스 액터가 없으면(올클리어 단계, 보스 프리팹 로드 실패 등) 공격할 대상이 없으므로 아군을 추가하지 않는다
-            if (!HasBoss)
+            // 보스 액터가 없으면(올클리어 단계, 보스 프리팹 로드 실패 등) 공격할 대상이 없으므로 아군을 추가하지 않는다.
+            // 단, 클리어 연출 중(다음 보스 스폰 대기)에는 대기열에 넣어두고 보스가 등장하면 그때 스폰한다.
+            if (!HasBoss && !IsWaitingNextBoss)
                 return;
 
             EnqueuePendingAlly(actorData.animalKey);

@@ -3,6 +3,8 @@ using UnityEngine;
 namespace FunRabbit
 {
     // ally 액터. 보스에게 접근(Move) -> 공방(Attack) -> hp 0 시 죽음(Dead) 순으로 상태가 전이한다.
+    // 보스가 클리어돼 다음 보스를 기다리는 동안은 Idle(대기)로 멈춰 있다가(EnterWaiting), 새 보스가
+    // 등장하면 다시 Move 로 돌아가 새 사거리에 맞춰 위치를 잡고 공격한다(ResumeBattle).
     public class AllyBattleActor : BattleActor
     {
         // ally 전용 데이터 컨텍스트. BattleActorContext(hp/공격 스탯)에 보스 타겟 참조를 더한다.
@@ -30,6 +32,7 @@ namespace FunRabbit
             base.Awake();
 
             StateMachine.CreateState(
+                new ActorIdleState(ActorStateType.Idle, this),   // 보스 교체 대기 (GetIdleDuration 기본 무한 → 계속 대기)
                 new ActorMoveState(ActorStateType.Move, this),
                 new ActorAttackState(ActorStateType.Attack, this),
                 new ActorDeadState(ActorStateType.Dead, this)
@@ -85,6 +88,25 @@ namespace FunRabbit
         public override void OnMoveArrived()
         {
             StateMachine.ChangeState(ActorStateType.Attack);
+        }
+
+        // 보스 클리어 직후(ActorBattleSystem.SetAlliesWaiting) 호출: 다음 보스가 등장할 때까지 제자리에서 대기한다.
+        public void EnterWaiting()
+        {
+            if (Hp <= 0 || StateMachine.IsState(ActorStateType.Dead))
+                return;
+
+            StateMachine.ChangeState(ActorStateType.Idle);
+        }
+
+        // 새 보스 등장 시(ActorBattleSystem.ResumeAllies) 호출: Move 로 재진입해 새 보스 사거리 기준으로
+        // 위치를 다시 잡고(PrepareMoveTarget) 도착하면 공격을 재개한다.
+        public void ResumeBattle()
+        {
+            if (Hp <= 0 || StateMachine.IsState(ActorStateType.Dead))
+                return;
+
+            StateMachine.ChangeState(ActorStateType.Move);
         }
 
         // 현재 스테이지 보스(BossBattleActor) 인스턴스를 찾는다.

@@ -51,6 +51,16 @@ namespace FunRabbit
 
             if (_claimButton != null)
                 _claimButton.onClick.AddListener(OnClickClaim);
+
+            // "받기" 라벨은 다국어 문자열이라, 받기 대기 중 언어가 바뀌면 다시 그려야 한다 (Dispose 에서 해제)
+            LanguageManager.Instance.OnLanguageChanged += OnLanguageChanged;
+        }
+
+        // 언어 변경: 받기 대기 상태면 라벨을 새 언어로 갱신 (카운트다운 중엔 숫자라 갱신 불필요)
+        private void OnLanguageChanged()
+        {
+            if (_claimable && _timerText != null)
+                _timerText.text = LanguageManager.Instance.Get(ClaimLabelKey);
         }
 
         // 새 5분 사이클 시작 (첫 실행 / "받기" 이후). 종료 목표 시각을 저장한다.
@@ -114,6 +124,9 @@ namespace FunRabbit
 
         public void Dispose()
         {
+            if (LanguageManager.IsCheckInstance())
+                LanguageManager.Instance.OnLanguageChanged -= OnLanguageChanged;
+
             Stop();
             _claimPulseSeq?.Kill();
             if (_claimButton != null)

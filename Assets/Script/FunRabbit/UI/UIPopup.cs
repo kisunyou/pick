@@ -43,6 +43,8 @@ namespace FunRabbit
         // 팝업 내용(제목/설명)과 확인 버튼 콜백을 설정한다.
         // showCoinIcon이 true면 코인 아이콘을 표시. showButtons가 false면 닫기/OK/Cancel 버튼을 숨겨
         // 사용자 조작 없이 보여주기만 하는 연출용 팝업으로 쓸 수 있다(닫기는 호출부가 Close()로 직접 처리).
+        // onClickOkButtonEvent 가 null 이면(확인해도 따로 할 동작이 없는 안내 팝업) 취소 버튼을 숨기고 확인 버튼만
+        // 가운데에 표시한다 - 확인/취소가 같은 "닫기" 라 두 버튼이 무의미하기 때문.
         public void Set(string titleText, string descriptionText, System.Action onClickOkButtonEvent, bool showCoinIcon = false, bool showButtons = true)
         {
             if (this.titleText != null)
@@ -55,6 +57,10 @@ namespace FunRabbit
 
             SetCoinIconActive(showCoinIcon);
             SetButtonsActive(showButtons);
+
+            // 안내 전용 팝업(확인 콜백 없음)은 취소 버튼 생략 - 버튼 묶음은 가운데 정렬 레이아웃이라 확인 버튼이 중앙에 온다
+            if (cancelButton != null && showButtons && onClickOkButtonEvent == null)
+                cancelButton.gameObject.SetActive(false);
 
             // 팝업은 재사용(Single)되므로, 이전 사용에서 꺼둔 확인 버튼을 기본 활성으로 되돌린다.
             SetOkButtonInteractable(true);

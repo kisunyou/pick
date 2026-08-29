@@ -36,8 +36,9 @@ namespace FunRabbit
             PlayerPrefs.SetInt(KEY_STAGE, stage);
 
             // 새 스테이지의 보스 hp를 최대치로 채우고, battle_field(ActorBattleSystem)의 보스 모델을 갱신한다
+            // (클리어로 넘어온 경우 새 보스 스폰은 미션 클리어 연출이 끝난 뒤로 미룬다)
             ResetBossHp();
-            RefreshBattleBoss(stage);
+            RefreshBattleBoss(stage, isClear);
 
             OnStageChanged?.Invoke(stage, isClear);
 
@@ -82,14 +83,14 @@ namespace FunRabbit
         }
 
         // 지정 스테이지의 보스를 battle_field(ActorBattleSystem)에 반영한다. (씬에 없으면 조용히 무시 - 자체 Start()에서 로드)
-        private void RefreshBattleBoss(int stage)
+        private void RefreshBattleBoss(int stage, bool deferSpawn = false)
         {
             if (!ActorBattleSystem.TryGetSetInstance(out ActorBattleSystem battleSystem))
                 return;
 
             // 올클리어 단계(stageData == null)면 null을 넘겨 보스와 남은 아군을 정리한다
             StageQuestData stageData = GameQuestData.GetStage(stage);
-            battleSystem.SetBoss(stageData != null ? GameActorData.Get(stageData.animalKey) : null);
+            battleSystem.SetBoss(stageData != null ? GameActorData.Get(stageData.animalKey) : null, deferSpawn);
         }
 
         // 현재 스테이지 데이터

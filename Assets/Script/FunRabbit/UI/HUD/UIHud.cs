@@ -503,16 +503,20 @@ namespace FunRabbit
                 });
         }
 
+        // 플레이 1회 비용(코인)
+        public const int PLAY_COIN_COST = 100;
+
         public void OnClickPlayBtn()
         {
-            if (PlayerContext.TrySpendCoin(100))
+            if (PlayerContext.TrySpendCoin(PLAY_COIN_COST))
             {
                 FireBaseAnalyticsManager.Instance.LogEventOnce("click_play");
-                Debug.Log("[UIHudControl] 플레이 버튼 클릭: 100 코인 차감");
+                Debug.Log($"[UIHudControl] 플레이 버튼 클릭: {PLAY_COIN_COST} 코인 차감");
             }
             else
             {
                 Debug.Log("[UIHudControl] 플레이 버튼 클릭: 코인 부족");
+                ShowCoinShortPopup();
                 return;
             }
 
@@ -520,6 +524,21 @@ namespace FunRabbit
             {
                 crane.SetStatus(CraneStatus.CONTROL_MOVING);
             }
+        }
+
+        // 코인 부족 안내: 확인 = 상점 열기(구매하러 가기), 취소/닫기 = 팝업만 닫힘
+        private void ShowCoinShortPopup()
+        {
+            FireBaseAnalyticsManager.Instance.LogEvent("coin_short_popup");
+
+            UIPopup.CreateOrGet().Set(
+                LanguageManager.Instance.Get("popup_coin_short_title"),
+                LanguageManager.Instance.Get("popup_coin_short_body", PLAY_COIN_COST),
+                () =>
+                {
+                    FireBaseAnalyticsManager.Instance.LogEvent("coin_short_go_shop");
+                    UIShopPanel.OpenExclusive();
+                });
         }
 
         public void OnClickGrapBtn()

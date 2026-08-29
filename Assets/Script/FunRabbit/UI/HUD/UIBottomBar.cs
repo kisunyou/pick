@@ -6,7 +6,7 @@ using UnityEngine;
 namespace FunRabbit
 {
     // 화면 하단 공통 메뉴 바 (UIHud의 Bottom을 별도 프리팹으로 분리한 뷰).
-    // - 코인 보유량 표시(10단위 카운팅 연출 포함)
+    // - 코인 보유량 표시(카운팅 연출 - 최소 10/프레임, 최대 3초 내 완료)
     // - 컬렉션(도감) 진입 버튼
     // - 코인 획득 연출(출발점 → 코인 아이콘으로 코인이 날아와 도착할 때마다 분할 지급)
     [UIOption(
@@ -38,10 +38,13 @@ namespace FunRabbit
         public UIMenuButton SettingButton => settingButton;
         public GameObject MainMenu => mainMenu;
 
-        // 코인 표시 연출: 최초 셋팅은 즉시, 이후 변경은 매 프레임 10씩 목표값까지 카운팅.
-        private const long CoinCountStep = 10;
+        // 코인 표시 연출: 최초 셋팅은 즉시, 이후 변경은 목표값까지 카운팅.
+        // 기본 속도는 매 프레임 10 이지만, 증감 폭이 커도 CoinCountMaxDuration(3초) 안에는 반드시 목표값에 도달한다.
+        private const long CoinCountStep = 10;            // 최소 카운팅 속도 (프레임당)
+        private const float CoinCountMaxDuration = 3f;    // 증감 표시가 끝나야 하는 최대 시간(초)
         private long _displayedCoin;        // 현재 화면에 표시 중인 값
         private long _targetCoin;           // 카운팅 목표 값
+        private float _coinCountDeadline;   // 현재 목표값에 도달해야 하는 시각 (Time.unscaledTime 기준)
         private bool _coinInitialized;      // 최초 셋팅 여부
         private Coroutine _coinCountCoroutine;
 
@@ -83,6 +86,8 @@ namespace FunRabbit
                 return;
 
             _targetCoin = amount;
+            // 목표가 바뀔 때마다 마감을 다시 잡는다 - 어떤 증감 폭이든 지금부터 3초 안에 끝난다
+            _coinCountDeadline = Time.unscaledTime + CoinCountMaxDuration;
 
             // 초기화(최초 셋팅)는 연출 없이 즉시 반영
             if (!_coinInitialized)
@@ -98,13 +103,23 @@ namespace FunRabbit
                 _coinCountCoroutine = StartCoroutine(CoinCountCoroutine());
         }
 
-        // 표시값을 목표값까지 매 프레임 10씩 증가/감소시킨다. (마지막 스텝은 목표값에 정확히 맞춤)
+        // 표시값을 목표값까지 증가/감소시킨다. 프레임당 최소 CoinCountStep(10) 씩 움직이되,
+        // 남은 시간(마감까지) 안에 끝나도록 필요한 만큼 스텝을 키운다. (마지막 스텝은 목표값에 정확히 맞춤)
         private IEnumerator CoinCountCoroutine()
         {
             while (_displayedCoin != _targetCoin)
             {
                 long diff = _targetCoin - _displayedCoin;
-                long step = System.Math.Min(System.Math.Abs(diff), CoinCountStep) * System.Math.Sign(diff);
+                long remainingAbs = System.Math.Abs(diff);
+
+                // 이번 프레임에 필요한 양 = 남은 차이 × (이번 프레임 시간 / 마감까지 남은 시간). 마감이 지났으면 한 번에 끝낸다.
+                float dt = Time.unscaledDeltaTime;
+                float remainingTime = _coinCountDeadline - Time.unscaledTime;
+                long needed = remainingTime <= dt
+                    ? remainingAbs
+                    : (long)System.Math.Ceiling(remainingAbs * (dt / remainingTime));
+
+                long step = System.Math.Min(remainingAbs, System.Math.Max(CoinCountStep, needed)) * System.Math.Sign(diff);
                 _displayedCoin += step;
                 ApplyCoinText(_displayedCoin);
                 yield return null;
@@ -330,8 +345,10 @@ namespace FunRabbit
             GameMain.Instance.SetGameStatus(GameStatus.COLLECTION);
         }
 
+        // 상점 패널을 띄운다 (Contents 레이어 - 다른 Contents 패널은 닫는다)
         public void OnClickShopBtn()
         {
+            UIShopPanel.OpenExclusive();
         }
 
         // 광고 시청 팝업(확인 → 리워드 광고 → 코인 지급)을 띄운다.

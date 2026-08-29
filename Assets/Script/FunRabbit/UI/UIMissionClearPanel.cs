@@ -248,6 +248,14 @@ namespace FunRabbit
             _seq?.Kill();
             _titleTween?.Kill();
             _flickerSeq?.Kill();
+
+            // 클리어 연출이 끝나(닫기 버튼 / CloseAllInLayer 등 어떤 경로든) 패널이 사라지는 순간,
+            // 스폰을 미뤄둔 다음 보스를 등장시키고 대기 중인 아군을 다시 싸우게 한다.
+            // (씬 언로드/앱 종료로 파괴될 때는 ActorBattleSystem 도 함께 사라지므로 isActiveAndEnabled 로 걸러진다)
+            if (ActorBattleSystem.TryGetSetInstance(out ActorBattleSystem battleSystem)
+                && battleSystem != null && battleSystem.isActiveAndEnabled)
+                battleSystem.SpawnPendingBoss();
+
             base.OnDestroy();
         }
     }
