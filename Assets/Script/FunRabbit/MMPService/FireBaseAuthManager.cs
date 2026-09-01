@@ -25,6 +25,9 @@ namespace FunRabbit
         // 현재 로그인 유저가 게스트(익명)인지 (미로그인이면 false)
         public bool IsAnonymousUser => IsLoggedIn && _auth.CurrentUser.IsAnonymous;
 
+        // 현재 로그인 유저의 uid (미로그인이면 null) - 클라우드 세이브 문서 키로 사용
+        public string UserId => IsLoggedIn ? _auth.CurrentUser.UserId : null;
+
         // 이 기기에서 로그인에 성공한 적이 있는지.
         // 저장된 유저 복원은 비동기(특히 에디터/PC)라, 이력이 있으면 복원을 잠시 기다리는 판단에 쓴다.
         public const string HasEverLoggedInKey = "FireBaseAuth_HasEverLoggedIn";
@@ -190,6 +193,29 @@ namespace FunRabbit
             PlayerPrefs.Save();
 
             Debug.Log("[FireBaseAuthManager] 로그아웃 완료 - 다음 실행 시 로그인 버튼부터 시작합니다.");
+        }
+
+        // 현재 유저의 Firebase ID 토큰을 콜백으로 전달한다 (REST API 인증용, 미로그인/실패 시 null).
+        // SDK가 토큰을 캐시하고 만료 시 자동 갱신하므로 매번 호출해도 부담이 없다.
+        public void GetIdToken(Action<string> onToken)
+        {
+            if (!IsLoggedIn)
+            {
+                onToken?.Invoke(null);
+                return;
+            }
+
+            _auth.CurrentUser.TokenAsync(false).ContinueWithOnMainThread(task =>
+            {
+                if (task.IsCanceled || task.IsFaulted)
+                {
+                    Debug.LogWarning($"[FireBaseAuthManager] ID 토큰 획득 실패: {task.Exception?.GetBaseException().Message}");
+                    onToken?.Invoke(null);
+                    return;
+                }
+
+                onToken?.Invoke(task.Result);
+            });
         }
 
         // ===== 내부 =====

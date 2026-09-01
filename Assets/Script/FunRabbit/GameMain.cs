@@ -67,6 +67,9 @@ namespace FunRabbit
             // Firebase Auth 초기화 - 게스트/Google 로그인 (UILoading의 로그인 게이트가 사용)
             FireBaseAuthManager.MakeInstance();
 
+            // 클라우드 세이브 - 로그인 후 진행 데이터를 Firestore와 동기화 (게이트에서 로드, 이후 자동 저장)
+            CloudSaveManager.MakeInstance();
+
             // 인앱 결제 매니저 - 스토어(Google Play / App Store) 연결 + 상품 가격 조회 시작
             ShopManager.MakeInstance();
 

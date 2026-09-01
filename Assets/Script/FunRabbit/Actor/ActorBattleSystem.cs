@@ -489,6 +489,22 @@ namespace FunRabbit
         private static string SlotAnimalKeyKey(int index) => $"{KEY_ALLY_SLOT_ANIMAL_KEY}{index}";
         private static string SlotHpKey(int index) => $"{KEY_ALLY_SLOT_HP}{index}";
 
+        // ===== 클라우드 세이브 연동 (CloudSaveManager 전용) =====
+        // 적용 순서 주의: ClearAllAllies가 SaveAllyBattleState로 슬롯 키를 덮어쓰므로
+        // 반드시 (정리 → 스냅샷을 PlayerPrefs에 적용 → 복원) 순서로 호출해야 한다.
+
+        // 클라우드 스냅샷 적용 전에 기존 슬롯/대기열/스택 UI를 정리한다.
+        public void ClearAllAlliesForCloudSave()
+        {
+            ClearAllAllies();
+        }
+
+        // 클라우드 스냅샷이 PlayerPrefs에 적용된 뒤, 저장된 아군 상태를 다시 스폰한다.
+        public void RestoreAllyBattleStateForCloudSave()
+        {
+            RestoreAllyBattleState();
+        }
+
         // 프리팹에 baked-in된 base Actor를 T(AllyBattleActor/BossBattleActor)로 교체한다.
         // (Collection/DollBox 모드와 동일하게, 타입 분기는 스폰 시점의 컴포넌트 교체로 처리)
         private T SetupBattleActor<T>(GameObject instance) where T : BattleActor

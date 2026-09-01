@@ -185,6 +185,9 @@ namespace FunRabbit
         // (에디터/PC는 저장 유저 로드가 비동기라 초기화 직후 CurrentUser가 잠시 null일 수 있다)
         const float AuthRestoreTimeout = 3f;
 
+        // 클라우드 세이브 동기화 대기 한도(초) - 넘으면 로컬 데이터로 진행 (게임 진입을 막지 않음)
+        const float CloudSyncTimeout = 12f;
+
         private UILoading _loading;
         private Coroutine _authGateCoroutine;
 
@@ -260,6 +263,12 @@ namespace FunRabbit
 
             if (auth.IsLoggedIn)
             {
+                // 클라우드 세이브 동기화 (로딩 표시 유지 상태에서 진행)
+                yield return CloudSyncCoroutine();
+
+                if (_loading == null)
+                    yield break;
+
                 // 자동 복원된 로그인도 매번 토스트로 알린다 (익명=게스트 / 그 외=구글)
                 ShowLoginMessage(auth.IsAnonymousUser);
                 _loading.ShowTouchToStartBtn();
@@ -268,6 +277,24 @@ namespace FunRabbit
             {
                 _loading.ShowLoginButtons();
             }
+        }
+
+        // 클라우드 세이브 동기화를 기다린다. 한도를 넘거나 실패해도 그대로 진행한다(fail-open).
+        private IEnumerator CloudSyncCoroutine()
+        {
+            var cloud = CloudSaveManager.Instance;
+            if (cloud == null)
+                yield break;
+
+            bool done = false;
+            cloud.SyncOnLogin(() => done = true);
+
+            float deadline = Time.realtimeSinceStartup + CloudSyncTimeout;
+            while (!done && Time.realtimeSinceStartup < deadline)
+                yield return null;
+
+            if (!done)
+                Debug.LogWarning("[UILoadingControl] 클라우드 동기화 지연 - 로컬 데이터로 진행합니다.");
         }
 
         private void OnGuestLoginBtn()
@@ -290,7 +317,7 @@ namespace FunRabbit
                 success => OnLoginResult(success, "login_message_google"));
         }
 
-        // 로그인 성공 → 상단 토스트 메시지 + 터치 투 스타트로 전환 / 실패 → 버튼 재활성화(재시도 가능)
+        // 로그인 성공 → 클라우드 동기화 → 토스트 + 터치 투 스타트 / 실패 → 버튼 재활성화(재시도 가능)
         private void OnLoginResult(bool success, string messageKey)
         {
             if (_loading == null)
@@ -298,13 +325,26 @@ namespace FunRabbit
 
             if (success)
             {
-                UITopMessage.ShowMessage(LanguageManager.Instance.Get(messageKey));
-                _loading.ShowTouchToStartBtn();
+                // 동기화 동안 로그인 버튼 대신 로딩 표시
+                _loading.HideLoginButtons();
+                _loading.ShowLoadingText();
+                _loading.StartCoroutine(AfterLoginCoroutine(messageKey));
             }
             else
             {
                 _loading.SetLoginButtonsInteractable(true);
             }
+        }
+
+        private IEnumerator AfterLoginCoroutine(string messageKey)
+        {
+            yield return CloudSyncCoroutine();
+
+            if (_loading == null)
+                yield break;
+
+            UITopMessage.ShowMessage(LanguageManager.Instance.Get(messageKey));
+            _loading.ShowTouchToStartBtn();
         }
 
         // 로그인 방식에 맞는 토스트 메시지 노출 (게스트=익명 / 그 외=구글)
