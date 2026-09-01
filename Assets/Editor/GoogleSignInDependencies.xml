@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Google Credential Manager 로그인 (GoogleCredentialHelper.cs) 의존성.
+     Firebase 웹 플로우(SignInWithProviderAsync)가 Android에서 인증서 해시 오류로 깨져서
+     Credential Manager + googleid 방식으로 전환 (2026-09-01). EDM4U(Android Resolver)가
+     mainTemplate.gradle에 병합한다. -->
+<dependencies>
+  <androidPackages>
+    <androidPackage spec="androidx.credentials:credentials:1.5.0" />
+    <androidPackage spec="androidx.credentials:credentials-play-services-auth:1.5.0" />
+    <androidPackage spec="com.google.android.libraries.identity.googleid:googleid:1.1.1" />
+  </androidPackages>
+</dependencies>

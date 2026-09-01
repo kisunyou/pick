@@ -64,6 +64,9 @@ namespace FunRabbit
             // Firebase Analytics 초기화
             FireBaseAnalyticsManager.MakeInstance();
 
+            // Firebase Auth 초기화 - 게스트/Google 로그인 (UILoading의 로그인 게이트가 사용)
+            FireBaseAuthManager.MakeInstance();
+
             // 인앱 결제 매니저 - 스토어(Google Play / App Store) 연결 + 상품 가격 조회 시작
             ShopManager.MakeInstance();
 

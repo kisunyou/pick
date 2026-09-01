@@ -12,7 +12,12 @@
           "package_name": "com.funrabbit.pick"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "567846054053-deajvl47hmfvm87lg8vasv0pd68d1sbm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDXEhjDAijESLGb0KWEqrg_-axa8ae6b_I"
@@ -20,7 +25,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "567846054053-deajvl47hmfvm87lg8vasv0pd68d1sbm.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

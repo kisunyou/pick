@@ -19,6 +19,34 @@ public static class BuildScript
     // AAB (Google Play 업로드용). 사용: ... -executeMethod BuildScript.BuildAndroidAab
     public static void BuildAndroidAab() => BuildAndroid(appBundle: true);
 
+    // Keystore/keystore_credentials.txt(key=value 형식)에서 서명 정보를 읽어 PlayerSettings에 적용
+    static void ApplyKeystoreCredentials()
+    {
+        string credPath = Path.GetFullPath("Keystore/keystore_credentials.txt");
+        if (!File.Exists(credPath))
+        {
+            Debug.LogWarning($"[BuildScript] keystore 자격증명 파일 없음: {credPath} - 기존 PlayerSettings 값으로 진행");
+            return;
+        }
+
+        var cred = File.ReadAllLines(credPath)
+            .Select(line => line.Split(new[] { '=' }, 2))
+            .Where(kv => kv.Length == 2)
+            .ToDictionary(kv => kv[0].Trim(), kv => kv[1].Trim());
+
+        PlayerSettings.Android.useCustomKeystore = true;
+        if (cred.TryGetValue("keystoreName", out string keystoreName))
+            PlayerSettings.Android.keystoreName = Path.GetFullPath(keystoreName);
+        if (cred.TryGetValue("keyaliasName", out string keyaliasName))
+            PlayerSettings.Android.keyaliasName = keyaliasName;
+        if (cred.TryGetValue("keystorePass", out string keystorePass))
+            PlayerSettings.Android.keystorePass = keystorePass;
+        if (cred.TryGetValue("keyaliasPass", out string keyaliasPass))
+            PlayerSettings.Android.keyaliasPass = keyaliasPass;
+
+        Debug.Log($"[BuildScript] keystore 자격증명 적용: {PlayerSettings.Android.keystoreName} (alias: {PlayerSettings.Android.keyaliasName})");
+    }
+
     static void BuildAndroid(bool appBundle)
     {
         string ext = appBundle ? "aab" : "apk";
@@ -41,6 +69,9 @@ public static class BuildScript
         // 확실히 Android 타깃으로 전환하고 APK / App Bundle 을 명시 선택
         EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Android, BuildTarget.Android);
         EditorUserBuildSettings.buildAppBundle = appBundle;
+
+        // batchmode 세션에는 에디터에서 입력한 keystore 비밀번호가 없다 - 자격증명 파일에서 로드
+        ApplyKeystoreCredentials();
 
         // Unity 6.3에서 URP Compatibility Mode 설정이 deprecated/hidden 처리되면서
         // 빌드 전 검증(URPPreprocessBuild)이 이 심볼 없이는 실패한다 - 심볼 추가로 기존 Compatibility Mode 유지.
