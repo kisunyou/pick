@@ -15,6 +15,7 @@ namespace FunRabbit
         [SerializeField] Toggle vibrationToggle;
         [SerializeField] Button closeButton;
         [SerializeField] Button dimedButton;
+        [SerializeField] Button googleLoginButton;
 
         void Start()
         {
@@ -43,6 +44,36 @@ namespace FunRabbit
                 closeButton.onClick.AddListener(Close);
             if (dimedButton != null)
                 dimedButton.onClick.AddListener(Close);
+
+            // 게스트 로그인 상태에서만 구글 로그인 전환 버튼을 노출한다
+            if (googleLoginButton != null)
+            {
+                bool isGuest = FireBaseAuthManager.IsCheckInstance() && FireBaseAuthManager.Instance.IsAnonymousUser;
+                googleLoginButton.gameObject.SetActive(isGuest);
+                googleLoginButton.onClick.AddListener(OnClickGoogleLogin);
+            }
+        }
+
+        // 게스트 → 구글 계정 전환 (성공 시 버튼 숨김 + 토스트 / 실패 시 재시도 가능)
+        private void OnClickGoogleLogin()
+        {
+            googleLoginButton.interactable = false;
+
+            FireBaseAuthManager.Instance.UpgradeGuestToGoogle(success =>
+            {
+                if (this == null || googleLoginButton == null)
+                    return;
+
+                if (success)
+                {
+                    UITopMessage.ShowMessage(LanguageManager.Instance.Get("login_message_google"));
+                    googleLoginButton.gameObject.SetActive(false);
+                }
+                else
+                {
+                    googleLoginButton.interactable = true;
+                }
+            });
         }
 
         private void OnSoundFxSliderChanged(float value)

@@ -196,6 +196,21 @@ namespace FunRabbit
             GameDollCreator.Instance.CreateDolls();
         }
 
+        // ===== 계정 전환 (게스트 → 이미 사용 중인 구글 계정으로 로그인 전환 시) =====
+
+        // 전환 시작 - uid가 바뀌는 동안 자동 저장이 이전 계정 데이터를 새 계정 문서에 덮어쓰지 않게 정지한다.
+        public void PrepareAccountSwitch()
+        {
+            IsSynced = false;
+            _lastUploadedSaveJson = null;
+        }
+
+        // 전환 완료 - 새 계정 기준으로 부팅 동기화를 다시 수행한다 (그 계정의 클라우드 세이브 채택/업로드).
+        public void ResyncAfterAccountSwitch()
+        {
+            SyncOnLogin(null);
+        }
+
         // ===== 자동 저장 =====
 
         private IEnumerator AutoSaveLoop()

@@ -16,6 +16,8 @@ namespace FunRabbit
         const string SuccessBodyKey = "shop_popup_purchase_success_body";      // "코인 {0}개가 지급되었습니다."
         const string FailTitleKey = "shop_popup_purchase_fail_title";
         const string FailBodyKey = "shop_popup_purchase_fail_body";            // "구매를 완료할 수 없습니다.\n({0})"
+        const string NeedGoogleTitleKey = "popup_need_google_title";           // "구글 로그인 전환"
+        const string NeedGoogleBodyKey = "popup_need_google_body";             // "인앱 상품을 구매 하려면\n구글 로그인 전환 필요합니다\n하시겠습니까?"
 
         IShopStore _store;
 
@@ -67,6 +69,14 @@ namespace FunRabbit
         // 구매 요청 - 결과는 팝업(성공: 코인 지급 안내 / 실패: 사유)으로 표시된다
         public void Purchase(string productKey)
         {
+            // 게스트 로그인 상태에서는 인앱 구매 전에 구글 계정 전환을 요구한다
+            // (구매 내역이 앱 삭제 시 소멸하는 게스트 계정에 묶이지 않도록)
+            if (FireBaseAuthManager.IsCheckInstance() && FireBaseAuthManager.Instance.IsAnonymousUser)
+            {
+                ShowGoogleLoginRequiredPopup();
+                return;
+            }
+
             ShopProduct product = ShopCatalog.Find(productKey);
             if (product == null)
             {
@@ -77,6 +87,27 @@ namespace FunRabbit
 
             FireBaseAnalyticsManager.Instance.LogEvent("purchase_try", "product_id", product.Key);
             _store.Purchase(product);
+        }
+
+        // 게스트 상태 구매 시도 - 구글 로그인 전환 안내 팝업 (확인: 전환 시도 / 취소: 닫기)
+        private void ShowGoogleLoginRequiredPopup()
+        {
+            UIPopup popup = UIPopup.CreateOrGet();
+            if (popup == null)
+                return;
+
+            popup.Set(
+                LanguageManager.Instance.Get(NeedGoogleTitleKey),
+                LanguageManager.Instance.Get(NeedGoogleBodyKey),
+                () =>
+                {
+                    FireBaseAuthManager.Instance.UpgradeGuestToGoogle(success =>
+                    {
+                        if (success)
+                            UITopMessage.ShowMessage(LanguageManager.Instance.Get("login_message_google"));
+                        // 전환 성공 후 구매는 유저가 다시 구매 버튼을 눌러 진행한다
+                    });
+                });
         }
 
         // ── 스토어 이벤트 ───────────────────────────────────────────

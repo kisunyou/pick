@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Threading.Tasks;
+using Firebase;
 using Firebase.Auth;
 using Firebase.Extensions;
 using UnityEngine;
@@ -166,6 +167,104 @@ namespace FunRabbit
 
             SignInInternal(_auth.SignInWithProviderAsync(provider), "google", onComplete);
 #endif
+        }
+
+        // 게스트(익명) 계정을 구글 계정으로 전환한다 (인앱 구매 요구사항 / 설정의 구글 로그인 버튼).
+        // - 링크 성공: uid가 유지되어 클라우드 세이브가 그대로 승계된다
+        // - 그 구글 계정이 이미 다른 Firebase 계정에 연결돼 있으면: 해당 계정으로 로그인 전환하고
+        //   클라우드 세이브를 새 계정 기준으로 다시 동기화한다 (그 계정의 저장 데이터를 불러옴)
+        public void UpgradeGuestToGoogle(Action<bool> onComplete)
+        {
+            if (!IsInitialized)
+            {
+                Debug.LogWarning("[FireBaseAuthManager] 아직 초기화되지 않았습니다.");
+                onComplete?.Invoke(false);
+                return;
+            }
+
+            if (!IsAnonymousUser)
+            {
+                Debug.LogWarning("[FireBaseAuthManager] 게스트 로그인 상태가 아닙니다 - 전환 불필요");
+                onComplete?.Invoke(false);
+                return;
+            }
+
+            if (_isSigningIn)
+            {
+                Debug.LogWarning("[FireBaseAuthManager] 이미 로그인 진행 중입니다.");
+                return;
+            }
+
+#if UNITY_EDITOR || UNITY_STANDALONE
+            Debug.LogWarning("[FireBaseAuthManager] 에디터/PC에서는 구글 계정 전환 미지원");
+            onComplete?.Invoke(false);
+#elif UNITY_ANDROID
+            _isSigningIn = true;
+            GoogleCredentialHelper.RequestIdToken((idToken, error) =>
+            {
+                _isSigningIn = false;
+
+                if (string.IsNullOrEmpty(idToken))
+                {
+                    Debug.LogWarning($"[FireBaseAuthManager] 구글 전환용 ID 토큰 획득 실패: {error}");
+                    onComplete?.Invoke(false);
+                    return;
+                }
+
+                Credential credential = GoogleAuthProvider.GetCredential(idToken, null);
+                _auth.CurrentUser.LinkWithCredentialAsync(credential).ContinueWithOnMainThread(task =>
+                {
+                    if (!task.IsCanceled && !task.IsFaulted)
+                    {
+                        Debug.Log($"[FireBaseAuthManager] 게스트 → 구글 전환(링크) 성공: {task.Result.User.UserId}");
+                        FireBaseAnalyticsManager.Instance.LogEvent("login_link", "method", "google");
+                        onComplete?.Invoke(true);
+                        return;
+                    }
+
+                    if (IsCredentialAlreadyInUse(task.Exception))
+                    {
+                        // 이미 다른 Firebase 계정에 연결된 구글 계정 - 그 계정으로 로그인 전환.
+                        // uid가 바뀌므로, 전환이 끝날 때까지 클라우드 자동 저장을 멈춰
+                        // 게스트 데이터가 그 계정의 클라우드 세이브를 덮어쓰지 않게 한다.
+                        Debug.LogWarning("[FireBaseAuthManager] 이미 사용 중인 구글 계정 - 해당 계정으로 로그인 전환합니다.");
+                        if (CloudSaveManager.IsCheckInstance())
+                            CloudSaveManager.Instance.PrepareAccountSwitch();
+
+                        Credential switchCredential = GoogleAuthProvider.GetCredential(idToken, null);
+                        SignInInternal(_auth.SignInAndRetrieveDataWithCredentialAsync(switchCredential), "google_switch", success =>
+                        {
+                            if (success && CloudSaveManager.IsCheckInstance())
+                                CloudSaveManager.Instance.ResyncAfterAccountSwitch();
+
+                            onComplete?.Invoke(success);
+                        });
+                        return;
+                    }
+
+                    Debug.LogWarning($"[FireBaseAuthManager] 구글 전환 실패: {task.Exception?.GetBaseException().Message}");
+                    onComplete?.Invoke(false);
+                });
+            });
+#else
+            onComplete?.Invoke(false);
+#endif
+        }
+
+        // AggregateException 안에 "이미 다른 계정에 연결된 자격증명" 오류가 있는지 판별한다.
+        private static bool IsCredentialAlreadyInUse(AggregateException exception)
+        {
+            if (exception == null)
+                return false;
+
+            foreach (Exception inner in exception.Flatten().InnerExceptions)
+            {
+                if (inner is FirebaseException firebaseException
+                    && (AuthError)firebaseException.ErrorCode == AuthError.CredentialAlreadyInUse)
+                    return true;
+            }
+
+            return false;
         }
 
         // 로그아웃 (디버그/테스트용). 저장된 로그인 상태와 로그인 이력 플래그를 함께 지운다.
