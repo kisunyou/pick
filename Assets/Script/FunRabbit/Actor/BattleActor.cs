@@ -40,6 +40,7 @@ namespace FunRabbit
             protected virtual float GetAttackSpeedValue(string animalKey) => GameActorData.GetAllyAttackSpeed(animalKey);
 
             // hp/attackPower/attackSpeed/attackRange를 animalKey 테이블 기준으로 채운다.
+            // 변형(_g/_r) 행은 actor.json에 스탯이 이미 2/3배로 기입돼 있어 별도 배수 없이 그대로 쓴다.
             public void SetStats(ActorData actorData)
             {
                 _animalKey = actorData.animalKey;

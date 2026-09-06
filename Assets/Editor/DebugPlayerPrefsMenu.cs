@@ -21,6 +21,8 @@ namespace FunRabbit.EditorTools
             Debug.Log($"[DebugPlayerPrefs] {CoinKey} = {PlayerPrefs.GetInt(CoinKey, -1)} (-1 = 키 없음, 기본 2000)");
         }
 
+        // 스테이지 설정은 FunRabbit/Debug/스테이지/ 서브메뉴(DebugStageMenu.cs)에서 담당한다.
+
         // Firebase 로그아웃 + 로그인 이력 플래그 제거 - 다음 실행 시 로그인 버튼부터 시작.
         // ⚠️ 데스크톱 SDK는 저장된 유저를 비동기로 복원하므로, 복원 전에 SignOut하면 no-op이 되어
         // 재시작 시 다시 로그인된다. 반드시 복원 완료(CurrentUser != null)를 기다렸다가 로그아웃한다.

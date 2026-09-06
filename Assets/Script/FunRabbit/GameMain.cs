@@ -19,7 +19,7 @@ namespace FunRabbit
         // 2배 빨라져(≈5.88 m/s), 기존 체감(≈2.94 m/s)을 유지하도록 절반으로 낮춤.
         [SerializeField] public float UpSpeed = 15.0f;
 
-        // 테스트용: 게임 시작 시 지정 스테이지(quest.json stage 번호)로 강제 이동.
+        // 테스트용: 게임 시작 시 지정 스테이지(actor.json stage 번호, 1~36)로 강제 이동.
         // 0 이하 = 비활성(저장된 진행대로 시작), 총 스테이지 수 초과 = 마지막 스테이지로 보정.
         // (const 대신 readonly - 토글 시 CS0162 방지)
         private static readonly int ForcedStartStage = 0;
@@ -99,7 +99,7 @@ namespace FunRabbit
         // 보스 반영은 Stage0 로드 후 ActorBattleSystem이 자체 Start()에서 수행한다.
         private static void ForceStartStage()
         {
-            int lastStage = GameQuestData.TotalStageCount;
+            int lastStage = GameQuestManager.TotalPlayableStageCount; // 연속 스테이지 기준 (12 × 3 = 36)
             if (lastStage <= 0)
                 return;
 

@@ -60,6 +60,10 @@ public class UIModelViewPanel : MonoBehaviour
     // 패널/카메라/모델은 고정한 채 이 RawImage만 움직여 슬라이드 연출에 사용한다.
     public RectTransform ImageRect => RawImage != null ? RawImage.rectTransform : null;
 
+    // 현재 로드되어 표시 중인 모델 인스턴스 (없으면 null).
+    // 로드 후 후처리(예: actor.json texture 변형색 적용)에 사용한다.
+    public GameObject ModelInstance => _control != null ? _control.ModelInstance : null;
+
     // RawImage(3D 렌더 결과) 색상을 지정한다. 미획득 인형을 검은 실루엣으로 표현하는 등에 사용.
     public void SetImageColor(Color color)
     {
@@ -93,6 +97,9 @@ public class UIModelViewPanelControl
 
     // 현재 로드되어 표시 중인 모델 인스턴스
     private GameObject _modelInstance;
+
+    // 현재 표시 중인 모델 인스턴스 (없으면 null)
+    public GameObject ModelInstance => _modelInstance;
 
     // 진행 중인 비동기 로드를 취소하기 위한 토큰 소스
     private CancellationTokenSource _loadCts;

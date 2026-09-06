@@ -3,12 +3,18 @@ using UnityEngine;
 
 namespace FunRabbit
 {
-    // 동물(액터) 공통 속성 (JSON table/actor 한 행 = 동물 한 종).
-    // 스테이지 진행 규칙은 GameQuestData(quest.json)가, 동물 자체 속성은 여기가 담당한다.
+    // 액터 속성 (JSON table/actor 한 행 = 스테이지 하나의 액터).
+    // 연속 36스테이지 = 원본 12종(1~12) + _g 변형(13~24) + _r 변형(25~36).
+    // 변형 행은 animalKey에 suffix(bear_g 등)가 붙고 model은 원본 프리팹, texture로 색만 바꾼다.
+    // 스테이지 목록(GameQuestData)도 이 테이블에서 구성된다 - actor.json이 스테이지 구성의 단일 정본.
     [System.Serializable]
     public class ActorData
     {
-        public string animalKey;
+        public int stage;                    // 이 액터가 보스로 등장하는 스테이지 번호 (1~36)
+        public string animalKey;             // 고유 키 (변형은 bear_g / bear_r 형식)
+        public string nameKey;               // 표시 이름의 stringData 키 (변형 행도 원본 이름 키를 기입, 예: doll_name_bear)
+        public string model;                 // 모델 프리팹 경로 (Resources 기준). 비어있으면 기존 이름 규칙 사용
+        public string texture;               // 교체 텍스처 경로 (Resources 기준). 비어있으면 모델 원본 텍스처 유지
         public string sound;                 // 획득 시 울음소리 (Resources/Sound 기준 경로)
         public float inGameScale = 1f;       // 인게임(뽑기 기계) 인형 스케일
         public float collectionScale = 1.5f; // 컬렉션(도감) 배회 인형 스케일
@@ -70,6 +76,27 @@ namespace FunRabbit
                 Load();
 
             return _dataList?.actors.Find(a => a.animalKey == animalKey);
+        }
+
+        // 전체 액터 행 (스테이지 구성용 - GameQuestData가 이 목록으로 스테이지를 만든다)
+        public static List<ActorData> Actors
+        {
+            get
+            {
+                if (_dataList == null)
+                    Load();
+
+                return _dataList?.actors;
+            }
+        }
+
+        // 해당 스테이지의 액터 행 (stage 필드 기준)
+        public static ActorData GetByStage(int stage)
+        {
+            if (_dataList == null)
+                Load();
+
+            return _dataList?.actors.Find(a => a.stage == stage);
         }
 
         // animalKey에 해당하는 획득 울음소리 경로(Resources/Sound 기준)를 반환한다. 없으면 null.

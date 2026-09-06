@@ -24,10 +24,11 @@ namespace FunRabbit
         //              게이지/랜덤박스, 일일 광고 시청 횟수
         static readonly string[] IntKeys =
         {
-            "currentStage", "bossHp",
+            "currentStage", "bossHp", "maxClearedStage",
             "ItemAmount_1", "ItemAmount_8", "ItemAmount_9", "ItemAmount_10",
             "DollCountGage", "RandomBoxCount",
             "WatchAdCount",
+            "MissionKey", "MissionProgress",
         };
 
         static readonly string[] FloatKeys =
@@ -35,13 +36,14 @@ namespace FunRabbit
             "RandomBoxProgress",
         };
 
-        // 고정 string 키: 지급 대기 아군 보상, 아군 대기열, 광고 시청 날짜, 코인 타이머 종료 시각
+        // 고정 string 키: 지급 대기 아군 보상, 아군 대기열, 광고 시청 날짜, 코인 타이머 종료 시각, 미션 대상 동물
         static readonly string[] StringKeys =
         {
             "PendingAllyRewards",
             "AllyPendingQueue",
             "WatchAdDate",
             "CoinTimerEndTimeUtc",
+            "MissionAnimalKey",
         };
 
         // 동적 키: 아군 슬롯(ActorBattleSystem), 스테이지별 인형 배치(StageManager)
@@ -86,7 +88,7 @@ namespace FunRabbit
                     snapshot.ints.Add(new IntEntry { k = hpKey, v = PlayerPrefs.GetInt(hpKey) });
             }
 
-            int stageScan = Mathf.Min(Mathf.Max(GameQuestData.TotalStageCount, 1) + 1, MaxStageScan);
+            int stageScan = Mathf.Min(Mathf.Max(GameQuestManager.TotalPlayableStageCount, 1) + 1, MaxStageScan);
             for (int stage = 1; stage <= stageScan; stage++)
             {
                 string key = StageDataPrefix + stage;

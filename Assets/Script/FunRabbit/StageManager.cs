@@ -26,6 +26,13 @@ namespace FunRabbit
         // 현재 스테이지에 존재하는 인형(Actor) 수
         public static int ActorCount => actors.Count;
 
+        // 개수 변화 없이 현재 개수로 이벤트를 재발행한다.
+        // (인형 리셋 종료 등 외부 상태가 바뀌어 구독자의 재평가가 필요할 때 사용)
+        public static void NotifyActorCountChanged()
+        {
+            OnActorCountChanged?.Invoke(actors.Count);
+        }
+
         // actor 보관 리스트에 actor를 추가한다.
         public static void AddActor(Actor actor)
         {

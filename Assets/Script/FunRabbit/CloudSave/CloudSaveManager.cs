@@ -20,8 +20,14 @@ namespace FunRabbit
     {
         const string FirestoreProjectId = "pick-ddf42"; // google-services.json project_id
         const int SupportedSaveVersion = 1;
-        const float AutoSaveIntervalSeconds = 10f;
+        // 자동 저장 폴링 주기. 백그라운드 전환(OnApplicationPause) 시 즉시 저장이 따로 있어
+        // 유실 창은 최대 이 주기만큼이다. 짧게 잡으면 Firestore 일 쓰기 쿼터/비용이 커진다
+        // (10초→60초 완화: 활성 유저당 쓰기량 1/6 - 대규모 다운로드 대비, 2026-09-02)
+        const float AutoSaveIntervalSeconds = 60f;
         const int RequestTimeoutSeconds = 10;
+
+        // 백그라운드 전환/종료 시 블로킹 플러시 최대 대기(초) - 이 이상 앱 정지를 붙잡지 않는다
+        const float FlushTimeoutSeconds = 2f;
 
         // 이 uid로 마지막 동기화된 클라우드 updatedAt (다른 기기 갱신 감지용)
         const string SyncedMarkerKeyPrefix = "CloudSave_SyncedUpdatedAt_";
@@ -31,6 +37,10 @@ namespace FunRabbit
 
         bool _isUploading;
         string _lastUploadedSaveJson;
+
+        // 마지막으로 발급받은 ID 토큰 캐시. 종료 시 블로킹 플러시는 비동기 토큰 발급을
+        // 기다릴 수 없어 이 캐시를 쓴다 (자동 저장이 돌 때마다 갱신되므로 대체로 신선하다).
+        string _cachedIdToken;
 
         static string DocumentUrl(string uid) =>
             $"https://firestore.googleapis.com/v1/projects/{FirestoreProjectId}/databases/(default)/documents/users/{uid}";
@@ -42,11 +52,59 @@ namespace FunRabbit
             StartCoroutine(AutoSaveLoop());
         }
 
-        // 백그라운드 전환 시 변경분 즉시 업로드 (완료 보장은 없음 - 복귀 후 자동 저장이 재시도)
+        // 백그라운드 전환/종료 시 미반영 변경분을 즉시 업로드한다.
+        // 이 시점에는 앱이 곧 정지/종료돼 코루틴이 완주하지 못하므로 블로킹 플러시를 쓴다.
         private void OnApplicationPause(bool pause)
         {
-            if (pause && IsSynced)
-                StartCoroutine(UploadIfDirtyCoroutine("pause"));
+            if (pause)
+                FlushPendingSaveBlocking("pause");
+        }
+
+        private void OnApplicationQuit()
+        {
+            FlushPendingSaveBlocking("quit");
+        }
+
+        // 변경분이 있으면 동기(블로킹)로 업로드한다 (최대 FlushTimeoutSeconds).
+        // 캐시된 토큰이 만료됐으면 실패할 수 있지만, 로컬(PlayerPrefs)은 이미 저장돼 있고
+        // 다음 부팅 동기화가 마커 불일치를 감지해 정합성을 회복하므로 best-effort로 충분하다.
+        private void FlushPendingSaveBlocking(string reason)
+        {
+            if (!IsSynced || _isUploading || string.IsNullOrEmpty(_cachedIdToken))
+                return;
+
+            var auth = FireBaseAuthManager.Instance;
+            string uid = auth != null ? auth.UserId : null;
+            if (string.IsNullOrEmpty(uid))
+                return;
+
+            string saveJson = JsonUtility.ToJson(CloudSaveSnapshot.Capture());
+            if (saveJson == _lastUploadedSaveJson)
+                return;
+
+            long updatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            using (UnityWebRequest request = CreateUploadRequest(uid, _cachedIdToken, saveJson, updatedAt))
+            {
+                UnityWebRequestAsyncOperation operation = request.SendWebRequest();
+
+                float deadline = Time.realtimeSinceStartup + FlushTimeoutSeconds;
+                while (!operation.isDone && Time.realtimeSinceStartup < deadline)
+                    System.Threading.Thread.Sleep(20);
+
+                if (operation.isDone && request.result == UnityWebRequest.Result.Success)
+                {
+                    _lastUploadedSaveJson = saveJson;
+                    PlayerPrefs.SetString(SyncedMarkerKey(uid), updatedAt.ToString());
+                    PlayerPrefs.Save();
+                    Debug.Log($"[CloudSaveManager] 종료 전 클라우드 저장 완료 ({reason}, {saveJson.Length} bytes)");
+                }
+                else
+                {
+                    // 실패/타임아웃 - 서버에 도달했더라도 마커가 안 남았으므로
+                    // 다음 부팅 동기화에서 클라우드(더 최신) 채택으로 자연 복구된다
+                    Debug.LogWarning($"[CloudSaveManager] 종료 전 클라우드 저장 미완료 ({reason})");
+                }
+            }
         }
 
         // ===== 부팅 동기화 =====
@@ -80,6 +138,8 @@ namespace FunRabbit
                 onDone?.Invoke();
                 yield break;
             }
+
+            _cachedIdToken = token;
 
             // 클라우드 문서 조회
             using (UnityWebRequest request = new UnityWebRequest(DocumentUrl(uid), "GET"))
@@ -250,6 +310,8 @@ namespace FunRabbit
             if (string.IsNullOrEmpty(token))
                 yield break;
 
+            _cachedIdToken = token;
+
             yield return UploadSnapshotCoroutine(uid, token, null, saveJson, reason);
         }
 
@@ -263,6 +325,31 @@ namespace FunRabbit
             _isUploading = true;
 
             long updatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            using (UnityWebRequest request = CreateUploadRequest(uid, token, saveJson, updatedAt))
+            {
+                yield return request.SendWebRequest();
+
+                _isUploading = false;
+
+                if (request.result == UnityWebRequest.Result.Success)
+                {
+                    _lastUploadedSaveJson = saveJson;
+                    PlayerPrefs.SetString(SyncedMarkerKey(uid), updatedAt.ToString());
+                    PlayerPrefs.Save();
+                    Debug.Log($"[CloudSaveManager] 클라우드 저장 완료 ({reason}, {saveJson.Length} bytes)");
+                    onDone?.Invoke(true);
+                }
+                else
+                {
+                    Debug.LogWarning($"[CloudSaveManager] 클라우드 저장 실패({request.responseCode}): {request.error}\n{request.downloadHandler.text}");
+                    onDone?.Invoke(false);
+                }
+            }
+        }
+
+        // Firestore 문서 PATCH 요청을 만든다 (코루틴 업로드/블로킹 플러시 공용)
+        private static UnityWebRequest CreateUploadRequest(string uid, string token, string saveJson, long updatedAt)
+        {
             var doc = new FsDoc
             {
                 fields = new FsFields
@@ -274,31 +361,13 @@ namespace FunRabbit
             };
             byte[] body = Encoding.UTF8.GetBytes(JsonUtility.ToJson(doc));
 
-            using (UnityWebRequest request = new UnityWebRequest(DocumentUrl(uid), "PATCH"))
-            {
-                request.uploadHandler = new UploadHandlerRaw(body);
-                request.downloadHandler = new DownloadHandlerBuffer();
-                request.SetRequestHeader("Authorization", "Bearer " + token);
-                request.SetRequestHeader("Content-Type", "application/json");
-                request.timeout = RequestTimeoutSeconds;
-                yield return request.SendWebRequest();
-
-                _isUploading = false;
-
-                if (request.result == UnityWebRequest.Result.Success)
-                {
-                    _lastUploadedSaveJson = saveJson;
-                    PlayerPrefs.SetString(SyncedMarkerKey(uid), updatedAt.ToString());
-                    PlayerPrefs.Save();
-                    Debug.Log($"[CloudSaveManager] 클라우드 저장 완료 ({reason}, {body.Length} bytes)");
-                    onDone?.Invoke(true);
-                }
-                else
-                {
-                    Debug.LogWarning($"[CloudSaveManager] 클라우드 저장 실패({request.responseCode}): {request.error}\n{request.downloadHandler.text}");
-                    onDone?.Invoke(false);
-                }
-            }
+            UnityWebRequest request = new UnityWebRequest(DocumentUrl(uid), "PATCH");
+            request.uploadHandler = new UploadHandlerRaw(body);
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Authorization", "Bearer " + token);
+            request.SetRequestHeader("Content-Type", "application/json");
+            request.timeout = RequestTimeoutSeconds;
+            return request;
         }
 
         // ===== Firestore REST 문서 직렬화 =====

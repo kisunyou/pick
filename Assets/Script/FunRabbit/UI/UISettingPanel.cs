@@ -45,16 +45,17 @@ namespace FunRabbit
             if (dimedButton != null)
                 dimedButton.onClick.AddListener(Close);
 
-            // 게스트 로그인 상태에서만 구글 로그인 전환 버튼을 노출한다
+            // 구글 로그인 전환 버튼: 게스트 상태에서만 누를 수 있다.
+            // 이미 구글 로그인 상태(또는 미로그인)면 비활성(interactable=false)으로 표시만 한다.
             if (googleLoginButton != null)
             {
                 bool isGuest = FireBaseAuthManager.IsCheckInstance() && FireBaseAuthManager.Instance.IsAnonymousUser;
-                googleLoginButton.gameObject.SetActive(isGuest);
+                googleLoginButton.interactable = isGuest;
                 googleLoginButton.onClick.AddListener(OnClickGoogleLogin);
             }
         }
 
-        // 게스트 → 구글 계정 전환 (성공 시 버튼 숨김 + 토스트 / 실패 시 재시도 가능)
+        // 게스트 → 구글 계정 전환 (성공 시 버튼 비활성 + 토스트 / 실패 시 재시도 가능)
         private void OnClickGoogleLogin()
         {
             googleLoginButton.interactable = false;
@@ -67,7 +68,7 @@ namespace FunRabbit
                 if (success)
                 {
                     UITopMessage.ShowMessage(LanguageManager.Instance.Get("login_message_google"));
-                    googleLoginButton.gameObject.SetActive(false);
+                    // 전환 완료 - 이미 구글 상태이므로 비활성 유지
                 }
                 else
                 {

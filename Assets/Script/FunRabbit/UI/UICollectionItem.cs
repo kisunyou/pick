@@ -17,10 +17,19 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
     // 선택(클릭) 시 사용할 데이터
     private string _title;
     private string _modelFullPath;
+    private string _animalKey;   // 상세 팝업 모델에 적용할 actor.json 행 키 (변형 등급 반영, 예: bear_g)
 
     // active일 때 alpha 255(1.0), 비활성일 때 alpha 120(약 0.47)
     private const float ActiveAlpha = 255f / 255f;
     private const float InactiveAlpha = 120f / 255f;
+
+    // 변형(_g/_r) 클리어 등급 이름 색: _g 클리어 = 초록, _r 클리어 = 빨강 (등급 0은 프리팹 기본색 유지)
+    private static readonly Color GradeGreenColor = new Color(0.30f, 0.85f, 0.35f);
+    private static readonly Color GradeRedColor = new Color(0.95f, 0.30f, 0.25f);
+
+    // 프리팹 기본 이름 색 (등급 0으로 되돌릴 때 사용) - 최초 Set 시점에 캐시
+    private Color _titleBaseColor = Color.white;
+    private bool _titleBaseColorCached;
 
     private void SetActiveItem(bool active)
     {
@@ -43,15 +52,29 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
         }
     }
 
-    public void Set(string title, string fullPath, string modelFullPath, bool active)
+    public void Set(UICollectionItemData data)
     {
-        _title = title;
-        _modelFullPath = modelFullPath;
+        _title = data.title;
+        _modelFullPath = data.modelPath;
+        _animalKey = data.animalKey;
 
         if (titleName != null)
-            titleName.text = title;
+        {
+            if (!_titleBaseColorCached)
+            {
+                _titleBaseColor = titleName.color;
+                _titleBaseColorCached = true;
+            }
 
-        SetActiveItem(active);
+            titleName.text = data.title;
+
+            // 변형 클리어 등급을 이름 색으로 표현 (SetActiveItem이 뒤에서 알파만 덧씌운다)
+            titleName.color = data.grade >= 2 ? GradeRedColor
+                            : data.grade == 1 ? GradeGreenColor
+                            : _titleBaseColor;
+        }
+
+        SetActiveItem(data.active);
 
         // 로드 전에는 무조건 숨겨서 이전 썸네일이 잠깐 보이는 것을 방지
         if (thumbnailIcon != null)
@@ -63,12 +86,27 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
         _loadCts = new CancellationTokenSource();
 
         // 썸네일은 비동기로 로드 (fire-and-forget)
-        _ = LoadThumbnailAsync(fullPath, _loadCts.Token);
+        _ = LoadThumbnailAsync(data.iconPath, _loadCts.Token);
     }
 
-    // 클릭 시: 상세 팝업을 열고 모델을 로드한다. (미클리어 아이템은 보스 모델 경로가 전달돼 있음)
+    // 클릭(터치 다운 후 제자리에서 업) 시: 상세 팝업을 열고 모델을 로드한다. (미클리어 아이템은 보스 모델 경로가 전달돼 있음)
+    // 도감 리스트는 ScrollRect 안에 있으므로, 스크롤 제스처로 끝난 터치는 클릭으로 취급하지 않는다 -
+    // 아니면 스크롤하려고 손을 대기만 해도 팝업이 떠서 스크롤이 불가능해진다.
     public void OnPointerClick(PointerEventData eventData)
     {
+        // 드래그(스크롤) 중이었던 터치는 무시
+        if (eventData.dragging)
+            return;
+
+        // 입력 모듈이 dragging을 세워주지 않는 환경 대비: 다운→업 이동 거리가
+        // 드래그 판정 임계값을 넘으면 스크롤 의도로 보고 무시한다
+        if (EventSystem.current != null)
+        {
+            float threshold = EventSystem.current.pixelDragThreshold;
+            if ((eventData.position - eventData.pressPosition).sqrMagnitude > threshold * threshold)
+                return;
+        }
+
         if (string.IsNullOrEmpty(_modelFullPath))
         {
             Debug.LogWarning($"[UICollectionItem] 모델 경로가 비어있습니다: {_title}");
@@ -77,7 +115,7 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
 
         var popup = UICollectionDetailPopup.CreateOrGet();
         if (popup != null)
-            popup.SetData(_title, _modelFullPath);
+            popup.SetData(_title, _modelFullPath, _animalKey);
     }
 
     private async Awaitable LoadThumbnailAsync(string fullPath, CancellationToken token)

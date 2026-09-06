@@ -243,6 +243,9 @@ namespace FunRabbit
             GameObject doll = Instantiate(prefab, position, rotation, _collectionArea);
             doll.name = $"collection_{stageData.animalKey}";
 
+            // actor.json 행의 texture 필드 적용 - 변형(bear_g 등) 인형은 도감에서도 변형색으로 보인다
+            GameCommon.ApplyDataTexture(doll, stageData.animalKey);
+
             // 도감 배회 인형은 actor.json의 collectionScale로 스케일링한다
             // (GroundToFloor보다 먼저 적용해야 스케일 반영된 bounds로 바닥 접지가 계산된다)
             doll.transform.localScale = Vector3.one * GameActorData.GetCollectionScale(stageData.animalKey);

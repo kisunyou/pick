@@ -53,6 +53,18 @@ namespace FunRabbit
         // ally 대기열(스택) UI. 슬롯이 꽉 찼을 때 대기 중인 ally 아이콘을 보여준다 (ActorBattleSystem이 사용).
         public UIAllyStackActors AllyStackActors => allyStackActors;
 
+        // 콤보 HUD (uiComboHud). 프리팹 필드 배선 없이 자식에서 찾아 캐시한다.
+        private UIComboHud _comboHud;
+        public UIComboHud ComboHud
+        {
+            get
+            {
+                if (_comboHud == null)
+                    _comboHud = GetComponentInChildren<UIComboHud>(true);
+                return _comboHud;
+            }
+        }
+
         // 버프 아이콘(BuffIcons) 관리자. AddBuff(BuffType)로 버프 스택을 올린다.
         public BattleActorBuffManager BuffManager => buffManager;
 
@@ -395,12 +407,14 @@ namespace FunRabbit
 
         // 인형 수 조건 OR 리셋 아이템 보유 조건 중 하나라도 만족하면 resetButton 활성화.
         // 카운트 배지는 아이템 보유 수에 인형 수 조건으로 열리는 리셋 1회를 더해 표시한다.
+        // 리셋(삭제→재생성) 진행 중에는 인형 수가 잠깐 0이 되므로 무료 리셋 조건으로 치지 않는다
+        // (리셋을 눌렀는데 카운트가 도로 차오르는 것처럼 보이는 출렁임 방지).
         private void RefreshResetButtonActive()
         {
             if (_hud == null)
                 return;
 
-            bool resetByActorCount = _actorCount <= ResetButtonMaxActorCount;
+            bool resetByActorCount = _actorCount <= ResetButtonMaxActorCount && !GameDollCreator.IsResetting;
 
             _hud.SetActiveResetButton(resetByActorCount || _resetItemCount > 0);
             _hud.SetResetCountText(_resetItemCount + (resetByActorCount ? 1 : 0));
@@ -551,6 +565,16 @@ namespace FunRabbit
 
         public void OnClickResetButton()
         {
+            // 리셋 진행 중 중복 클릭 방지
+            if (GameDollCreator.IsResetting)
+                return;
+
+            // 인형 수 조건(무료 리셋)이 아니면 리셋 아이템 1개를 소모한다.
+            // (아이템도 없고 무료 조건도 아니면 아무것도 하지 않는다 - 그 상태에선 버튼이 비활성이라 정상적으론 도달 안 함)
+            bool freeByActorCount = StageManager.ActorCount <= ResetButtonMaxActorCount;
+            if (!freeByActorCount && !PlayerContext.TrySpendItemAmount(PlayerContext.RESET_ITEM_KEY, 1))
+                return;
+
             GameDollCreator.Instance.ResetCurrentStage();
         }
     }

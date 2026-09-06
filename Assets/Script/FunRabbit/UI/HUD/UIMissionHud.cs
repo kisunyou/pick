@@ -13,6 +13,7 @@ namespace FunRabbit
         [SerializeField] Transform missionIconTransform;
         [SerializeField] Slider missionSlider;
         [SerializeField] TextMeshProUGUI missionSliderText;
+        [SerializeField] Image missionIconImage;
 
         // 현재 로드된 미션 아이콘 프리팹 경로 (중복 로드 체크용)
         private string _currentMissionIconPath;
@@ -28,6 +29,30 @@ namespace FunRabbit
         {
             if (missionIconTransform != null)
                 _iconBaseScale = missionIconTransform.localScale;
+        }
+
+        // MissionSystem에 자신을 등록해 미션 표시(아이콘/제목/진행도)를 받는다
+        private void Start()
+        {
+            MissionSystem.Instance.AttachHud(this);
+        }
+
+        // 미션 보상 트레일 연출의 시작 위치 (미션 아이콘 위치)
+        public Vector3 IconPosition => missionIconImage != null
+            ? missionIconImage.transform.position
+            : transform.position;
+
+        // 미션 아이콘 스프라이트 지정 (actor = 동물 썸네일 / randombox = 랜덤박스 아이콘 - MissionSystem이 결정)
+        public void SetMissionIconSprite(Sprite sprite)
+        {
+            if (missionIconImage == null)
+            {
+                Debug.LogError("[UIMissionHud] missionIconImage가 할당되지 않았습니다.");
+                return;
+            }
+
+            missionIconImage.sprite = sprite;
+            missionIconImage.enabled = sprite != null;
         }
 
         public void SetMissionTitle(string title)
@@ -101,6 +126,9 @@ namespace FunRabbit
         private void OnDestroy()
         {
             _iconPunchTween?.Kill();
+
+            if (MissionSystem.IsCheckInstance())
+                MissionSystem.Instance.DetachHud(this);
         }
     }
 }

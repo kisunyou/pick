@@ -364,11 +364,13 @@ namespace FunRabbit
 
         // stringKey를 현재 언어 문자열로 변환한다.
         // 아군 액터 아이템은 템플릿 문자열({0}=동물 이름, {1}=마리수)을 채워 반환한다.
+        // 동물 이름 키는 직접 조립하지 않고 actor.json 행의 nameKey를 쓴다 -
+        // 변형 키(octopus_g 등)로 조립하면 없는 스트링 키가 만들어진다.
         private static string GetItemText(ItemData item, string stringKey)
         {
             if (item.itemType == "allyActor")
                 return LanguageManager.Instance.Get(stringKey,
-                    LanguageManager.Instance.Get($"doll_name_{item.animalKey}"), item.count);
+                    LanguageManager.Instance.Get(GameCommon.GetDollNameStringKey(item.animalKey)), item.count);
 
             return LanguageManager.Instance.Get(stringKey);
         }

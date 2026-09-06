@@ -196,6 +196,9 @@ namespace FunRabbit
             _bossInstance.transform.localScale = Vector3.one * GameActorData.GetInGameScale(actorData.animalKey);
             BossGeneration++;
 
+            // actor.json 행의 texture 필드 적용 (보스도 인형과 같은 텍스처를 공유한다)
+            GameCommon.ApplyDataTexture(_bossInstance, actorData.animalKey);
+
             // 보스도 ally와 동일하게 자신의 hp/공격 스탯을 채운다.
             BossBattleActor battleActor = SetupBattleActor<BossBattleActor>(_bossInstance);
             battleActor?.Setup(actorData);
@@ -411,6 +414,9 @@ namespace FunRabbit
             GameObject instance = Instantiate(prefab, slotTransform.position, slotTransform.rotation, slotTransform);
             instance.transform.localScale = Vector3.one * GameActorData.GetInGameScale(actorData.animalKey);
 
+            // actor.json 행의 texture 필드 적용 - 기계에서 뽑은 인형의 색과 일치한다
+            GameCommon.ApplyDataTexture(instance, actorData.animalKey);
+
             AllyBattleActor battleActor = SetupBattleActor<AllyBattleActor>(instance);
             if (battleActor == null)
                 return;
@@ -488,6 +494,7 @@ namespace FunRabbit
 
         private static string SlotAnimalKeyKey(int index) => $"{KEY_ALLY_SLOT_ANIMAL_KEY}{index}";
         private static string SlotHpKey(int index) => $"{KEY_ALLY_SLOT_HP}{index}";
+
 
         // ===== 클라우드 세이브 연동 (CloudSaveManager 전용) =====
         // 적용 순서 주의: ClearAllAllies가 SaveAllyBattleState로 슬롯 키를 덮어쓰므로

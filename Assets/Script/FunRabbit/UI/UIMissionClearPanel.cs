@@ -44,6 +44,8 @@ namespace FunRabbit
         // UIBottomBar가 전담한다(도착 지점 = UIBottomBar의 coinImage) - 이 패널은 시작 위치만 제공한다.
         [SerializeField] RectTransform coinFlyImage;
         [SerializeField] int rewardCoin = 500;              // 코인 보상량
+        // 보상량 표기 텍스트 (프리팹의 Text_Value). 고정 문구 대신 실제 지급량(rewardCoin)으로 갱신한다.
+        [SerializeField] TextMeshProUGUI rewardCoinText;
 
         Sequence _seq;
         Tween _titleTween;
@@ -71,6 +73,10 @@ namespace FunRabbit
             if (reward >= 0)
                 rewardCoin = reward;
 
+            // 표기 = 실제 지급량 (PlayCoinReward가 쓰는 rewardCoin과 항상 일치)
+            if (rewardCoinText != null)
+                rewardCoinText.text = rewardCoin.ToString("N0");
+
             _clearedAnimalKey = clearedAnimalKey;
             _isAllClear = string.IsNullOrEmpty(newAnimalKey);
 
@@ -84,9 +90,15 @@ namespace FunRabbit
                 UIModelViewPanelControl.Preload(GameCommon.GetModelPrefabFullPath(clearedAnimalKey));
 
             if (uiModelViewPanel != null && !string.IsNullOrEmpty(clearedAnimalKey))
+            {
                 uiModelViewPanel.LoadModelImmediate(GameCommon.GetBossModelPrefabFullPath(clearedAnimalKey));
+                ApplyModelTexture(uiModelViewPanel, clearedAnimalKey);
+            }
             if (uiModelViewPanelNew != null && !string.IsNullOrEmpty(newAnimalKey))
+            {
                 uiModelViewPanelNew.LoadModelImmediate(GameCommon.GetBossModelPrefabFullPath(newAnimalKey));
+                ApplyModelTexture(uiModelViewPanelNew, newAnimalKey);
+            }
 
             PlaySequence();
         }
@@ -104,6 +116,7 @@ namespace FunRabbit
             if (graphic == null)
             {
                 uiModelViewPanel.LoadModelImmediate(GameCommon.GetModelPrefabFullPath(_clearedAnimalKey));
+                ApplyModelTexture(uiModelViewPanel, _clearedAnimalKey);
                 return;
             }
 
@@ -119,7 +132,11 @@ namespace FunRabbit
                 {
                     // 완전히 꺼진(가장 안 보이는) 순간 모델을 교체한다. SetData에서 이미 Preload로
                     // 캐시를 데워둬서 LoadModelImmediate가 지연 없이 바로 인스턴스화한다.
-                    _flickerSeq.AppendCallback(() => uiModelViewPanel.LoadModelImmediate(GameCommon.GetModelPrefabFullPath(_clearedAnimalKey)));
+                    _flickerSeq.AppendCallback(() =>
+                    {
+                        uiModelViewPanel.LoadModelImmediate(GameCommon.GetModelPrefabFullPath(_clearedAnimalKey));
+                        ApplyModelTexture(uiModelViewPanel, _clearedAnimalKey);
+                    });
                     _flickerSeq.Append(graphic.DOFade(1f, flickerInterval * 0.5f));
                     _flickerSeq.Join(imgRect.DOPunchScale(Vector3.one * revealPunchScale, flickerInterval * 4f, 6, 0.8f));
                 }
@@ -205,6 +222,14 @@ namespace FunRabbit
 
             // 새 모델 등장이 끝나면 코인 보상 연출 시작
             _seq.AppendCallback(PlayCoinReward);
+        }
+
+        // 패널에 로드된 모델에 actor.json 행의 texture(_g/_r 변형색)를 적용한다.
+        // 변형이 아닌 원본 스테이지는 texture 필드가 없어 아무 일도 하지 않는다.
+        static void ApplyModelTexture(UIModelViewPanel panel, string animalKey)
+        {
+            if (panel != null && panel.ModelInstance != null)
+                GameCommon.ApplyDataTexture(panel.ModelInstance, animalKey);
         }
 
         // 타이틀 텍스트를 바꾸며 작은 크기에서 원래 크기로 팝(스케일) 등장시킨다.

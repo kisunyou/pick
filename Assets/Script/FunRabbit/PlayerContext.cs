@@ -261,6 +261,32 @@ namespace FunRabbit
             PlayerPrefs.Save();
         }
 
+        // ===== 뽑기 미션 (MissionSystem) =====
+        // 진행 중 미션 하나의 상태만 저장한다. 키가 0이면 진행 중 미션 없음 → MissionSystem이 새로 추첨.
+
+        private const string KEY_MISSION_KEY = "MissionKey";
+        private const string KEY_MISSION_ANIMAL = "MissionAnimalKey";
+        private const string KEY_MISSION_PROGRESS = "MissionProgress";
+
+        public static int GetMissionKey() => PlayerPrefs.GetInt(KEY_MISSION_KEY, 0);
+        public static string GetMissionAnimalKey() => PlayerPrefs.GetString(KEY_MISSION_ANIMAL, string.Empty);
+        public static int GetMissionProgress() => PlayerPrefs.GetInt(KEY_MISSION_PROGRESS, 0);
+
+        // 새 미션 시작 (진행도 0으로 리셋). animalKey는 actor 미션의 대상 동물 (randombox 미션은 빈 값)
+        public static void SetMission(int missionKey, string animalKey)
+        {
+            PlayerPrefs.SetInt(KEY_MISSION_KEY, missionKey);
+            PlayerPrefs.SetString(KEY_MISSION_ANIMAL, animalKey ?? string.Empty);
+            PlayerPrefs.SetInt(KEY_MISSION_PROGRESS, 0);
+            PlayerPrefs.Save();
+        }
+
+        public static void SetMissionProgress(int progress)
+        {
+            PlayerPrefs.SetInt(KEY_MISSION_PROGRESS, progress);
+            PlayerPrefs.Save();
+        }
+
         // ===== 하루 광고 시청 횟수 제한 =====
         // 날짜(로컬 자정 기준)가 바뀌면 자동으로 0부터 다시 시작한다.
         // 차감은 보상 지급 시점(광고 끝까지 시청)에만 한다 - 중도 이탈/로드 실패는 소모 안 됨.
