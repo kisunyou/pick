@@ -100,7 +100,7 @@ namespace FunRabbit
             // hitFx/데미지 텍스트/실제 데미지 적용(+킬 판정)은 타격 타이밍(HIT_DELAY)에 맞춰 함께 늦춘다.
             DOVirtual.DelayedCall(BattleActor.HIT_DELAY, () =>
             {
-                if (_boss == null || target == null)
+                if (!BattleActor.CanFight || _boss == null || target == null)
                     return;
 
                 BattleActor.PlayHitFx(_boss.AnimalKey, target.transform.position);

@@ -17,6 +17,7 @@ namespace FunRabbit
         StoreController _store;
         IReadOnlyList<ShopProduct> _products;
         bool _productsFetched;
+        readonly HashSet<string> _processingOrders = new HashSet<string>();
 
         // 결제 진행 중 판정: 마지막 요청 시각 기준 PurchaseInFlightTimeout 이내면 중복 요청을 막는다.
         // 하드 플래그가 아닌 이유 - 스토어 콜백(취소 등)이 유실되면 플래그가 영구히 남아 상점이 잠기기 때문
@@ -62,6 +63,9 @@ namespace FunRabbit
             _store.OnPurchaseConfirmed += OnPurchaseConfirmed;
             _store.OnPurchaseFailed += OnStorePurchaseFailed;
             _store.OnPurchaseDeferred += OnPurchaseDeferred;
+            _store.ProcessPendingOrdersOnPurchasesFetched(true);
+            _store.OnPurchasesFetched += _ => { };
+            _store.OnPurchasesFetchFailed += failure => Debug.LogWarning("[AndroidShopStore] Purchase restore failed; will retry on reconnect.");
 
             try
             {
@@ -101,6 +105,7 @@ namespace FunRabbit
                 Debug.Log($"[AndroidShopStore] 상품 수신: {product.definition?.id} = {product.metadata?.localizedPriceString} ({product.metadata?.isoCurrencyCode}), available={product.availableToPurchase}");
 
             OnProductsUpdated?.Invoke();
+            _store.FetchPurchases();
         }
 
         void OnProductsFetchFailed(ProductFetchFailed failure)
@@ -162,6 +167,15 @@ namespace FunRabbit
         {
             ClearInFlight();
 
+            string transactionId = order?.Info?.TransactionID;
+            var cart = order?.CartOrdered?.Items();
+            // Do not acknowledge malformed or unsupported carts without delivery.
+            if (string.IsNullOrWhiteSpace(transactionId) || cart == null || cart.Count != 1 || cart[0].Quantity <= 0)
+            {
+                Debug.LogError("[AndroidShopStore] Missing transaction ID or unsupported cart; confirmation deferred.");
+                return;
+            }
+
             Product storeProduct = GetFirstProduct(order);
             ShopProduct product = ShopCatalog.FindByStoreProductId(storeProduct?.definition?.id);
             if (product == null)
@@ -171,9 +185,16 @@ namespace FunRabbit
                 return;
             }
 
-            Debug.Log($"[AndroidShopStore] 결제 승인: {product.Key} → 지급 후 확정");
-            OnPurchaseSucceeded?.Invoke(product);
-            _store.ConfirmPurchase(order);
+            if (!_processingOrders.Add(transactionId)) return;
+            ShopManager.Instance.ProcessPendingPurchase("GooglePlay:" + transactionId, product, cart[0].Quantity, success =>
+            {
+                _processingOrders.Remove(transactionId);
+                if (!success) return;
+                // Both wallet and transaction record have reached the cloud.
+                // Replayed callbacks only re-confirm; they never add coins again.
+                _store.ConfirmPurchase(order);
+                OnPurchaseSucceeded?.Invoke(product);
+            });
         }
 
         void OnPurchaseConfirmed(Order order)

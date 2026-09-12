@@ -67,10 +67,15 @@ namespace FunRabbit
 
         // 스폰을 기다리는 목록 (슬롯 여유와 무관하게 AddAllyActor 시 항상 여기로 들어간다)
         private readonly Queue<PendingAllyEntry> _pendingQueue = new Queue<PendingAllyEntry>();
+        private bool _restoringState;
+        private bool _stateRestored;
+
+        public static bool CanAdvanceBattle => !SessionOperation.IsBusy &&
+            (!CloudSaveManager.IsCheckInstance() || CloudSaveManager.Instance.GameplayStarted);
 
         private void Start()
         {
-            InitSlots();
+            if (_slotActors == null) InitSlots();
 
             // GameQuestManager는 PlayerPrefs 기반이라 씬 로드 여부와 무관하게 바로 사용 가능하다.
             StageQuestData stageData = GameQuestManager.Instance.GetCurrentStageData();
@@ -80,7 +85,7 @@ namespace FunRabbit
             if (stageData != null && _bossInstance == null)
                 SetBoss(GameActorData.Get(stageData.animalKey));
 
-            RestoreAllyBattleState();
+            if (!_stateRestored) RestoreAllyBattleState();
 
             // 랜덤박스 패널이 열린 채 앱이 종료됐던 경우: 지급 대기 중인 아군 액터 보상을
             // 트레일 연출 없이 바로 대기열에 넣는다. (평상시 지급은 UIRandomboxPanel이 패널 닫힘 시 처리)
@@ -108,6 +113,7 @@ namespace FunRabbit
 
         private void Update()
         {
+            if (_slotActors == null || _restoringState || !CanAdvanceBattle) return;
             for (int i = 0; i < _slotActors.Length; i++)
                 UpdateSlot(i);
 
@@ -202,6 +208,13 @@ namespace FunRabbit
             // 보스도 ally와 동일하게 자신의 hp/공격 스탯을 채운다.
             BossBattleActor battleActor = SetupBattleActor<BossBattleActor>(_bossInstance);
             battleActor?.Setup(actorData);
+            RefreshBattleFraming();
+        }
+
+        public void RefreshBattleFraming()
+        {
+            if (_bossInstance != null && BossCamera.TryGetSetInstance(out BossCamera camera))
+                camera.FrameBattle(_bossInstance.transform, allyTransforms);
         }
 
         private void DestroyBossInstance()
@@ -363,6 +376,7 @@ namespace FunRabbit
         // 매 프레임 대기열 맨 앞을 확인해, 대기 시간이 지났고 빈 슬롯이 있으면 그제서야 스폰한다.
         private void TryDequeuePendingAlly()
         {
+            if (!BattleActor.CanFight) return;
             if (_pendingQueue.Count == 0)
                 return;
 
@@ -431,17 +445,19 @@ namespace FunRabbit
             _slotSavedHp[slotIndex] = battleActor.Hp;
             _slotWasOccupied[slotIndex] = true;
 
-            SaveAllyBattleState();
+            // The caller saves after queue removal; restoration must never save a partial army.
         }
 
         // 슬롯 점유 상태(animalKey/hp)와 대기열을 PlayerPrefs에 저장한다.
         private void SaveAllyBattleState()
         {
+            if (_restoringState || _slotActors == null) return;
             for (int i = 0; i < _slotActors.Length; i++)
             {
                 if (_slotActors[i] != null)
                 {
                     PlayerPrefs.SetString(SlotAnimalKeyKey(i), _slotAnimalKeys[i]);
+                    _slotSavedHp[i] = Mathf.Max(0, _slotActors[i].Hp);
                     PlayerPrefs.SetInt(SlotHpKey(i), _slotSavedHp[i]);
                 }
                 else
@@ -463,33 +479,40 @@ namespace FunRabbit
         // 저장된 슬롯 점유 상태/대기열을 복원한다 (게임 재시작 시 Start에서 호출).
         private void RestoreAllyBattleState()
         {
-            for (int i = 0; i < _slotActors.Length; i++)
+            if (_restoringState) return;
+            if (_slotActors == null) InitSlots();
+            var saved = AllyBattleSaveSnapshot.Read(_slotActors.Length, PlayerPrefs.GetString, PlayerPrefs.GetInt);
+            _restoringState = true;
+            try
             {
-                string animalKey = PlayerPrefs.GetString(SlotAnimalKeyKey(i), string.Empty);
-                if (string.IsNullOrEmpty(animalKey))
-                    continue;
-
-                ActorData actorData = GameActorData.Get(animalKey);
-                if (actorData == null)
-                    continue;
-
-                int savedHp = PlayerPrefs.GetInt(SlotHpKey(i), actorData.allyHp);
-                SpawnAllyAtSlot(actorData, i, savedHp);
+                ClearAllAllies();
+                for (int i = 0; i < saved.AnimalKeys.Length; i++)
+                {
+                    ActorData actorData = GameActorData.Get(saved.AnimalKeys[i]);
+                    if (actorData == null || saved.HitPoints[i] <= 0) continue;
+                    int hp = Mathf.Min(saved.HitPoints[i], actorData.allyHp);
+                    SpawnAllyAtSlot(actorData, i, hp);
+                }
+                foreach (string animalKey in saved.PendingAnimalKeys)
+                {
+                    ActorData actorData = GameActorData.Get(animalKey);
+                    if (actorData == null) continue;
+                    _pendingQueue.Enqueue(new PendingAllyEntry(actorData.animalKey, Time.time));
+                    AddStackUIItem(actorData.animalKey);
+                }
+                _stateRestored = true;
             }
+            finally { _restoringState = false; }
+        }
 
-            string queueString = PlayerPrefs.GetString(KEY_ALLY_PENDING_QUEUE, string.Empty);
-            if (string.IsNullOrEmpty(queueString))
-                return;
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused && _stateRestored && !SessionOperation.IsBusy) SaveAllyBattleState();
+        }
 
-            // 재시작 직후라 대기 시간(PENDING_SPAWN_DELAY)은 의미가 없으므로 즉시 스폰 가능한 상태로 복원한다.
-            foreach (string animalKey in queueString.Split(QUEUE_DELIMITER))
-            {
-                if (string.IsNullOrEmpty(animalKey))
-                    continue;
-
-                _pendingQueue.Enqueue(new PendingAllyEntry(animalKey, Time.time));
-                AddStackUIItem(animalKey);
-            }
+        private void OnApplicationQuit()
+        {
+            if (_stateRestored && !SessionOperation.IsBusy) SaveAllyBattleState();
         }
 
         private static string SlotAnimalKeyKey(int index) => $"{KEY_ALLY_SLOT_ANIMAL_KEY}{index}";

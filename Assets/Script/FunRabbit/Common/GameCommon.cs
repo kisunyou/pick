@@ -4,17 +4,17 @@ namespace FunRabbit
 {
     public class GameCommon
     {
-        // ── 변형(_g/_r) animalKey 처리 ─────────────────────────────────
-        // 변형 키(bear_g / bear_r)는 actor.json 행의 model/texture로 외형이 결정되고,
+        // ── 변형(_b/_r) animalKey 처리 ─────────────────────────────────
+        // 변형 키(bear_b / bear_r)는 actor.json 행의 model/texture로 외형이 결정되고,
         // 아이콘/이름 등 공용 리소스는 원본 동물(bear) 것을 그대로 쓴다.
 
-        // 변형 suffix(_g/_r)를 제거한 원본 동물 키를 반환한다
+        // 변형 suffix(_b/_r)를 제거한 원본 동물 키를 반환한다
         public static string GetBaseAnimalKey(string animalKey)
         {
             if (string.IsNullOrEmpty(animalKey))
                 return animalKey;
 
-            if (animalKey.EndsWith("_g") || animalKey.EndsWith("_r"))
+            if (animalKey.EndsWith("_b") || animalKey.EndsWith("_r") || animalKey.EndsWith("_g"))
                 return animalKey.Substring(0, animalKey.Length - 2);
 
             return animalKey;
@@ -95,7 +95,7 @@ namespace FunRabbit
         }
 
         // 인형 표시 이름의 stringData 키 (표시 시점에 LanguageManager.Get으로 변환해서 사용).
-        // actor.json 행의 nameKey 필드가 정본 - 변형 행(bear_g 등)도 원본 이름 키가 기입돼 있다.
+        // actor.json 행의 nameKey 필드가 정본 - 변형 행(bear_b 등)도 원본 이름 키가 기입돼 있다.
         // (행이나 필드가 없을 때만 기존 이름 규칙으로 폴백)
         public static string GetDollNameStringKey(string animalKey)
         {

@@ -11,6 +11,7 @@ namespace FunRabbit
     {
         private const string KEY_STAGE = "currentStage";
         private const string KEY_BOSS_HP = "bossHp";
+        private const string KEY_BOSS_HP_MAX = "bossHpMax";
         private const string KEY_CYCLE_LEGACY = "currentCycle"; // 구버전 회차 키 (마이그레이션 후 제거)
         private const string KEY_MAX_CLEARED_STAGE = "maxClearedStage"; // 지금까지 클리어한 최고 스테이지 (하드 순환에도 유지)
 
@@ -37,6 +38,31 @@ namespace FunRabbit
         // 클리어 연출/스테이지 전환을 미뤄둔 상태. 스테이지 전환이 인형 풀을 리셋하므로,
         // 플레이 도중 처리하면 집고 있던 인형이 사라지고 그 플레이가 날아간다.
         private bool _pendingStageClear;
+        private bool _checkRestoredClear = true;
+        private Coroutine _clearRoutine;
+
+        public void PrepareForCloudRestore()
+        {
+            if (_clearRoutine != null) StopCoroutine(_clearRoutine);
+            _clearRoutine = null;
+            _pendingStageClear = false;
+            _checkRestoredClear = true;
+        }
+
+        public void NotifyRestoredBossHp()
+        {
+            _checkRestoredClear = true;
+            OnBossHpChanged?.Invoke(BossHp, MaxBossHp);
+        }
+
+        private void Update()
+        {
+            if (!_checkRestoredClear || !ActorBattleSystem.CanAdvanceBattle ||
+                UIHud.Instance == null || OnStageClear == null) return;
+            _checkRestoredClear = false;
+            // HP=0 is the durable clear marker if the app closed before the popup could open.
+            if (MaxBossHp > 0 && BossHp <= 0) QueueStageClear();
+        }
 
         // 현재 스테이지 (1~TotalPlayableStageCount 연속 번호)
         public int CurrentStage
@@ -99,6 +125,7 @@ namespace FunRabbit
 
         public void SetCurrentStage(int stage, bool isClear = false)
         {
+            PrepareForCloudRestore();
             PlayerPrefs.SetInt(KEY_STAGE, stage);
 
             // 새 스테이지의 보스 hp를 최대치로 채우고, battle_field(ActorBattleSystem)의 보스 모델을 갱신한다
@@ -107,13 +134,15 @@ namespace FunRabbit
             RefreshBattleBoss(stage, isClear);
 
             OnStageChanged?.Invoke(stage, isClear);
+            if (CloudSaveManager.IsCheckInstance() && CloudSaveManager.Instance.GameplayStarted && !SessionOperation.IsBusy)
+                GameplayAnalytics.StageStarted(stage);
 
             // 스테이지 클리어로 단계가 올라간 경우, 새 스테이지 풀로 인형을 다시 생성
             if (isClear)
                 GameDollCreator.Instance.ResetCurrentStage();
         }
 
-        // 현재 스테이지 보스 몬스터의 최대 hp (actor.json 해당 행의 bossHp 그대로 - 변형 행은 값 자체가 2/3배)
+        // 현재 스테이지 보스 몬스터의 최대 hp (actor.json의 스테이지별 난이도 곡선).
         public int MaxBossHp
         {
             get
@@ -131,9 +160,19 @@ namespace FunRabbit
                 if (!PlayerPrefs.HasKey(KEY_BOSS_HP))
                     ResetBossHp();
 
-                // actor.json bossHp 하향 조정 뒤 이전 저장값이 새 최대치를 넘을 수 있다 - 최대치로 잘라 준다
-                // (게이지 비율 1 초과 방지). 잘린 값은 다음 DamageBoss에서 저장된다.
-                return Mathf.Min(PlayerPrefs.GetInt(KEY_BOSS_HP, 0), MaxBossHp);
+                // 밸런스 변경 시 남은 체력 비율을 한 번만 변환한다. 처치한 보스는 0을 유지한다.
+                int maxHp = MaxBossHp;
+                int hp = PlayerPrefs.GetInt(KEY_BOSS_HP, 0);
+                int savedMax = PlayerPrefs.GetInt(KEY_BOSS_HP_MAX, 0);
+                if (maxHp > 0 && savedMax != maxHp)
+                {
+                    int previousMax = BossHpBalance.ResolvePreviousMax(CurrentStage, savedMax, maxHp);
+                    hp = BossHpBalance.RescaleRemaining(hp, previousMax, maxHp);
+                    PlayerPrefs.SetInt(KEY_BOSS_HP, hp);
+                    PlayerPrefs.SetInt(KEY_BOSS_HP_MAX, maxHp);
+                    PlayerPrefs.Save();
+                }
+                return Mathf.Clamp(hp, 0, maxHp);
             }
             private set
             {
@@ -145,7 +184,12 @@ namespace FunRabbit
         // 보스 hp를 현재 스테이지의 최대치로 되돌린다.
         private void ResetBossHp()
         {
-            PlayerPrefs.SetInt(KEY_BOSS_HP, MaxBossHp);
+            int maxHp = MaxBossHp;
+            PlayerPrefs.SetInt(KEY_BOSS_HP, maxHp);
+            if (maxHp > 0)
+                PlayerPrefs.SetInt(KEY_BOSS_HP_MAX, maxHp);
+            else
+                PlayerPrefs.DeleteKey(KEY_BOSS_HP_MAX);
         }
 
         // 지정 스테이지의 보스를 battle_field(ActorBattleSystem)에 반영한다. (씬에 없으면 조용히 무시 - 자체 Start()에서 로드)
@@ -191,6 +235,7 @@ namespace FunRabbit
         // ally 액터가 보스를 공격했을 때 호출: attackPower만큼 보스 hp를 깎고, 0 이하가 되면 스테이지를 클리어한다.
         public void DamageBoss(int damage)
         {
+            if (!ActorBattleSystem.CanAdvanceBattle) return;
             if (damage <= 0)
                 return;
 
@@ -219,51 +264,55 @@ namespace FunRabbit
                 // 스테이지 클리어 - 매회 기록 (몇 번째 스테이지인지 포함)
                 FireBaseAnalyticsManager.Instance.LogEvent("clear_stage", new Parameter("stage", CurrentStage));
 
-                // 크레인이 플레이 중(READY 아님)이면 클리어 연출/스테이지 전환을 READY 복귀 시점으로 미룬다
-                if (Crane.TryGetSetInstance(out Crane crane) && crane != null && crane.Status != CraneStatus.READY)
-                {
-                    _pendingStageClear = true;
-                    crane.OnChangedStatus -= OnCraneStatusForPendingClear;
-                    crane.OnChangedStatus += OnCraneStatusForPendingClear;
-                    Debug.Log($"[GameQuestManager] 스테이지 클리어 - 크레인 플레이 중(status={crane.Status}), READY 복귀 후 처리");
-                    return;
-                }
-
-                FireStageClear();
+                QueueStageClear();
             }
         }
 
-        // 크레인이 READY로 돌아오면 미뤄둔 스테이지 클리어를 처리한다.
-        private void OnCraneStatusForPendingClear(int craneStatus)
+        private void QueueStageClear()
         {
-            if (!_pendingStageClear || craneStatus != CraneStatus.READY)
-                return;
-
-            _pendingStageClear = false;
-
-            if (Crane.TryGetSetInstance(out Crane crane) && crane != null)
-                crane.OnChangedStatus -= OnCraneStatusForPendingClear;
-
-            // 크레인 상태 머신(SetStatus) 한가운데서 스테이지 전환(인형 파괴/재생성)을 실행하지 않도록
-            // 한 프레임 뒤에 처리한다. (READY 직후 크레인이 하는 구스테이지 저장도 먼저 끝난다)
-            StartCoroutine(FireStageClearNextFrame());
+            if (_pendingStageClear) return;
+            _pendingStageClear = true;
+            if (CurrentStage > PlayerPrefs.GetInt(KEY_MAX_CLEARED_STAGE, 0))
+                PlayerPrefs.SetInt(KEY_MAX_CLEARED_STAGE, CurrentStage);
+            PlayerPrefs.Save();
+            _clearRoutine = StartCoroutine(FireStageClearWhenReady());
         }
 
-        private System.Collections.IEnumerator FireStageClearNextFrame()
+        private System.Collections.IEnumerator FireStageClearWhenReady()
         {
-            yield return null;
-            FireStageClear();
+            while (_pendingStageClear)
+            {
+                // Always leave the crane's READY callback and old-stage save before advancing.
+                yield return null;
+                if (!ActorBattleSystem.CanAdvanceBattle || UIHud.Instance == null || OnStageClear == null)
+                    continue;
+                if (Crane.TryGetSetInstance(out Crane crane) && crane != null && crane.Status != CraneStatus.READY)
+                    continue;
+                if (UIMissionClearPanel.Get() != null) continue;
+                if (FireStageClear()) yield break;
+                yield return new WaitForSecondsRealtime(1f);
+            }
         }
 
         // 클리어 이벤트 발행(미션 클리어 패널 표시) + 다음 스테이지로 전환
-        private void FireStageClear()
+        private bool FireStageClear()
         {
             // 클리어한 스테이지의 다음 스테이지 데이터 (마지막(36) 클리어면 하드 구간 시작(25) 데이터)
             StageQuestData nextStageData = GetStageData(GetNextStage());
-            OnStageClear?.Invoke(nextStageData);
+            try { OnStageClear?.Invoke(nextStageData); }
+            catch (System.Exception e)
+            {
+                Debug.LogException(e);
+                var failedPanel = UIMissionClearPanel.Get();
+                if (failedPanel != null) failedPanel.Close();
+                return false;
+            }
+            if (UIMissionClearPanel.Get() == null) return false;
 
-            // 다음 스테이지로 진행 (보스 hp 리셋, OnStageChanged 발생)
+            // Do not silently advance a cleared boss until its popup has actually been created.
+            _clearRoutine = null;
             GoNextStage();
+            return true;
         }
 
         // 스테이지 클리어 여부 (보스 hp가 0 이하)

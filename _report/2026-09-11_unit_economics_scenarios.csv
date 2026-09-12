@@ -1,0 +1,4 @@
+scenario,avg_dau,days,ads_per_dau_day,publisher_ecpm_krw,ad_arpdau_krw,monthly_ad_revenue_krw,active_days_per_install_first_30d,payer_rate_first_30d,net_spend_per_payer_first_30d_krw,ad_revenue_per_install_first_30d_krw,iap_revenue_per_install_first_30d_krw,total_revenue_per_install_first_30d_krw,assumed_cpi_krw,net_receipts_roas_30d,acquisition_roi_30d_before_operating_costs
+low,1000,30,1.5,5000,7.5,225000,2,0.003,8000,15,24,39,800,0.04875,-0.95125
+middle,1000,30,3,12000,36,1080000,4,0.008,12000,144,96,240,800,0.3,-0.7
+high,1000,30,5,20000,100,3000000,7,0.015,20000,700,300,1000,800,1.25,0.25

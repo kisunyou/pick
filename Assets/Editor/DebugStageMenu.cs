@@ -4,7 +4,7 @@ using UnityEngine;
 namespace FunRabbit.EditorTools
 {
     // 테스트용 스테이지 설정 메뉴 (에디터 전용). GameQuestManager 와 같은 PlayerPrefs 키를 쓴다.
-    // 연속 36스테이지 구조: 1~12 노멀(원본) / 13~24 _g(스탯 x2) / 25~36 _r(스탯 x3).
+    // 연속 36스테이지 구조: 1~12 노멀(원본) / 13~24 _b(스탯 x2) / 25~36 _r(스탯 x3).
     //   currentStage : 현재 스테이지(1~36)
     //   bossHp       : 보스 남은 hp - 스테이지를 바꾸면 삭제해 다음 읽기에서 새 스테이지 최대치로 채워지게 한다
     // - 플레이 모드: GameQuestManager.SetCurrentStage(stage) 로 즉시 전환(보스 hp 리셋 + 보스 모델 교체) + 인형 풀 재생성
@@ -15,7 +15,7 @@ namespace FunRabbit.EditorTools
         const string KeyStage = "currentStage";        // GameQuestManager.KEY_STAGE
         const string KeyBossHp = "bossHp";             // GameQuestManager.KEY_BOSS_HP
         const string KeyLegacyCycle = "currentCycle";  // 구버전 회차 키 - 남아있으면 마이그레이션이 스테이지를 밀어버리므로 제거
-        const string KeyMaxCleared = "maxClearedStage"; // GameQuestManager.KEY_MAX_CLEARED_STAGE - 도감 변형(_g/_r) 등급 판정 기준
+        const string KeyMaxCleared = "maxClearedStage"; // GameQuestManager.KEY_MAX_CLEARED_STAGE - 도감 변형(_b/_r) 등급 판정 기준
         const string MenuRoot = "FunRabbit/Debug/스테이지/";
 
         // ── 노멀 (1~12, 원본 텍스처, 스탯 x1) ─────────────────────────
@@ -32,19 +32,19 @@ namespace FunRabbit.EditorTools
         [MenuItem(MenuRoot + "스테이지 11", false, 111)] static void S11() => SetStage(11);
         [MenuItem(MenuRoot + "스테이지 12", false, 112)] static void S12() => SetStage(12);
 
-        // ── _g 구간 (13~24, _g 텍스처, 스탯 x2) ───────────────────────
-        [MenuItem(MenuRoot + "스테이지 13 (_g x2)", false, 131)] static void S13() => SetStage(13);
-        [MenuItem(MenuRoot + "스테이지 14 (_g x2)", false, 132)] static void S14() => SetStage(14);
-        [MenuItem(MenuRoot + "스테이지 15 (_g x2)", false, 133)] static void S15() => SetStage(15);
-        [MenuItem(MenuRoot + "스테이지 16 (_g x2)", false, 134)] static void S16() => SetStage(16);
-        [MenuItem(MenuRoot + "스테이지 17 (_g x2)", false, 135)] static void S17() => SetStage(17);
-        [MenuItem(MenuRoot + "스테이지 18 (_g x2)", false, 136)] static void S18() => SetStage(18);
-        [MenuItem(MenuRoot + "스테이지 19 (_g x2)", false, 137)] static void S19() => SetStage(19);
-        [MenuItem(MenuRoot + "스테이지 20 (_g x2)", false, 138)] static void S20() => SetStage(20);
-        [MenuItem(MenuRoot + "스테이지 21 (_g x2)", false, 139)] static void S21() => SetStage(21);
-        [MenuItem(MenuRoot + "스테이지 22 (_g x2)", false, 140)] static void S22() => SetStage(22);
-        [MenuItem(MenuRoot + "스테이지 23 (_g x2)", false, 141)] static void S23() => SetStage(23);
-        [MenuItem(MenuRoot + "스테이지 24 (_g x2)", false, 142)] static void S24() => SetStage(24);
+        // ── _b 구간 (13~24, _b 텍스처, 스탯 x2) ───────────────────────
+        [MenuItem(MenuRoot + "스테이지 13 (_b x2)", false, 131)] static void S13() => SetStage(13);
+        [MenuItem(MenuRoot + "스테이지 14 (_b x2)", false, 132)] static void S14() => SetStage(14);
+        [MenuItem(MenuRoot + "스테이지 15 (_b x2)", false, 133)] static void S15() => SetStage(15);
+        [MenuItem(MenuRoot + "스테이지 16 (_b x2)", false, 134)] static void S16() => SetStage(16);
+        [MenuItem(MenuRoot + "스테이지 17 (_b x2)", false, 135)] static void S17() => SetStage(17);
+        [MenuItem(MenuRoot + "스테이지 18 (_b x2)", false, 136)] static void S18() => SetStage(18);
+        [MenuItem(MenuRoot + "스테이지 19 (_b x2)", false, 137)] static void S19() => SetStage(19);
+        [MenuItem(MenuRoot + "스테이지 20 (_b x2)", false, 138)] static void S20() => SetStage(20);
+        [MenuItem(MenuRoot + "스테이지 21 (_b x2)", false, 139)] static void S21() => SetStage(21);
+        [MenuItem(MenuRoot + "스테이지 22 (_b x2)", false, 140)] static void S22() => SetStage(22);
+        [MenuItem(MenuRoot + "스테이지 23 (_b x2)", false, 141)] static void S23() => SetStage(23);
+        [MenuItem(MenuRoot + "스테이지 24 (_b x2)", false, 142)] static void S24() => SetStage(24);
 
         // ── _r 구간 (25~36, _r 텍스처, 스탯 x3, 36 클리어 시 25로 반복) ──
         [MenuItem(MenuRoot + "스테이지 25 (_r x3)", false, 161)] static void S25() => SetStage(25);
@@ -83,18 +83,18 @@ namespace FunRabbit.EditorTools
         [MenuItem(MenuRoot + "스테이지 10", true)] static bool V10() => Check(10);
         [MenuItem(MenuRoot + "스테이지 11", true)] static bool V11() => Check(11);
         [MenuItem(MenuRoot + "스테이지 12", true)] static bool V12() => Check(12);
-        [MenuItem(MenuRoot + "스테이지 13 (_g x2)", true)] static bool V13() => Check(13);
-        [MenuItem(MenuRoot + "스테이지 14 (_g x2)", true)] static bool V14() => Check(14);
-        [MenuItem(MenuRoot + "스테이지 15 (_g x2)", true)] static bool V15() => Check(15);
-        [MenuItem(MenuRoot + "스테이지 16 (_g x2)", true)] static bool V16() => Check(16);
-        [MenuItem(MenuRoot + "스테이지 17 (_g x2)", true)] static bool V17() => Check(17);
-        [MenuItem(MenuRoot + "스테이지 18 (_g x2)", true)] static bool V18() => Check(18);
-        [MenuItem(MenuRoot + "스테이지 19 (_g x2)", true)] static bool V19() => Check(19);
-        [MenuItem(MenuRoot + "스테이지 20 (_g x2)", true)] static bool V20() => Check(20);
-        [MenuItem(MenuRoot + "스테이지 21 (_g x2)", true)] static bool V21() => Check(21);
-        [MenuItem(MenuRoot + "스테이지 22 (_g x2)", true)] static bool V22() => Check(22);
-        [MenuItem(MenuRoot + "스테이지 23 (_g x2)", true)] static bool V23() => Check(23);
-        [MenuItem(MenuRoot + "스테이지 24 (_g x2)", true)] static bool V24() => Check(24);
+        [MenuItem(MenuRoot + "스테이지 13 (_b x2)", true)] static bool V13() => Check(13);
+        [MenuItem(MenuRoot + "스테이지 14 (_b x2)", true)] static bool V14() => Check(14);
+        [MenuItem(MenuRoot + "스테이지 15 (_b x2)", true)] static bool V15() => Check(15);
+        [MenuItem(MenuRoot + "스테이지 16 (_b x2)", true)] static bool V16() => Check(16);
+        [MenuItem(MenuRoot + "스테이지 17 (_b x2)", true)] static bool V17() => Check(17);
+        [MenuItem(MenuRoot + "스테이지 18 (_b x2)", true)] static bool V18() => Check(18);
+        [MenuItem(MenuRoot + "스테이지 19 (_b x2)", true)] static bool V19() => Check(19);
+        [MenuItem(MenuRoot + "스테이지 20 (_b x2)", true)] static bool V20() => Check(20);
+        [MenuItem(MenuRoot + "스테이지 21 (_b x2)", true)] static bool V21() => Check(21);
+        [MenuItem(MenuRoot + "스테이지 22 (_b x2)", true)] static bool V22() => Check(22);
+        [MenuItem(MenuRoot + "스테이지 23 (_b x2)", true)] static bool V23() => Check(23);
+        [MenuItem(MenuRoot + "스테이지 24 (_b x2)", true)] static bool V24() => Check(24);
         [MenuItem(MenuRoot + "스테이지 25 (_r x3)", true)] static bool V25() => Check(25);
         [MenuItem(MenuRoot + "스테이지 26 (_r x3)", true)] static bool V26() => Check(26);
         [MenuItem(MenuRoot + "스테이지 27 (_r x3)", true)] static bool V27() => Check(27);
@@ -111,7 +111,7 @@ namespace FunRabbit.EditorTools
         static string Label(int stage)
         {
             if (stage <= 12) return $"스테이지 {stage,2}";
-            if (stage <= 24) return $"스테이지 {stage} (_g x2)";
+            if (stage <= 24) return $"스테이지 {stage} (_b x2)";
             return $"스테이지 {stage} (_r x3)";
         }
 

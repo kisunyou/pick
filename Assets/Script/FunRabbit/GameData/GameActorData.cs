@@ -4,14 +4,14 @@ using UnityEngine;
 namespace FunRabbit
 {
     // 액터 속성 (JSON table/actor 한 행 = 스테이지 하나의 액터).
-    // 연속 36스테이지 = 원본 12종(1~12) + _g 변형(13~24) + _r 변형(25~36).
-    // 변형 행은 animalKey에 suffix(bear_g 등)가 붙고 model은 원본 프리팹, texture로 색만 바꾼다.
+    // 연속 36스테이지 = 원본 12종(1~12) + _b 변형(13~24) + _r 변형(25~36).
+    // 변형 행은 animalKey에 suffix(bear_b 등)가 붙고 model은 원본 프리팹, texture로 색만 바꾼다.
     // 스테이지 목록(GameQuestData)도 이 테이블에서 구성된다 - actor.json이 스테이지 구성의 단일 정본.
     [System.Serializable]
     public class ActorData
     {
         public int stage;                    // 이 액터가 보스로 등장하는 스테이지 번호 (1~36)
-        public string animalKey;             // 고유 키 (변형은 bear_g / bear_r 형식)
+        public string animalKey;             // 고유 키 (변형은 bear_b / bear_r 형식)
         public string nameKey;               // 표시 이름의 stringData 키 (변형 행도 원본 이름 키를 기입, 예: doll_name_bear)
         public string model;                 // 모델 프리팹 경로 (Resources 기준). 비어있으면 기존 이름 규칙 사용
         public string texture;               // 교체 텍스처 경로 (Resources 기준). 비어있으면 모델 원본 텍스처 유지
@@ -28,6 +28,7 @@ namespace FunRabbit
         public int bossHp = 1000;
         public int bossAttackPower = 10;
         public float bossAttackSpeed = 1f;
+        public int clearCoinReward;
 
         public float attackRange = 1f;       // 공격 사거리 (반경, ally/보스 공용)
 
@@ -70,11 +71,20 @@ namespace FunRabbit
             Debug.Log($"[GameActorData] Loaded {_dataList.actors.Count} actors.");
         }
 
+        // Older local/cloud saves still contain the retired green-variant keys.
+        public static string ResolveAnimalKey(string animalKey)
+        {
+            if (!string.IsNullOrEmpty(animalKey) && animalKey.EndsWith("_g", System.StringComparison.Ordinal))
+                return animalKey.Substring(0, animalKey.Length - 2) + "_b";
+            return animalKey;
+        }
+
         public static ActorData Get(string animalKey)
         {
             if (_dataList == null)
                 Load();
 
+            animalKey = ResolveAnimalKey(animalKey);
             return _dataList?.actors.Find(a => a.animalKey == animalKey);
         }
 
@@ -138,6 +148,13 @@ namespace FunRabbit
         {
             ActorData data = Get(animalKey);
             return data != null ? data.allyAttackSpeed : DEFAULT_ALLY_ATTACK_SPEED;
+        }
+
+        // 누락된 보상 수치는 기존 500코인을 유지한다.
+        public static int GetClearCoinReward(string animalKey)
+        {
+            int reward = Get(animalKey)?.clearCoinReward ?? 0;
+            return reward > 0 ? reward : 500;
         }
 
         // 보스 체력(에너지). 테이블에 없으면 기본값.

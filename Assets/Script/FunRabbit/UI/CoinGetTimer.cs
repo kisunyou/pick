@@ -25,6 +25,7 @@ namespace FunRabbit
         private readonly MonoBehaviour _runner;
         private readonly TextMeshProUGUI _timerText;
         private readonly Button _claimButton;
+        private readonly GameObject _claimableEffect;
 
         private readonly RectTransform _coinFlyStart;    // 코인 비행 연출 출발 지점 (cointimer)
 
@@ -38,13 +39,15 @@ namespace FunRabbit
         private System.DateTime _endTimeUtc; // 카운트다운 종료(받기 가능) 목표 시각 (UTC, 절대 시간)
 
         public CoinGetTimer(MonoBehaviour runner, TextMeshProUGUI timerText, Button claimButton,
-            RectTransform coinFlyStart = null, Slider slider = null)
+            RectTransform coinFlyStart = null, Slider slider = null, GameObject claimableEffect = null)
         {
             _runner = runner;
             _timerText = timerText;
             _claimButton = claimButton;
+            _claimableEffect = claimableEffect;
             _slider = slider;
             _coinFlyStart = coinFlyStart;
+            SetButtonInteractable(false);
 
             if (_timerText != null)
                 _timerTextBaseScale = _timerText.transform.localScale;
@@ -129,6 +132,7 @@ namespace FunRabbit
 
             Stop();
             _claimPulseSeq?.Kill();
+            SetButtonInteractable(false);
             if (_claimButton != null)
                 _claimButton.onClick.RemoveListener(OnClickClaim);
         }
@@ -172,6 +176,8 @@ namespace FunRabbit
         {
             if (_claimButton != null)
                 _claimButton.interactable = interactable;
+            if (_claimableEffect != null && _claimableEffect.activeSelf != interactable)
+                _claimableEffect.SetActive(interactable);
         }
 
         private void OnClickClaim()

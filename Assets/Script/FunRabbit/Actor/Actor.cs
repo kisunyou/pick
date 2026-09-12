@@ -147,7 +147,7 @@ namespace FunRabbit
                 Quaternion.LookRotation(toTarget.normalized), Time.deltaTime * TURN_SPEED);
         }
 
-        private void Update()
+        protected virtual void Update()
         {
             StateMachine.UpdateState(Time.deltaTime);
         }

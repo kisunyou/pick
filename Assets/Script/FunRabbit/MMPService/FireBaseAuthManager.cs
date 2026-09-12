@@ -175,6 +175,11 @@ namespace FunRabbit
         //   클라우드 세이브를 새 계정 기준으로 다시 동기화한다 (그 계정의 저장 데이터를 불러옴)
         public void UpgradeGuestToGoogle(Action<bool> onComplete)
         {
+            if (SessionOperation.IsBusy || (ShopManager.IsCheckInstance() && ShopManager.Instance.IsAccountChangeBlocked))
+            {
+                onComplete?.Invoke(false);
+                return;
+            }
             if (!IsInitialized)
             {
                 Debug.LogWarning("[FireBaseAuthManager] 아직 초기화되지 않았습니다.");
@@ -191,7 +196,9 @@ namespace FunRabbit
 
             if (_isSigningIn)
             {
+                // 콜백을 반드시 호출해준다 - 호출부(연동 진행 팝업 등)가 완료 대기 상태로 남지 않게
                 Debug.LogWarning("[FireBaseAuthManager] 이미 로그인 진행 중입니다.");
+                onComplete?.Invoke(false);
                 return;
             }
 
@@ -202,10 +209,9 @@ namespace FunRabbit
             _isSigningIn = true;
             GoogleCredentialHelper.RequestIdToken((idToken, error) =>
             {
-                _isSigningIn = false;
-
                 if (string.IsNullOrEmpty(idToken))
                 {
+                    _isSigningIn = false;
                     Debug.LogWarning($"[FireBaseAuthManager] 구글 전환용 ID 토큰 획득 실패: {error}");
                     onComplete?.Invoke(false);
                     return;
@@ -216,6 +222,7 @@ namespace FunRabbit
                 {
                     if (!task.IsCanceled && !task.IsFaulted)
                     {
+                        _isSigningIn = false;
                         Debug.Log($"[FireBaseAuthManager] 게스트 → 구글 전환(링크) 성공: {task.Result.User.UserId}");
                         FireBaseAnalyticsManager.Instance.LogEvent("login_link", "method", "google");
                         onComplete?.Invoke(true);
@@ -234,15 +241,18 @@ namespace FunRabbit
                         Credential switchCredential = GoogleAuthProvider.GetCredential(idToken, null);
                         SignInInternal(_auth.SignInAndRetrieveDataWithCredentialAsync(switchCredential), "google_switch", success =>
                         {
-                            if (success && CloudSaveManager.IsCheckInstance())
-                                CloudSaveManager.Instance.ResyncAfterAccountSwitch();
-
-                            onComplete?.Invoke(success);
+                            _isSigningIn = true;
+                            CloudSaveManager.Instance.ResyncAfterAccountSwitch(restored =>
+                            {
+                                _isSigningIn = false;
+                                onComplete?.Invoke(success && restored);
+                            });
                         });
                         return;
                     }
 
                     Debug.LogWarning($"[FireBaseAuthManager] 구글 전환 실패: {task.Exception?.GetBaseException().Message}");
+                    _isSigningIn = false;
                     onComplete?.Invoke(false);
                 });
             });
@@ -252,6 +262,9 @@ namespace FunRabbit
         }
 
         // AggregateException 안에 "이미 다른 계정에 연결된 자격증명" 오류가 있는지 판별한다.
+        // ⚠️ LinkWithCredentialAsync 실패는 FirebaseException이 아니라 FirebaseAccountLinkException
+        // (FirebaseException 미상속)으로 오는 경우가 있어 두 타입을 모두 확인한다 - 타입 판정이
+        // 빠지면 계정 전환(스위치) 분기를 못 타고 일반 실패로 끝난다 (2026-09-07 실기기에서 확인).
         private static bool IsCredentialAlreadyInUse(AggregateException exception)
         {
             if (exception == null)
@@ -259,8 +272,17 @@ namespace FunRabbit
 
             foreach (Exception inner in exception.Flatten().InnerExceptions)
             {
+                if (inner is FirebaseAccountLinkException linkException
+                    && (AuthError)linkException.ErrorCode == AuthError.CredentialAlreadyInUse)
+                    return true;
+
                 if (inner is FirebaseException firebaseException
                     && (AuthError)firebaseException.ErrorCode == AuthError.CredentialAlreadyInUse)
+                    return true;
+
+                // SDK 버전에 따라 예외 타입이 또 다를 수 있어 메시지로도 폴백 판정한다
+                if (inner.Message != null
+                    && inner.Message.Contains("already associated with a different user"))
                     return true;
             }
 

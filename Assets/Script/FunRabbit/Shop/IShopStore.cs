@@ -25,7 +25,7 @@ namespace FunRabbit
         // 상품 정보(가격)가 갱신됨 - UI 가 가격 텍스트를 다시 그리는 신호
         event Action OnProductsUpdated;
 
-        // 결제 성공 (스토어 확정 전, 지급 시점). ShopManager 가 코인 지급 후 스토어 확정은 구현체가 이어서 처리
+        // 지급 기록과 클라우드 저장 완료 후의 성공 알림. 여기서 코인을 다시 지급하지 않는다.
         event Action<ShopProduct> OnPurchaseSucceeded;
 
         // 결제 실패. product 는 알 수 없으면 null, details 는 스토어 원문(로그용)

@@ -52,6 +52,10 @@ namespace FunRabbit
 
         public void CreateDolls()
         {
+            // A cloud restore replaces the previous generation, including any
+            // asynchronous prefab loads still running for that generation.
+            StopAllCoroutines();
+            IsResetting = false;
             StartCoroutine(LoadAndCreateDolls());
         }
 

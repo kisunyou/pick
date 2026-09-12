@@ -266,6 +266,12 @@ namespace FunRabbit
             PlayerContext.AddCoinAmount(_pendingCoinReward);
             _pendingCoinReward = 0;
         }
+
+        public void CompletePendingRewards()
+        {
+            _coinSeq?.Complete(true);
+            FlushPendingCoinReward();
+        }
     }
 
     public class UIBottomBarControl

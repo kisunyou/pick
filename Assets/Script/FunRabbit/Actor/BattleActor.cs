@@ -65,6 +65,14 @@ namespace FunRabbit
         // 늦춰 공격 애니메이션의 타격 타이밍과 맞춘다 (attackFx는 스윙 시작 즉시 재생).
         public const float HIT_DELAY = 0.4f;
 
+        public static bool CanFight => ActorBattleSystem.CanAdvanceBattle &&
+            (!GameQuestManager.IsCheckInstance() || GameQuestManager.Instance.BossHp > 0);
+
+        protected override void Update()
+        {
+            if (CanFight) base.Update();
+        }
+
         // base(Actor)의 _context와 같은 인스턴스를 BattleActorContext 타입으로 노출한다 (new로 가림).
         public new BattleActorContext Context => (BattleActorContext)base.Context;
 

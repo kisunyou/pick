@@ -11,6 +11,7 @@ namespace FunRabbit
         [SerializeField] TextMeshProUGUI coinTimerText;
         [SerializeField] Button getCoinTimerButton;
         [SerializeField] Slider coinTimerSlider; // 남은 시간 표시 슬라이더 (coinTImerSlider)
+        [SerializeField] GameObject claimableEffect;
 
         [Header("코인 획득 연출")]
         [SerializeField] RectTransform coinFlyStart;    // 코인이 출발하는 지점
@@ -34,7 +35,7 @@ namespace FunRabbit
             // 코인 받기 타이머 (5분 카운트다운 → "받기" → 클릭 시 코인 지급 후 재시작)
             // Resume: 재실행 시 저장된 상태 복원 (없으면 새로 시작)
             _coinGetTimer = new CoinGetTimer(this, coinTimerText, getCoinTimerButton,
-                coinFlyStart, coinTimerSlider);
+                coinFlyStart, coinTimerSlider, claimableEffect);
             _coinGetTimer.Resume();
         }
 
@@ -42,6 +43,12 @@ namespace FunRabbit
         public void OnTestPlayCoinGetEffect()
         {
             _coinGetTimer?.PlayCoinGetEffect();
+        }
+
+        public void RefreshFromSave()
+        {
+            _coinGetTimer?.Stop();
+            _coinGetTimer?.Resume();
         }
 
         private void OnDestroy()

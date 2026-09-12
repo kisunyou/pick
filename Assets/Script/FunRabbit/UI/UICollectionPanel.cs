@@ -9,8 +9,8 @@ namespace FunRabbit
         public string title;      // 다국어 동물 이름
         public string iconPath;   // 썸네일 스프라이트 경로 (미클리어 = 보스 아이콘)
         public string modelPath;  // 상세 팝업 3D 모델 경로 (미클리어 = 보스 프리팹)
-        public string animalKey;  // 모델 텍스처에 적용할 actor.json 행 키 (변형 등급 반영, 예: bear_g)
-        public int grade;         // 클리어 변형 등급: 0=원본, 1=_g(노멀 구간 클리어), 2=_r(하드 구간 클리어)
+        public string animalKey;  // 모델 텍스처에 적용할 actor.json 행 키 (변형 등급 반영, 예: bear_b)
+        public int grade;         // 클리어 변형 등급: 0=원본, 1=_b(노멀 구간 클리어), 2=_r(하드 구간 클리어)
         public bool active;       // 획득(해당 원본 스테이지 클리어) 여부
     }
 
@@ -48,8 +48,8 @@ namespace FunRabbit
 
     public class UICollectionControl
     {
-        // 도감은 원본 동물(1~StagesPerBand=12) 한 칸씩만 보여주고, 변형(_g/_r) 스테이지 클리어는
-        // 이름 색(초록/빨강)과 상세 팝업 모델의 변형 텍스처로 표현한다.
+        // 도감은 원본 동물(1~StagesPerBand=12) 한 칸씩만 보여주고, 변형(_b/_r) 스테이지 클리어는
+        // 이름 색(파랑/빨강)과 상세 팝업 모델의 변형 텍스처로 표현한다.
         public void OnStart()
         {
             var view = UICollectionPanel.Get();
@@ -70,12 +70,12 @@ namespace FunRabbit
                 if (baseData == null)
                     continue;
 
-                // 이 동물의 최고 클리어 변형 등급: 하드(_r) 스테이지 클리어 > 노멀(_g) 클리어 > 원본
-                // 예) 13(bear_g) 클리어 → 곰 등급 1(초록) / 36(elephant_r)까지 클리어 → 전 동물 등급 2(빨강)
+                // 이 동물의 최고 클리어 변형 등급: 하드(_r) 스테이지 클리어 > 노멀(_b) 클리어 > 원본
+                // 예) 13(bear_b) 클리어 → 곰 등급 1(파랑) / 36(elephant_r)까지 클리어 → 전 동물 등급 2(빨강)
                 int grade = maxCleared >= stage + baseCount * 2 ? 2
                           : maxCleared >= stage + baseCount ? 1 : 0;
 
-                // 등급에 해당하는 actor.json 행 키 (예: bear_g). 변형은 모델 프리팹을 원본과 공유하므로
+                // 등급에 해당하는 actor.json 행 키 (예: bear_b). 변형은 모델 프리팹을 원본과 공유하므로
                 // 경로는 원본 그대로 쓰고, 상세 팝업에서 이 키의 행 texture만 덧입힌다.
                 StageQuestData gradeData = grade > 0 ? GameQuestData.GetStage(stage + baseCount * grade) : baseData;
                 string animalKey = gradeData != null ? gradeData.animalKey : baseData.animalKey;

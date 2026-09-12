@@ -1,161 +1,86 @@
+using System;
+using System.Collections;
 using Firebase;
 using Firebase.Analytics;
-using Firebase.Extensions;
 using UnityEngine;
 
 namespace FunRabbit
 {
-    // Firebase Analytics 매니저.
-    // - Firebase 의존성 체크/초기화 + 기본 Analytics 함수(이벤트 로깅/유저 속성/화면뷰/수집 on-off)를 담당한다.
-    // - GameMain.Start()에서 MakeInstance()로 깨워진다 (AudioManager/LevelPlayAds와 동일 패턴).
     public class FireBaseAnalyticsManager : Singleton<FireBaseAnalyticsManager>
     {
+        const string LoggedOnceKeyPrefix = "FireBaseAnalytics_LoggedOnce_";
+        AnalyticsEventQueue _events;
+        readonly System.Collections.Generic.Queue<Action> _settings = new System.Collections.Generic.Queue<Action>();
         public bool IsInitialized { get; private set; }
 
-        void Start()
-        {
-            // Firebase SDK 내부 로그(이벤트 전송 시도 등)까지 콘솔에 출력 - 에디터 테스트용
-            FirebaseApp.LogLevel = LogLevel.Debug;
+        AnalyticsEventQueue Events => _events ?? (_events = new AnalyticsEventQueue(
+            name => PlayerPrefs.GetInt(LoggedOnceKeyPrefix + name, 0) == 1,
+            name => { PlayerPrefs.SetInt(LoggedOnceKeyPrefix + name, 1); PlayerPrefs.Save(); },
+            (name, parameters) => FirebaseAnalytics.LogEvent(name, parameters)));
 
-            FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task =>
+        IEnumerator Start()
+        {
+            FirebaseApp.LogLevel = Debug.isDebugBuild ? LogLevel.Debug : LogLevel.Warning;
+            while (!IsInitialized)
             {
-                DependencyStatus status = task.Result;
-                if (status == DependencyStatus.Available)
+                var task = FirebaseApp.CheckAndFixDependenciesAsync();
+                while (!task.IsCompleted) yield return null;
+                if (!task.IsCanceled && !task.IsFaulted && task.Result == DependencyStatus.Available)
                 {
                     IsInitialized = true;
-                    Debug.Log("[FireBaseAnalyticsManager] 초기화 성공");
+                    while (_settings.Count > 0) _settings.Dequeue().Invoke();
+                    Flush();
+                    yield break;
                 }
-                else
-                {
-                    Debug.LogError($"[FireBaseAnalyticsManager] 초기화 실패: {status}");
-                }
-            });
+                Debug.LogWarning("[Analytics] Initialization failed; retrying in 10 seconds.");
+                yield return new WaitForSecondsRealtime(10f);
+            }
         }
 
-        // ===== 이벤트 로깅 =====
+        void OnApplicationPause(bool paused) { if (paused) Flush(); }
 
-        public void LogEvent(string eventName)
+        void Flush()
         {
-            if (!CheckReady())
-                return;
-
-            Debug.Log($"[FireBaseAnalyticsManager] LogEvent: {eventName}");
-            FirebaseAnalytics.LogEvent(eventName);
+            if (!IsInitialized) return;
+            try { Events.Flush(); }
+            catch (Exception e) { Debug.LogWarning("[Analytics] Queued event retained: " + e.Message); }
         }
 
-        const string LoggedOnceKeyPrefix = "FireBaseAnalytics_LoggedOnce_";
-
-        // 이 기기(설치)에서 한 번도 기록된 적 없는 이벤트만 기록한다 (PlayerPrefs로 영구 저장, 앱 재실행해도 다시 안 찍힘).
-        public void LogEventOnce(string eventName)
+        public void LogEvent(string name) => LogEvent(name, Array.Empty<Parameter>());
+        public void LogEvent(string name, string parameter, string value) => LogEvent(name, new Parameter(parameter, value));
+        public void LogEvent(string name, string parameter, double value) => LogEvent(name, new Parameter(parameter, value));
+        public void LogEvent(string name, string parameter, long value) => LogEvent(name, new Parameter(parameter, value));
+        public void LogEvent(string name, params Parameter[] parameters)
         {
-            string key = LoggedOnceKeyPrefix + eventName;
-            if (PlayerPrefs.GetInt(key, 0) == 1)
-                return;
-
-            PlayerPrefs.SetInt(key, 1);
-            PlayerPrefs.Save();
-
-            LogEvent(eventName);
+            Events.Enqueue(name, parameters);
+            Flush();
         }
-
-        public void LogEvent(string eventName, string parameterName, string parameterValue)
+        public void LogEventOnce(string name) => LogEventOnce(name, Array.Empty<Parameter>());
+        public void LogEventOnce(string name, params Parameter[] parameters)
         {
-            if (!CheckReady())
-                return;
-
-            Debug.Log($"[FireBaseAnalyticsManager] LogEvent: {eventName} ({parameterName}={parameterValue})");
-            FirebaseAnalytics.LogEvent(eventName, parameterName, parameterValue);
+            Events.Enqueue(name, parameters, true);
+            Flush();
         }
-
-        public void LogEvent(string eventName, string parameterName, double parameterValue)
-        {
-            if (!CheckReady())
-                return;
-
-            Debug.Log($"[FireBaseAnalyticsManager] LogEvent: {eventName} ({parameterName}={parameterValue})");
-            FirebaseAnalytics.LogEvent(eventName, parameterName, parameterValue);
-        }
-
-        public void LogEvent(string eventName, string parameterName, long parameterValue)
-        {
-            if (!CheckReady())
-                return;
-
-            Debug.Log($"[FireBaseAnalyticsManager] LogEvent: {eventName} ({parameterName}={parameterValue})");
-            FirebaseAnalytics.LogEvent(eventName, parameterName, parameterValue);
-        }
-
-        public void LogEvent(string eventName, params Parameter[] parameters)
-        {
-            if (!CheckReady())
-                return;
-
-            Debug.Log($"[FireBaseAnalyticsManager] LogEvent: {eventName} (params={parameters.Length})");
-            FirebaseAnalytics.LogEvent(eventName, parameters);
-        }
-
-        // 화면 전환 로깅 (screenClass 생략 시 screenName과 동일하게 기록)
-        public void LogScreenView(string screenName, string screenClass = null)
-        {
-            if (!CheckReady())
-                return;
-
-            Debug.Log($"[FireBaseAnalyticsManager] LogScreenView: {screenName} ({screenClass ?? screenName})");
-            FirebaseAnalytics.LogEvent(
-                FirebaseAnalytics.EventScreenView,
-                new Parameter(FirebaseAnalytics.ParameterScreenName, screenName),
+        public void LogScreenView(string screenName, string screenClass = null) =>
+            LogEvent(FirebaseAnalytics.EventScreenView, new Parameter(FirebaseAnalytics.ParameterScreenName, screenName),
                 new Parameter(FirebaseAnalytics.ParameterScreenClass, screenClass ?? screenName));
-        }
 
-        // ===== 유저 속성 =====
-
-        public void SetUserId(string userId)
+        // The deduplication key remains local; only name and approved parameters reach Firebase.
+        public void LogEventOnceForKey(string name, string localOnceKey, params Parameter[] parameters)
         {
-            if (!CheckReady())
-                return;
-
-            Debug.Log($"[FireBaseAnalyticsManager] SetUserId: {userId}");
-            FirebaseAnalytics.SetUserId(userId);
+            Events.Enqueue(name, parameters, true, localOnceKey);
+            Flush();
         }
 
-        public void SetUserProperty(string name, string value)
+
+        void ApplySetting(Action action)
         {
-            if (!CheckReady())
-                return;
-
-            Debug.Log($"[FireBaseAnalyticsManager] SetUserProperty: {name}={value}");
-            FirebaseAnalytics.SetUserProperty(name, value);
+            if (IsInitialized) action();
+            else if (_settings.Count < 32) _settings.Enqueue(action);
         }
-
-        // ===== 수집 제어 =====
-
-        // 수집 on/off (예: GDPR 동의 여부에 따라)
-        public void SetAnalyticsCollectionEnabled(bool enabled)
-        {
-            if (!CheckReady())
-                return;
-
-            Debug.Log($"[FireBaseAnalyticsManager] SetAnalyticsCollectionEnabled: {enabled}");
-            FirebaseAnalytics.SetAnalyticsCollectionEnabled(enabled);
-        }
-
-        // 이 기기의 애널리틱스 데이터(앱 인스턴스 ID 포함)를 초기화한다.
-        public void ResetAnalyticsData()
-        {
-            if (!CheckReady())
-                return;
-
-            Debug.Log("[FireBaseAnalyticsManager] ResetAnalyticsData");
-            FirebaseAnalytics.ResetAnalyticsData();
-        }
-
-        private bool CheckReady()
-        {
-            if (IsInitialized)
-                return true;
-
-            Debug.LogWarning("[FireBaseAnalyticsManager] 아직 초기화되지 않았습니다.");
-            return false;
-        }
+        public void SetUserId(string userId) => ApplySetting(() => FirebaseAnalytics.SetUserId(userId));
+        public void SetUserProperty(string name, string value) => ApplySetting(() => FirebaseAnalytics.SetUserProperty(name, value));
+        public void SetAnalyticsCollectionEnabled(bool enabled) => ApplySetting(() => FirebaseAnalytics.SetAnalyticsCollectionEnabled(enabled));
+        public void ResetAnalyticsData() => ApplySetting(FirebaseAnalytics.ResetAnalyticsData);
     }
 }

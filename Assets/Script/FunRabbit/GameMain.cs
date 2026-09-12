@@ -176,13 +176,27 @@ namespace FunRabbit
                 Instance.OnStageLoaded -= handler;
         }
 
-        const long WatchAdRewardCoinAmount = 500;
+        public const long WatchAdRewardCoinAmount = 500;
+        bool _coinAdInProgress;
+        float _nextAdReceiptCheck;
+
+        void Update()
+        {
+            GameplayAnalytics.Tick(Time.unscaledDeltaTime);
+            if (Time.realtimeSinceStartup < _nextAdReceiptCheck || !FireBaseAuthManager.IsCheckInstance() ||
+                !FireBaseAuthManager.Instance.IsLoggedIn || !CloudSaveManager.Instance.GameplayStarted ||
+                CloudSaveManager.Instance.IsSyncing || SessionOperation.IsBusy)
+                return;
+            _nextAdReceiptCheck = Time.realtimeSinceStartup + 1f;
+            long recovered = AdRewardInbox.ClaimCurrent();
+            if (recovered > 0) ShowCoinRewardPopup(recovered);
+        }
 
         const float CoinRewardFlyDelay = 1f;  // 팝업 노출 후 코인 비행 연출 시작까지 대기 시간(초)
         const float CoinRewardCloseDelay = 1f; // 코인 비행 연출 시작 후 팝업이 닫히기까지 대기 시간(초)
 
         // 광고 시청 보상 플로우: 확인 팝업 → 리워드 광고 시청 → 보상 팝업(코인 아이콘 포함, 조작 불가) →
-        // 1초 후 코인 비행 연출 + 지급 → 1초 후 팝업 자동 닫힘
+        // 보상은 먼저 저장하며, 1초 후 비행 연출은 표시만 수행하고 팝업을 닫는다.
         // 하루 최대 PlayerContext.WATCH_AD_DAILY_LIMIT회 - 남은 횟수를 본문에 표시하고,
         // 소진되면 확인 버튼을 비활성화한다 (횟수 차감은 보상 지급 시점 - 중도 이탈은 소모 안 됨).
         public void ShowWatchAdForCoinsPopup()
@@ -195,19 +209,66 @@ namespace FunRabbit
                 LanguageManager.Instance.Get("popup_watchad_body", WatchAdRewardCoinAmount, remaining),
                 () =>
             {
-                // 리워드 광고 시청 시도(광고 요청) 시점 - 매회 기록
-                FireBaseAnalyticsManager.Instance.LogEvent("watch_ad_try");
-
-                LevelPlayAds.Instance.ShowRewardedAd(() => ShowCoinRewardPopup(WatchAdRewardCoinAmount));
+                WatchAdForCoins();
             });
 
             popup.SetOkButtonInteractable(remaining > 0);
+        }
+
+        public void WatchAdForCoins()
+        {
+            if (_coinAdInProgress) return;
+            _coinAdInProgress = true;
+            StartCoroutine(WatchCoinAdAfterPopupCloses());
+        }
+
+        IEnumerator WatchCoinAdAfterPopupCloses()
+        {
+            // Let the previous popup finish closing before a synchronous SDK callback opens another.
+            yield return null;
+            if (PlayerContext.GetRemainingWatchAdCount() <= 0)
+            {
+                _coinAdInProgress = false;
+                ShowCoinAdNotice("coin_ad_limit");
+                yield break;
+            }
+            if (!LevelPlayAds.IsCheckInstance() || !LevelPlayAds.Instance.IsRewardedAdReady())
+            {
+                _coinAdInProgress = false;
+                if (LevelPlayAds.IsCheckInstance()) LevelPlayAds.Instance.LoadRewardedAd();
+                ShowCoinAdNotice("coin_ad_loading");
+                yield break;
+            }
+            FireBaseAnalyticsManager.Instance.LogEvent("watch_ad_try");
+            string rewardId = System.Guid.NewGuid().ToString("N");
+            string rewardOwner = AdRewardInbox.CurrentOwner;
+            LevelPlayAds.Instance.ShowRewardedAd(() =>
+            {
+                _coinAdInProgress = false;
+                AdRewardInbox.Enqueue(rewardOwner, rewardId, WatchAdRewardCoinAmount);
+                if (AdRewardInbox.CurrentOwner == rewardOwner && !CloudSaveManager.Instance.IsSyncing)
+                {
+                    long granted = AdRewardInbox.ClaimCurrent();
+                    if (granted > 0) ShowCoinRewardPopup(granted);
+                }
+            }, () =>
+            {
+                _coinAdInProgress = false;
+                ShowCoinAdNotice("coin_ad_failed");
+            }, () => _coinAdInProgress = false);
+        }
+
+        void ShowCoinAdNotice(string key)
+        {
+            UIPopup.CreateOrGet().Set(LanguageManager.Instance.Get("popup_watchad_title"),
+                LanguageManager.Instance.Get(key), null);
         }
 
         // 백그라운드 전환 시 코인 타이머 완료 알림을 예약하고, 복귀 시 미발송분을 취소한다.
         // (게임 중에는 알림이 뜨지 않고, 안 하고 있을 때만 도착하도록)
         private void OnApplicationPause(bool pause)
         {
+            GameplayAnalytics.SetPaused(pause);
             if (pause)
                 CoinRewardNotificationScheduler.OnAppPause();
             else
@@ -216,9 +277,8 @@ namespace FunRabbit
 
         private void ShowCoinRewardPopup(long coinAmount)
         {
-            // 리워드 광고 시청 완료(보상 지급 확정) 시점 - 매회 기록 + 하루 시청 횟수 차감
+            // 코인과 일일 횟수는 원장에서 이미 확정됐다. 여기서는 결과만 표시한다.
             FireBaseAnalyticsManager.Instance.LogEvent("watch_ad_complete");
-            PlayerContext.AddWatchAdCount();
 
             UIPopup rewardPopup = UIPopup.CreateOrGet();
             rewardPopup.Set(
@@ -229,15 +289,15 @@ namespace FunRabbit
             StartCoroutine(PlayCoinRewardSequence(rewardPopup, coinAmount));
         }
 
+        void OnApplicationQuit() => GameplayAnalytics.EndAttempt(true);
+
         private IEnumerator PlayCoinRewardSequence(UIPopup rewardPopup, long coinAmount)
         {
             yield return new WaitForSeconds(CoinRewardFlyDelay);
 
             RectTransform coinIconTransform = rewardPopup.CoinIconTransform;
             if (coinIconTransform != null && UIBottomBar.Instance != null)
-                UIBottomBar.Instance.PlayCoinGetEffect(coinIconTransform, coinAmount);
-            else
-                PlayerContext.AddCoinAmount(coinAmount);
+                UIBottomBar.Instance.PlayCoinGetEffect(coinIconTransform);
 
             yield return new WaitForSeconds(CoinRewardCloseDelay);
 

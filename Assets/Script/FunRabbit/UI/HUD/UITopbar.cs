@@ -14,6 +14,22 @@ namespace FunRabbit
 
         public UITopbarControl Control { get; private set; } = new UITopbarControl();
 
+        RectTransform _rect;
+        Vector2 _originalOffsetMin, _originalOffsetMax;
+
+        public void ApplySafeArea(float left, float top, float right)
+        {
+            if (_rect == null)
+            {
+                _rect = (RectTransform)transform;
+                _originalOffsetMin = _rect.offsetMin;
+                _originalOffsetMax = _rect.offsetMax;
+            }
+            // Always use authored offsets so repeated updates cannot accumulate padding.
+            _rect.offsetMin = _originalOffsetMin + new Vector2(left, -top);
+            _rect.offsetMax = _originalOffsetMax + new Vector2(-right, -top);
+        }
+
         private void Start()
         {
             if (backButton != null)

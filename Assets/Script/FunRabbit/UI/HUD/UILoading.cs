@@ -294,7 +294,10 @@ namespace FunRabbit
                 yield return null;
 
             if (!done)
+            {
+                cloud.CancelLoginSync();
                 Debug.LogWarning("[UILoadingControl] 클라우드 동기화 지연 - 로컬 데이터로 진행합니다.");
+            }
         }
 
         private void OnGuestLoginBtn()
@@ -357,6 +360,7 @@ namespace FunRabbit
         // 터치 투 스타트 → 로딩 UI 닫기
         private void OnTouchToStart()
         {
+            CloudSaveManager.Instance.MarkGameplayStarted();
             if (_loading != null)
                 _loading.Close();
         }

@@ -1128,7 +1128,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: STAGE 1
+  m_text: "\uC2DC\uC791"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: d3fe63decab9d7344b411afb6e84b208, type: 2}
   m_sharedMaterial: {fileID: 2100000, guid: 7ff4968de3bf92345ac4e32c5e72d006, type: 2}
@@ -1165,7 +1165,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: -2
+  m_characterSpacing: 0
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -1212,7 +1212,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: de3a09cbbd16456ab967975c11c887a4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  key: hud_stage_placeholder
+  key: hud_start
 --- !u!1 &917187028254151489
 GameObject:
   m_ObjectHideFlags: 0
@@ -1323,7 +1323,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 14.1}
+  m_AnchoredPosition: {x: 16, y: 14.1}
   m_SizeDelta: {x: 127.9986, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &3259104823276669447
@@ -1501,6 +1501,8 @@ MonoBehaviour:
   resetCountText: {fileID: 6145211936516504271}
   bossCamView: {fileID: 4271038475619283749}
   bossBattle: {fileID: 7961246882362224930}
+  missionHudRect: {fileID: 9144083348981935498}
+  randomBoxButtonRect: {fileID: 4489426715729653142}
   coinTimerHud: {fileID: 3628905243749230766}
   getDollTrailHud: {fileID: 5273279438078641662}
   bossHPGage: {fileID: 4448617584962652510}
@@ -1854,7 +1856,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &5520101354694728218
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1871,8 +1873,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: 340, y: 37.041}
-  m_SizeDelta: {x: 363.4146, y: 70.8787}
+  m_AnchoredPosition: {x: 196.1, y: 40.5}
+  m_SizeDelta: {x: 155.29, y: 70.8787}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &450253730831348487
 CanvasRenderer:
@@ -1902,10 +1904,10 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Mission
+  m_text: "\uBBF8\uC158"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: d3fe63decab9d7344b411afb6e84b208, type: 2}
-  m_sharedMaterial: {fileID: 2100000, guid: 7ff4968de3bf92345ac4e32c5e72d006, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 53f3456697115a84dae4a9226386c37e, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1929,17 +1931,17 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 38
+  m_fontSize: 36
   m_fontSizeBase: 38
   m_fontWeight: 400
-  m_enableAutoSizing: 0
+  m_enableAutoSizing: 1
   m_fontSizeMin: 18
-  m_fontSizeMax: 72
+  m_fontSizeMax: 36
   m_fontStyle: 0
-  m_HorizontalAlignment: 1
+  m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: -2
+  m_characterSpacing: 0
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -2026,7 +2028,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 163.6, y: -413.09985}
+  m_AnchoredPosition: {x: 163.6, y: -420}
   m_SizeDelta: {x: 282.5819, y: 138.8038}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8111910885400478469
@@ -2894,8 +2896,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.55126137, y: 0.51561606}
   m_AnchorMax: {x: 0.55126137, y: 0.51561606}
-  m_AnchoredPosition: {x: 24.16462, y: -24.5}
-  m_SizeDelta: {x: 174.2947, y: 34.8292}
+  m_AnchoredPosition: {x: 21.937, y: -24.5}
+  m_SizeDelta: {x: 192.06, y: 34.8292}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8730894655826940759
 CanvasRenderer:
@@ -3342,6 +3344,7 @@ MonoBehaviour:
   coinTimerText: {fileID: 8684529098255694099}
   getCoinTimerButton: {fileID: 1832718606858547006}
   coinTimerSlider: {fileID: 4887682898314115211}
+  claimableEffect: {fileID: 4018913489295165402}
   coinFlyStart: {fileID: 6372909283984407463}
 --- !u!1 &3637652031951631543
 GameObject:
@@ -8787,7 +8790,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 313}
+  m_SizeDelta: {x: 0, y: 320}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!222 &4271038475619283748
 CanvasRenderer:
@@ -10759,7 +10762,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -89, y: -475}
+  m_AnchoredPosition: {x: -89, y: -482}
   m_SizeDelta: {x: 153, y: 153}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &2334090833869908044
@@ -11093,14 +11096,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e67022ad7b0e4681b0d08f1713d6c599, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   comboText: {fileID: 5275006688139880060}
   comboDoubleImage: {fileID: 4362390410475693962}
   comboTripleImage: {fileID: 7553749514529360667}
   comboQuadraImage: {fileID: 6801894678632859193}
   comboPentaImage: {fileID: 7040330363676702853}
   canvasGroup: {fileID: 8887776665554443331}
+  flyInDuration: 0.6
+  springAmplitude: 1.1
+  springPeriod: 0.55
+  punchUpDuration: 0.15
+  punchDownDuration: 0.2
+  holdDuration: 1.2
+  fadeOutDuration: 0.25
 --- !u!1 &7718599431545029995
 GameObject:
   m_ObjectHideFlags: 0
@@ -11650,7 +11660,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -316}
+  m_AnchoredPosition: {x: 0, y: -326}
   m_SizeDelta: {x: 0, y: 12.642029}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5440700975875707277

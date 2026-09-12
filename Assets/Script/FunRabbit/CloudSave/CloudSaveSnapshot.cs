@@ -14,7 +14,7 @@ namespace FunRabbit
         [System.Serializable] public class FloatEntry { public string k; public float v; }
         [System.Serializable] public class StringEntry { public string k; public string v; }
 
-        public int version = 1;
+        public int version = 2;
         public List<IntEntry> ints = new List<IntEntry>();
         public List<FloatEntry> floats = new List<FloatEntry>();
         public List<StringEntry> strings = new List<StringEntry>();
@@ -24,7 +24,7 @@ namespace FunRabbit
         //              게이지/랜덤박스, 일일 광고 시청 횟수
         static readonly string[] IntKeys =
         {
-            "currentStage", "bossHp", "maxClearedStage",
+            "currentStage", "bossHp", "bossHpMax", "maxClearedStage",
             "ItemAmount_1", "ItemAmount_8", "ItemAmount_9", "ItemAmount_10",
             "DollCountGage", "RandomBoxCount",
             "WatchAdCount",
@@ -39,6 +39,7 @@ namespace FunRabbit
         // 고정 string 키: 지급 대기 아군 보상, 아군 대기열, 광고 시청 날짜, 코인 타이머 종료 시각, 미션 대상 동물
         static readonly string[] StringKeys =
         {
+            CoinWallet.PrefsKey,
             "PendingAllyRewards",
             "AllyPendingQueue",
             "WatchAdDate",
@@ -103,6 +104,7 @@ namespace FunRabbit
         // 스냅샷에 없는 키(빈 아군 슬롯 등)가 로컬 잔존값으로 남지 않게 한다.
         public void ApplyToPlayerPrefs()
         {
+            Validate();
             ClearManagedKeys();
 
             foreach (IntEntry e in ints)
@@ -114,6 +116,45 @@ namespace FunRabbit
 
             PlayerPrefs.Save();
         }
+
+        public void Validate()
+        {
+            if (version < 1 || version > 2 || ints == null || floats == null || strings == null)
+                throw new System.InvalidOperationException("Unsupported or incomplete save.");
+            var keys = new HashSet<string>();
+            foreach (var entry in ints)
+                if (entry == null || !IsIntKey(entry.k) || !keys.Add(entry.k))
+                    throw new System.InvalidOperationException("Invalid integer save entry.");
+            foreach (var entry in floats)
+                if (entry == null || !System.Array.Exists(FloatKeys, key => key == entry.k) || !keys.Add(entry.k) ||
+                    float.IsNaN(entry.v) || float.IsInfinity(entry.v))
+                    throw new System.InvalidOperationException("Invalid float save entry.");
+            foreach (var entry in strings)
+            {
+                if (entry == null || !IsStringKey(entry.k) || entry.v == null || !keys.Add(entry.k))
+                    throw new System.InvalidOperationException("Invalid string save entry.");
+                if (entry.k == CoinWallet.PrefsKey) CoinWallet.Parse(entry.v);
+            }
+            if (version == 2 && !keys.Contains(CoinWallet.PrefsKey))
+                throw new System.InvalidOperationException("Purchase wallet missing from V2 save.");
+            if (GetInt("currentStage", 1) < 1)
+                throw new System.InvalidOperationException("Invalid saved stage.");
+            if (TryGetInt("bossHpMax", out int bossHpMax) && bossHpMax <= 0)
+                throw new System.InvalidOperationException("Invalid saved boss maximum HP.");
+        }
+
+        static bool IndexedKey(string key, string prefix, int min, int max)
+        {
+            return key != null && key.StartsWith(prefix, System.StringComparison.Ordinal) &&
+                int.TryParse(key.Substring(prefix.Length), out int index) && index >= min && index <= max &&
+                key == prefix + index;
+        }
+
+        static bool IsIntKey(string key) => System.Array.Exists(IntKeys, value => key == value) ||
+            IndexedKey(key, AllySlotHpPrefix, 0, MaxAllySlots - 1);
+        static bool IsStringKey(string key) => System.Array.Exists(StringKeys, value => key == value) ||
+            IndexedKey(key, AllySlotAnimalKeyPrefix, 0, MaxAllySlots - 1) ||
+            IndexedKey(key, StageDataPrefix, 1, MaxStageScan);
 
         private static void ClearManagedKeys()
         {

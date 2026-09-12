@@ -32,9 +32,60 @@ namespace FunRabbit
         LevelPlayInterstitialAd _interstitialAd;
         LevelPlayBannerAd _bannerAd;
 
-        Action _onRewardGranted;
-        Action _onRewardFailed;
-        bool _rewardGrantedThisShow;
+        readonly System.Collections.Generic.Dictionary<string, RewardedAdRequest> _requests =
+            new System.Collections.Generic.Dictionary<string, RewardedAdRequest>();
+        RewardedAdRequest _activeRequest;
+        RewardedAdRequest _unidentifiedClosedRequest;
+        string _loadedRewardKey;
+        bool _initializing, _rewardLoading;
+        int _initAttempts, _loadAttempts;
+        float _nextInitAt, _nextLoadAt, _loadDeadline;
+        public bool RewardLoadFailed { get; private set; }
+        public static float RetryDelay(int attempt) => Mathf.Min(60f, 2f * Mathf.Pow(2f, Mathf.Clamp(attempt - 1, 0, 5)));
+
+        void Update()
+        {
+            if (!IsInitialized) { TryInitialize(); return; }
+            if (_rewardLoading && Time.realtimeSinceStartup > _loadDeadline)
+            {
+                _rewardLoading = false;
+                RewardLoadFailed = true;
+                _nextLoadAt = Time.realtimeSinceStartup + RetryDelay(++_loadAttempts);
+            }
+            if (!_rewardLoading && Time.realtimeSinceStartup >= _nextLoadAt &&
+                (_activeRequest == null || _activeRequest.IsClosed) &&
+                _rewardedAd != null && !_rewardedAd.IsAdReady())
+                LoadRewardedAd();
+        }
+
+        void TryInitialize()
+        {
+            if (IsInitialized || _initializing || Time.realtimeSinceStartup < _nextInitAt) return;
+            string key = ResolveAppKey();
+            if (string.IsNullOrEmpty(key)) return;
+            _initializing = true;
+            try { LevelPlay.Init(key); }
+            catch (Exception e)
+            {
+                _initializing = false;
+                _nextInitAt = Time.realtimeSinceStartup + RetryDelay(++_initAttempts);
+                Debug.LogWarning("[LevelPlayAds] Initialization retry: " + e.Message);
+            }
+        }
+
+        public void EnsureRewardedAdLoaded()
+        {
+            if (!IsInitialized) { TryInitialize(); return; }
+            if (!_rewardLoading && Time.realtimeSinceStartup >= _nextLoadAt &&
+                (_activeRequest == null || _activeRequest.IsClosed) && _rewardedAd != null && !_rewardedAd.IsAdReady())
+                LoadRewardedAd();
+        }
+
+        void OnApplicationPause(bool paused)
+        {
+            if (!paused) EnsureRewardedAdLoaded();
+        }
+
 
         string ResolveAppKey()
         {
@@ -89,11 +140,14 @@ namespace FunRabbit
             if (testMode)
                 LevelPlay.SetAdaptersDebug(true);
 
-            LevelPlay.Init(appKey);
+            TryInitialize();
         }
 
         void OnInitSuccess(LevelPlayConfiguration configuration)
         {
+            if (IsInitialized) return;
+            _initializing = false;
+            _initAttempts = 0;
             IsInitialized = true;
             Debug.Log("[LevelPlayAds] 초기화 성공");
 
@@ -111,7 +165,9 @@ namespace FunRabbit
         void OnInitFailed(LevelPlayInitError error)
         {
             IsInitialized = false;
-            Debug.LogError($"[LevelPlayAds] 초기화 실패: {error.ErrorCode} {error.ErrorMessage}");
+            _initializing = false;
+            _nextInitAt = Time.realtimeSinceStartup + RetryDelay(++_initAttempts);
+            Debug.LogWarning($"[LevelPlayAds] 초기화 실패: {error.ErrorCode} {error.ErrorMessage}");
         }
 
         protected override void OnDestroy()
@@ -161,72 +217,112 @@ namespace FunRabbit
 
         // ===== 실제 사용 함수 - Rewarded =====
 
+        static string RewardKey(LevelPlayAdInfo info) =>
+            !string.IsNullOrEmpty(info?.AuctionId) ? info.AuctionId : info?.AdId;
+
         void SetupRewardedAd()
         {
             string adUnitId = ResolveRewardedAdUnitId();
-            if (string.IsNullOrEmpty(adUnitId))
-                return;
-
+            if (string.IsNullOrEmpty(adUnitId) || _rewardedAd != null) return;
             _rewardedAd = new LevelPlayRewardedAd(adUnitId);
-            _rewardedAd.OnAdLoaded += _ => Debug.Log("[LevelPlayAds] Rewarded 로드 완료");
-            _rewardedAd.OnAdLoadFailed += error => Debug.LogWarning($"[LevelPlayAds] Rewarded 로드 실패: {error.ErrorMessage}");
-            _rewardedAd.OnAdRewarded += (info, reward) => GrantReward();
-            _rewardedAd.OnAdDisplayFailed += (info, error) => FailReward();
-            _rewardedAd.OnAdClosed += _ =>
+            _rewardedAd.OnAdLoaded += info =>
             {
-                // 에디터 Mock은 OnAdClosed를 OnAdRewarded보다 먼저 발생시킨다 - 바로 판정하면
-                // 뒤이어 오는 진짜 보상 이벤트가 이미 지워진 콜백을 호출하게 되므로, 한 프레임 유예 후 판정한다.
-                StartCoroutine(FailRewardIfNotGrantedNextFrame());
-
-                LoadRewardedAd(); // 다음 시청을 위해 바로 프리로드
+                _rewardLoading = false; RewardLoadFailed = false; _loadAttempts = 0;
+                _loadedRewardKey = RewardKey(info);
+            };
+            _rewardedAd.OnAdLoadFailed += error =>
+            {
+                _rewardLoading = false; RewardLoadFailed = true;
+                _nextLoadAt = Time.realtimeSinceStartup + RetryDelay(++_loadAttempts);
+                Debug.LogWarning("[LevelPlayAds] Rewarded load failed: " + error.ErrorMessage);
+            };
+            _rewardedAd.OnAdDisplayed += info => BindActiveRequest(info);
+            _rewardedAd.OnAdRewarded += (info, reward) =>
+            {
+                RewardedAdRequest request = FindRequest(info);
+                if (request == null) { Debug.LogWarning("[LevelPlayAds] Unmatched reward callback."); return; }
+                request.Reward();
+            };
+            _rewardedAd.OnAdDisplayFailed += (info, error) =>
+            {
+                (FindRequest(info) ?? _activeRequest)?.Fail();
+                _nextLoadAt = Time.realtimeSinceStartup + RetryDelay(++_loadAttempts);
+                RewardLoadFailed = true;
+            };
+            _rewardedAd.OnAdClosed += info =>
+            {
+                // Keep the request addressable: OnAdRewarded may arrive after this event or after another ad.
+                RewardedAdRequest request = FindRequest(info);
+                if (request == null || request.IsClosed) return;
+                if (string.IsNullOrEmpty(RewardKey(info)) && !request.IsRewarded)
+                    _unidentifiedClosedRequest = request;
+                request.Close();
+                if (ReferenceEquals(request, _activeRequest))
+                {
+                    _loadedRewardKey = null;
+                    LoadRewardedAd();
+                }
             };
         }
 
-        IEnumerator FailRewardIfNotGrantedNextFrame()
+        void BindActiveRequest(LevelPlayAdInfo info)
         {
-            yield return null;
-
-            if (!_rewardGrantedThisShow)
-                FailReward();
+            string key = RewardKey(info);
+            if (_activeRequest == null || _activeRequest.IsClosed || string.IsNullOrEmpty(key)) return;
+            if (!_requests.ContainsKey(key)) _requests.Add(key, _activeRequest);
         }
 
-        public bool IsRewardedAdReady() => _rewardedAd != null && _rewardedAd.IsAdReady();
+        RewardedAdRequest FindRequest(LevelPlayAdInfo info)
+        {
+            string key = RewardKey(info);
+            if (!string.IsNullOrEmpty(key) && _requests.TryGetValue(key, out var request)) return request;
+            if (!string.IsNullOrEmpty(key)) return null;
+            if (_unidentifiedClosedRequest != null)
+                return _unidentifiedClosedRequest;
+            // A missing ID is usable only while one unambiguous presentation is active.
+            if (_activeRequest != null && !_activeRequest.IsClosed)
+            {
+                BindActiveRequest(info);
+                return _activeRequest;
+            }
+            return null;
+        }
+
+        public bool IsRewardedAdReady() => _rewardedAd != null && _rewardedAd.IsAdReady() &&
+            (_unidentifiedClosedRequest == null || _unidentifiedClosedRequest.IsRewarded || _unidentifiedClosedRequest.IsFailed) &&
+            (_activeRequest == null || _activeRequest.IsClosed) &&
+            (string.IsNullOrEmpty(_loadedRewardKey) || !_requests.ContainsKey(_loadedRewardKey));
 
         public void LoadRewardedAd()
         {
-            _rewardedAd?.LoadAd();
+            if (_rewardedAd == null || _rewardLoading) return;
+            _rewardLoading = true;
+            _loadDeadline = Time.realtimeSinceStartup + 30f;
+            try { _rewardedAd.LoadAd(); }
+            catch (Exception e)
+            {
+                _rewardLoading = false; RewardLoadFailed = true;
+                _nextLoadAt = Time.realtimeSinceStartup + RetryDelay(++_loadAttempts);
+                Debug.LogWarning("[LevelPlayAds] Rewarded load retry: " + e.Message);
+            }
         }
 
-        // onRewarded: 끝까지 시청해 보상을 지급해야 할 때 호출.
-        // onFailed: 광고가 준비되지 않았거나, 중도 이탈/표시 실패로 보상을 주면 안 될 때 호출.
-        public void ShowRewardedAd(Action onRewarded, Action onFailed = null)
+        public void ShowRewardedAd(Action onRewarded, Action onFailed = null, Action onClosed = null)
         {
             if (!IsRewardedAdReady())
             {
-                Debug.LogWarning("[LevelPlayAds] Rewarded 광고가 준비되지 않았습니다.");
+                EnsureRewardedAdLoaded();
                 onFailed?.Invoke();
                 return;
             }
-
-            _onRewardGranted = onRewarded;
-            _onRewardFailed = onFailed;
-            _rewardGrantedThisShow = false;
-            _rewardedAd.ShowAd();
-        }
-
-        void GrantReward()
-        {
-            _rewardGrantedThisShow = true;
-            _onRewardGranted?.Invoke();
-            _onRewardGranted = null;
-            _onRewardFailed = null;
-        }
-
-        void FailReward()
-        {
-            _onRewardFailed?.Invoke();
-            _onRewardGranted = null;
-            _onRewardFailed = null;
+            _activeRequest = new RewardedAdRequest(onRewarded, onFailed, onClosed);
+            if (!string.IsNullOrEmpty(_loadedRewardKey)) _requests[_loadedRewardKey] = _activeRequest;
+            try { _rewardedAd.ShowAd(); }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[LevelPlayAds] Rewarded show failed: " + e.Message);
+                _activeRequest.Fail();
+            }
         }
 
         // ===== 실제 사용 함수 - Interstitial =====

@@ -61,6 +61,12 @@ namespace FunRabbit
             RefreshHud();
         }
 
+        public void RefreshFromSave()
+        {
+            if (CurrentMission == null) AssignNewMission();
+            RefreshHud();
+        }
+
         public void DetachHud(UIMissionHud hud)
         {
             if (_hud == hud)
@@ -79,7 +85,8 @@ namespace FunRabbit
             if (mission == null || !mission.IsActorType)
                 return;
 
-            if (animalKey != PlayerContext.GetMissionAnimalKey())
+            if (GameActorData.ResolveAnimalKey(animalKey) !=
+                GameActorData.ResolveAnimalKey(PlayerContext.GetMissionAnimalKey()))
                 return;
 
             AddProgress(mission, count);
@@ -145,14 +152,33 @@ namespace FunRabbit
         // 마지막 클리어 스테이지(=현재-1) 기준 -TargetStageRange까지의 액터 중 랜덤 선정
         private static string PickTargetAnimalKey()
         {
-            int maxStage = Mathf.Max(2, GameQuestManager.Instance.CurrentStage - 1);
+            int currentStage = GameQuestManager.Instance.CurrentStage;
+            int maxStage = Mathf.Max(2, currentStage - 1);
             int minStage = Mathf.Max(1, maxStage - TargetStageRange);
 
-            ActorData data = GameActorData.GetByStage(Random.Range(minStage, maxStage + 1));
+            int targetStage;
+            if (currentStage <= 3)
+                targetStage = Random.Range(minStage, maxStage + 1);
+            else
+            {
+                int previous = GameActorData.Get(PlayerContext.GetMissionAnimalKey())?.stage ?? 0;
+                bool exclude = minStage < maxStage && previous >= minStage && previous <= maxStage;
+                int count = maxStage - minStage + 1 - (exclude ? 1 : 0);
+                targetStage = SelectTargetStage(minStage, maxStage, previous, Random.Range(0, count));
+            }
+            ActorData data = GameActorData.GetByStage(targetStage);
             if (data == null)
                 data = GameActorData.GetByStage(1);
 
             return data != null ? data.animalKey : string.Empty;
+        }
+
+        public static int SelectTargetStage(int minStage, int maxStage, int previous, int offset)
+        {
+            bool exclude = minStage < maxStage && previous >= minStage && previous <= maxStage;
+            int count = maxStage - minStage + 1 - (exclude ? 1 : 0);
+            int selected = minStage + Mathf.Clamp(offset, 0, count - 1);
+            return exclude && selected >= previous ? selected + 1 : selected;
         }
 
         private void AddProgress(MissionData mission, int amount = 1)
@@ -263,12 +289,10 @@ namespace FunRabbit
             {
                 string targetAnimalKey = PlayerContext.GetMissionAnimalKey();
                 _hud.SetMissionIconSprite(SpriteCache.Get(GameCommon.GetIconFullPath(targetAnimalKey)));
-                _hud.SetMissionTitle(LanguageManager.Instance.Get(GameCommon.GetDollNameStringKey(targetAnimalKey)));
             }
             else
             {
                 _hud.SetMissionIconSprite(SpriteCache.Get(RandomBoxIconSpritePath));
-                _hud.SetMissionTitle(LanguageManager.Instance.Get("randombox_panel_name"));
             }
 
             _hud.UpdateMissionProgressText(PlayerContext.GetMissionProgress(), mission.collection_count);

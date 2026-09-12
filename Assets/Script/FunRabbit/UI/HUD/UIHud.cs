@@ -31,6 +31,7 @@ namespace FunRabbit
         [SerializeField] TextMeshProUGUI resetCountText;
         [SerializeField] RawImage bossCamView;
         [SerializeField] GameObject bossBattle;
+        [SerializeField] RectTransform missionHudRect, randomBoxButtonRect;
 
         /// <summary>
         /// coin timer
@@ -144,7 +145,10 @@ namespace FunRabbit
 
         private void OnBossHpChanged(int current, int max) => SetBossHPGage(current, max);
 
-        private void OnStageChangedRefreshBossHPGage(int stage, bool isClear) => RefreshBossHPGage();
+        private void OnStageChangedRefreshBossHPGage(int stage, bool isClear)
+        {
+            RefreshBossHPGage();
+        }
 
         private void RefreshBossHPGage()
         {
@@ -165,6 +169,69 @@ namespace FunRabbit
         {
             if (bossCamView != null && BossCamera.TryGetSetInstance(out BossCamera bossCam))
                 bossCamView.texture = bossCam.TargetTexture;
+            UpdateBattleLayout();
+        }
+
+        RectTransform _layoutRoot;
+        UITopbar _layoutTopbar;
+        Vector2 _lastScreenSize, _lastHudSize;
+        Rect _lastSafeArea;
+        bool _layoutDirty = true;
+
+        void OnRectTransformDimensionsChange() => _layoutDirty = true;
+
+        void LateUpdate()
+        {
+            if (_layoutRoot == null) _layoutRoot = (RectTransform)transform;
+            Vector2 screenSize = new Vector2(Screen.width, Screen.height);
+            Vector2 hudSize = _layoutRoot.rect.size;
+            Rect safeArea = Screen.safeArea;
+            if (!_layoutDirty && screenSize == _lastScreenSize && hudSize == _lastHudSize &&
+                safeArea == _lastSafeArea) return;
+
+            ApplyScreenLayout(screenSize, safeArea);
+            _lastScreenSize = screenSize;
+            _lastHudSize = hudSize;
+            _lastSafeArea = safeArea;
+            _layoutDirty = false;
+        }
+
+        void UpdateBattleLayout()
+        {
+            ApplyScreenLayout(new Vector2(Screen.width, Screen.height), Screen.safeArea);
+        }
+
+        // The full-screen HUD uses canvas units, not physical screen pixels.
+        // Explicit inputs also let editor previews exercise cutouts without changing the device.
+        public void ApplyScreenLayout(Vector2 screenSize, Rect safeArea)
+        {
+            if (_layoutRoot == null) _layoutRoot = (RectTransform)transform;
+            Vector2 hudSize = _layoutRoot.rect.size;
+            if (screenSize.x <= 0f || screenSize.y <= 0f || hudSize.x <= 0f || hudSize.y <= 0f) return;
+            if (safeArea.width <= 0f || safeArea.height <= 0f)
+                safeArea = new Rect(Vector2.zero, screenSize);
+
+            float topInset = Mathf.Clamp(screenSize.y - safeArea.yMax, 0f, screenSize.y) * hudSize.y / screenSize.y;
+            float leftInset = Mathf.Clamp(safeArea.xMin, 0f, screenSize.x) * hudSize.x / screenSize.x;
+            float rightInset = Mathf.Clamp(screenSize.x - safeArea.xMax, 0f, screenSize.x) * hudSize.x / screenSize.x;
+            if (_layoutTopbar == null) _layoutTopbar = GetComponentInChildren<UITopbar>(true);
+            if (_layoutTopbar != null) _layoutTopbar.ApplySafeArea(leftInset, topInset, rightInset);
+
+            if (bossCamView == null) return;
+            var rect = bossCamView.rectTransform;
+            // Extend the picture behind the cutout instead of moving it down and exposing the main camera.
+            // Reduce the complete displayed height, including the cutout fill, by 20%.
+            float battleHeight = (400f + topInset) * .8f;
+            rect.anchoredPosition = Vector2.zero;
+            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, battleHeight);
+            if (missionHudRect != null)
+                missionHudRect.anchoredPosition = new Vector2(missionHudRect.anchoredPosition.x, -battleHeight - 100f);
+            if (randomBoxButtonRect != null)
+                randomBoxButtonRect.anchoredPosition = new Vector2(randomBoxButtonRect.anchoredPosition.x, -battleHeight - 162f);
+            if (bossHPGage != null)
+                ((RectTransform)bossHPGage.transform).anchoredPosition = new Vector2(0f, -battleHeight - 6f);
+            if (BossCamera.TryGetSetInstance(out BossCamera bossCam) && rect.rect.height > 0)
+                bossCam.SetViewAspect(rect.rect.width / rect.rect.height);
         }
 
         // 외부(테스트/버튼 등)에서 코인 획득 연출만 단독으로 재생하기 위한 진입점.
@@ -364,6 +431,9 @@ namespace FunRabbit
         {
             _hud = hud;
 
+            var questManager = GameQuestManager.Instance;
+            questManager.OnStageClear -= OnStageClear;
+            questManager.OnStageClear += OnStageClear;
             GameMain.SubscribeStatus(OnChangedGameStatus);
 
             // 인형 수에 따라 resetButton 활성/비활성 갱신
@@ -434,11 +504,6 @@ namespace FunRabbit
                 UnsubscribeCrane();
                 return;
             }
-
-            // 스테이지 클리어 이벤트 구독 (미션 텍스트/아이콘 갱신은 보스 배틀 도입으로 더 이상 사용하지 않음)
-            var questManager = GameQuestManager.Instance;
-            questManager.OnStageClear -= OnStageClear;
-            questManager.OnStageClear += OnStageClear;
 
             // 크레인 상태에 따라 제한 시간 타이머 표시
             SubscribeCrane();
@@ -522,8 +587,13 @@ namespace FunRabbit
 
         public void OnClickPlayBtn()
         {
+            if (!ActorBattleSystem.CanAdvanceBattle || GameQuestManager.Instance.IsStageClear()) return;
+            if (!Crane.TryGetSetInstance(out Crane crane) || crane.Status != CraneStatus.READY) return;
+            long coinsBefore = PlayerContext.GetItemAmount(PlayerContext.COIN_ITEM_KEY);
             if (PlayerContext.TrySpendCoin(PLAY_COIN_COST))
             {
+                GameplayAnalytics.BeginAttempt(GameQuestManager.Instance.CurrentStage, coinsBefore,
+                    PlayerContext.GetItemAmount(PlayerContext.COIN_ITEM_KEY));
                 FireBaseAnalyticsManager.Instance.LogEventOnce("click_play");
                 Debug.Log($"[UIHudControl] 플레이 버튼 클릭: {PLAY_COIN_COST} 코인 차감");
             }
@@ -534,10 +604,7 @@ namespace FunRabbit
                 return;
             }
 
-            if (Crane.TryGetSetInstance(out Crane crane))
-            {
-                crane.SetStatus(CraneStatus.CONTROL_MOVING);
-            }
+            crane.SetStatus(CraneStatus.CONTROL_MOVING);
         }
 
         // 코인 부족 안내: 확인 = 상점 열기(구매하러 가기), 취소/닫기 = 팝업만 닫힘
@@ -545,14 +612,7 @@ namespace FunRabbit
         {
             FireBaseAnalyticsManager.Instance.LogEvent("coin_short_popup");
 
-            UIPopup.CreateOrGet().Set(
-                LanguageManager.Instance.Get("popup_coin_short_title"),
-                LanguageManager.Instance.Get("popup_coin_short_body", PLAY_COIN_COST),
-                () =>
-                {
-                    FireBaseAnalyticsManager.Instance.LogEvent("coin_short_go_shop");
-                    UIShopPanel.OpenExclusive();
-                });
+            UICoinShortPopup.CreateOrGet();
         }
 
         public void OnClickGrapBtn()

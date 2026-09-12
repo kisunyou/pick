@@ -35,7 +35,7 @@ namespace FunRabbit
             // (키가 없는 첫 실행 시에는 기본값 사용)
             // 시작 코인: 스테이지 1은 여유 있게 깨되(크레인 1회 100코인, 20회분), 그 이후부터는
             // 코인이 조금씩 부족해지도록 낮게 잡았다 (기존 9000 → 2000).
-            SetItemAmount(COIN_ITEM_KEY, PlayerPrefs.GetInt(ItemAmountKey(COIN_ITEM_KEY), 2000));
+            SetItemAmount(COIN_ITEM_KEY, CoinWallet.Load().balance);
             DollCountGage.Value = PlayerPrefs.GetInt("DollCountGage", 0);
             RandomBoxCount.Value = PlayerPrefs.GetInt("RandomBoxCount", 0);
             RandomBoxProgressValue.Value = PlayerPrefs.GetFloat("RandomBoxProgress", 0f);
@@ -55,27 +55,64 @@ namespace FunRabbit
         // itemKey의 보유 개수를 딕셔너리/PlayerPrefs에 반영하고, 그 itemKey를 구독 중인 콜백들을 호출한다.
         public static void SetItemAmount(int itemKey, long amount)
         {
+            if (itemKey == COIN_ITEM_KEY)
+            {
+                if (amount < 0) throw new ArgumentOutOfRangeException(nameof(amount));
+                CoinWallet wallet = CoinWallet.Load();
+                wallet.balance = amount;
+                wallet.Save();
+            }
+            else
+            {
+                PlayerPrefs.SetInt(ItemAmountKey(itemKey), checked((int)amount));
+                PlayerPrefs.Save();
+            }
             _itemAmounts[itemKey] = amount;
-            PlayerPrefs.SetInt(ItemAmountKey(itemKey), (int)amount);
-            PlayerPrefs.Save();
 
             if (_itemAmountChanged.TryGetValue(itemKey, out Action<long> callback))
                 callback?.Invoke(amount);
         }
 
+        public static bool GrantPurchaseOnce(string transactionId, long amount)
+        {
+            CoinWallet wallet = CoinWallet.Load();
+            bool granted = wallet.Grant(transactionId, amount);
+            wallet.Save();
+            _itemAmounts[COIN_ITEM_KEY] = wallet.balance;
+            if (_itemAmountChanged.TryGetValue(COIN_ITEM_KEY, out Action<long> callback))
+                callback?.Invoke(wallet.balance);
+            if (granted) GameplayAnalytics.CoinsChanged(amount, wallet.balance, "purchase_" + transactionId);
+            return granted;
+        }
+
         public static void AddItemAmount(int itemKey, long amount)
         {
-            SetItemAmount(itemKey, GetItemAmount(itemKey) + amount);
+            long balance = checked(GetItemAmount(itemKey) + amount);
+            SetItemAmount(itemKey, balance);
+            if (itemKey == COIN_ITEM_KEY) GameplayAnalytics.CoinsChanged(amount, balance);
+        }
+
+        public static bool GrantAdRewardOnce(string requestId, long amount, string date)
+        {
+            CoinWallet wallet = CoinWallet.Load();
+            bool granted = wallet.GrantAdReward(requestId, amount, date);
+            wallet.Save();
+            _itemAmounts[COIN_ITEM_KEY] = wallet.balance;
+            if (_itemAmountChanged.TryGetValue(COIN_ITEM_KEY, out Action<long> callback)) callback?.Invoke(wallet.balance);
+            if (granted) GameplayAnalytics.CoinsChanged(amount, wallet.balance, "ad_" + requestId);
+            return granted;
         }
 
         // 보유량이 충분하면 차감 후 true, 부족하면 false.
         public static bool TrySpendItemAmount(int itemKey, long amount)
         {
+            if (SessionOperation.IsBusy || amount < 0) return false;
             long current = GetItemAmount(itemKey);
             if (current < amount)
                 return false;
 
             SetItemAmount(itemKey, current - amount);
+            if (itemKey == COIN_ITEM_KEY) GameplayAnalytics.CoinsChanged(-amount, current - amount);
             return true;
         }
 
@@ -301,10 +338,8 @@ namespace FunRabbit
         // 오늘 시청한 광고 횟수. 저장된 날짜가 오늘이 아니면 0 (자동 리셋).
         public static int GetTodayWatchAdCount()
         {
-            if (PlayerPrefs.GetString(KEY_WATCH_AD_DATE, string.Empty) != TodayString())
-                return 0;
-
-            return PlayerPrefs.GetInt(KEY_WATCH_AD_COUNT, 0);
+            CoinWallet wallet = CoinWallet.Load();
+            return wallet.adRewardDate == TodayString() ? wallet.adRewardCount : 0;
         }
 
         // 오늘 남은 광고 시청 가능 횟수 (0 이상)
@@ -316,10 +351,10 @@ namespace FunRabbit
         // 광고 시청 1회 기록 (보상 지급 시점에 호출)
         public static void AddWatchAdCount()
         {
-            int count = GetTodayWatchAdCount() + 1; // 날짜가 바뀌었으면 0+1부터
-            PlayerPrefs.SetString(KEY_WATCH_AD_DATE, TodayString());
-            PlayerPrefs.SetInt(KEY_WATCH_AD_COUNT, count);
-            PlayerPrefs.Save();
+            CoinWallet wallet = CoinWallet.Load();
+            wallet.adRewardCount = GetTodayWatchAdCount() + 1;
+            wallet.adRewardDate = TodayString();
+            wallet.Save();
         }
     }
 }

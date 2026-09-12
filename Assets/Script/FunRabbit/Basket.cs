@@ -53,6 +53,8 @@ namespace FunRabbit
             }
 
             // 인형이 들어간 3D 위치에 획득 히트 버스트 이펙트를 재생한다. (월드 공간, 풀링)
+            if (actor != null)
+                GameplayAnalytics.Collected(actor.GetInstanceID(), actor.Context?.Data?.animalKey, actor is RandomBoxDollActor);
             WorldFxPlayer.Instance.Play(HitEffectPrefabName, dollCollider.transform.position);
 
             // 획득 피드백 진동 (설정이 꺼져 있거나 모바일이 아니면 내부에서 무시)

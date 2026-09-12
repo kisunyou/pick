@@ -24,6 +24,12 @@ namespace FunRabbit
 
         public Transform GetRandomBoxTargetTransform => getRandomBoxTargetTransform;
 
+        public void CompletePendingRewards()
+        {
+            foreach (Tween tween in _activeTweens.ToArray())
+                if (tween != null && tween.IsActive()) tween.Complete(true);
+        }
+
         // 획득 연출 전용 이펙트 프리팹의 Resources 경로 (프리팹 캐시/풀 키로도 그대로 사용)
         // uiGetDollEffect = 구버전(로컬 공간 반짝임), uiGetDollTrailEffect = 월드 공간 꼬리 연출
         // ⚠️ uiGetDollTrailEffect는 UIParticleSystem(실험적 - 게임 뷰 미렌더링) 기반이라 현재 미사용

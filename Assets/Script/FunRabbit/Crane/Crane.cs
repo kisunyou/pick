@@ -307,6 +307,7 @@ namespace FunRabbit
             // 상태가 변경될 때 플래그 리셋
             if (_status != status)
             {
+                if (status == CraneStatus.READY) GameplayAnalytics.EndAttempt();
                 _hasGrapStarted = false;
                 _hasReleased = false;
                 _moveElapsed = 0.0f;
@@ -337,6 +338,7 @@ namespace FunRabbit
         /// </summary>
         private void OnDisable()
         {
+            GameplayAnalytics.EndAttempt(true);
             if (_movingUpCoroutine != null)
             {
                 StopCoroutine(_movingUpCoroutine);

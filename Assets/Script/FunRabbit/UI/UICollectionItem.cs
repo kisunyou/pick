@@ -17,14 +17,14 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
     // 선택(클릭) 시 사용할 데이터
     private string _title;
     private string _modelFullPath;
-    private string _animalKey;   // 상세 팝업 모델에 적용할 actor.json 행 키 (변형 등급 반영, 예: bear_g)
+    private string _animalKey;   // 상세 팝업 모델에 적용할 actor.json 행 키 (변형 등급 반영, 예: bear_b)
 
     // active일 때 alpha 255(1.0), 비활성일 때 alpha 120(약 0.47)
     private const float ActiveAlpha = 255f / 255f;
     private const float InactiveAlpha = 120f / 255f;
 
-    // 변형(_g/_r) 클리어 등급 이름 색: _g 클리어 = 초록, _r 클리어 = 빨강 (등급 0은 프리팹 기본색 유지)
-    private static readonly Color GradeGreenColor = new Color(0.30f, 0.85f, 0.35f);
+    // 변형(_b/_r) 클리어 등급 이름 색: _b 클리어 = 파랑, _r 클리어 = 빨강 (등급 0은 프리팹 기본색 유지)
+    private static readonly Color GradeBlueColor = new Color(0.30f, 0.65f, 1.00f);
     private static readonly Color GradeRedColor = new Color(0.95f, 0.30f, 0.25f);
 
     // 프리팹 기본 이름 색 (등급 0으로 되돌릴 때 사용) - 최초 Set 시점에 캐시
@@ -70,7 +70,7 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
 
             // 변형 클리어 등급을 이름 색으로 표현 (SetActiveItem이 뒤에서 알파만 덧씌운다)
             titleName.color = data.grade >= 2 ? GradeRedColor
-                            : data.grade == 1 ? GradeGreenColor
+                            : data.grade == 1 ? GradeBlueColor
                             : _titleBaseColor;
         }
 

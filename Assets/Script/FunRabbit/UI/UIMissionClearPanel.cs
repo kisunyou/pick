@@ -63,15 +63,14 @@ namespace FunRabbit
         // clearedAnimalKey: 방금 클리어한 스테이지의 animalKey / newAnimalKey: 다음(새) 스테이지의 animalKey.
         // 두 쪽 다 처음엔 보스 인형을 보여준다 - 클리어 쪽은 bossToNormalDelay 후 일반 인형으로 "변신"한다.
         // newAnimalKey가 null/빈 값이면 올클리어 연출 - 변신까지는 같고, 다음 보스 등장 없이 ALL CLEAR 타이틀로 마무리한다.
-        // reward: 코인 보상량(-1이면 인스펙터 rewardCoin 사용). 카운트 시작값은 PlayerContext.GetItemAmount(PlayerContext.COIN_ITEM_KEY)를 사용한다.
+        // reward: 코인 보상량(-1이면 클리어한 스테이지의 테이블 보상 사용). 카운트 시작값은 PlayerContext.GetItemAmount(PlayerContext.COIN_ITEM_KEY)를 사용한다.
         //
         // 필요한 모델 3종(클리어 보스/클리어 일반/새 보스)을 전부 동기 로드로 미리 준비해둔 뒤에
         // 연출을 시작한다 - 비동기 로드가 아직 안 끝난 상태로 연출이 먼저 시작돼 모델이 뒤늦게
         // 나타나 보이는 문제를 없애기 위함이다.
         public void SetData(string clearedAnimalKey, string newAnimalKey, int reward = -1)
         {
-            if (reward >= 0)
-                rewardCoin = reward;
+            rewardCoin = reward >= 0 ? reward : GameActorData.GetClearCoinReward(clearedAnimalKey);
 
             // 표기 = 실제 지급량 (PlayCoinReward가 쓰는 rewardCoin과 항상 일치)
             if (rewardCoinText != null)
