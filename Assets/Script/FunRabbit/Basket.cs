@@ -75,14 +75,17 @@ namespace FunRabbit
             Destroy(actor != null ? actor.gameObject : dollCollider.gameObject);
         }
 
-        // 랜덤박스(doll_random_prefab) 획득: ally 합류 없이 전용 트레일 연출 후 보유 개수만 늘린다.
+        // 랜덤박스(doll_random_prefab) 획득: ally 합류 없이 보유 개수를 늘리고 전용 트레일 연출을 띄운다.
+        // 개수는 획득 즉시 저장한다 (이전: 트레일 도착 시 지급 → 연출 중 앱 종료 시 유실). 트레일은 표시 전용.
         private void OnRandomBoxCollected()
         {
+            PlayerContext.AddRandomBox();
+
             // randombox 미션 진행 카운트
             MissionSystem.Instance.OnRandomBoxCollected();
 
             UIHud hud = UIHud.CreateOrGet();
-            hud.GetDollTrailHud.PlayGetRandomBoxTrailEffect(() => PlayerContext.AddRandomBox());
+            hud.GetDollTrailHud.PlayGetRandomBoxTrailEffect(null);
         }
 
         // 미션 동물 인형 획득: 울음소리 + ally 트레일 연출 후 ActorBattleSystem에 ally로 합류시킨다.
@@ -118,13 +121,17 @@ namespace FunRabbit
 
             Transform trailTarget = hud.AllyStackActors != null ? hud.AllyStackActors.transform : null;
 
+            // 합류할 아군을 지급 대기 목록에 먼저 저장하고(트레일 중 앱 종료 시 재시작 지급),
+            // 트레일 도착 시 그 항목을 꺼내 합류시킨다. (이미 다른 경로가 지급했으면 중복 합류하지 않음)
+            PlayerContext.PendingAllyReward allyReward = actorData != null
+                ? PlayerContext.AddPendingAllyReward(actorData.animalKey, allyCount)
+                : default;
+            PlayerContext.MarkPendingAllyRewardInFlight(allyReward.id);
+
             hud.GetDollTrailHud.PlayGetDollTrail(iconPath, trailTarget, () =>
             {
-                if (ActorBattleSystem.TryGetSetInstance(out ActorBattleSystem battleSystem))
-                {
-                    for (int i = 0; i < allyCount; i++)
-                        battleSystem.AddAllyActor(actorData);
-                }
+                if (!string.IsNullOrEmpty(allyReward.id))
+                    PlayerContext.DeliverPendingAllyReward(allyReward);
             });
         }
     }

@@ -305,6 +305,10 @@ namespace FunRabbit
             playTimerText.transform.localScale = Vector3.one;
             playTimerIcon.transform.localRotation = Quaternion.identity;
 
+            // 소수 초로 재개된 경우(도감 갔다가 복귀 등) 첫 숫자는 소수 부분만큼만 보여준다
+            // (예: 7.3초 → "8" 을 0.3초 표시 후 1초 간격) - 재개를 반복해도 시간이 늘어나지 않게
+            float firstTick = duration - (remaining - 1);
+
             while (remaining > 0)
             {
                 playTimerText.text = remaining.ToString();
@@ -321,7 +325,8 @@ namespace FunRabbit
                     AudioManager.Instance.PlaySfx(CountdownSoundName);
                 }
 
-                yield return new WaitForSeconds(1f);
+                yield return new WaitForSeconds(firstTick > 0f && firstTick < 1f ? firstTick : 1f);
+                firstTick = 1f;
                 remaining--;
             }
 
@@ -421,6 +426,12 @@ namespace FunRabbit
         // 크레인 조작 가능(CONTROL_MOVING) 시 표시할 제한 시간(초)
         private const float CraneControlTimeLimit = 15f;
 
+        // 제한 시간 진행 상태. 도감/로비로 나가면 남은 시간을 보관했다가 INGAME 복귀 시 이어서 센다
+        // (복귀할 때마다 15초로 다시 시작되면 제한 시간이 무한히 늘어난다)
+        private bool _isControlTimerRunning;
+        private float _controlTimerEndTime;
+        private float _pausedControlRemaining = -1f; // 보관된 남은 시간 (-1 = 없음)
+
         // resetButton은 현재 스테이지 인형(Actor)이 이 개수 이하이거나, 리셋 아이템을 보유 중이면 활성화한다.
         private const int ResetButtonMaxActorCount = 10;
 
@@ -501,6 +512,13 @@ namespace FunRabbit
             // INGAME이 아니면(LOBBY/COLLECTION) 크레인 상태 구독을 해제하고 끝 - 그 외 갱신 불필요
             if (status != GameStatus.INGAME)
             {
+                // 조작 중에 나가면 남은 제한 시간을 보관 (타이머 표시는 SetActiveHud 에서 이미 숨겨짐)
+                if (_isControlTimerRunning)
+                {
+                    _pausedControlRemaining = Mathf.Max(0f, _controlTimerEndTime - Time.time);
+                    _isControlTimerRunning = false;
+                }
+
                 UnsubscribeCrane();
                 return;
             }
@@ -530,19 +548,51 @@ namespace FunRabbit
             if (_hud == null)
                 return;
 
-            _hud.ShowTimer(craneStatus == CraneStatus.CONTROL_MOVING,
-                CraneControlTimeLimit,
-                () =>
-                {
-                    if (Crane.TryGetSetInstance(out Crane crane))
-                        crane.StartGrabSequence();
-                });
+            if (craneStatus == CraneStatus.CONTROL_MOVING)
+                StartControlTimer();
+            else
+                StopControlTimer();
+
             _hud.SetActivePlayButton(craneStatus == CraneStatus.READY);
             _hud.SetActiveGrabButton(craneStatus == CraneStatus.CONTROL_MOVING);
 
             bool isCanUIActive = craneStatus == CraneStatus.READY || craneStatus == CraneStatus.CONTROL_MOVING;
 
             UIManager.Instance.SetCanvasGroup(UILayer.Hud, isCanUIActive);
+        }
+
+        // 제한 시간 타이머 시작/재개.
+        // - 진행 중 재통지(같은 INGAME 재설정 등): 남은 시간으로 이어서
+        // - 도감/로비 복귀: 보관해 둔 남은 시간으로 이어서
+        // - 새 판(READY → CONTROL_MOVING): 15초
+        private void StartControlTimer()
+        {
+            float duration;
+            if (_isControlTimerRunning)
+                duration = Mathf.Max(0f, _controlTimerEndTime - Time.time);
+            else if (_pausedControlRemaining >= 0f)
+                duration = _pausedControlRemaining;
+            else
+                duration = CraneControlTimeLimit;
+
+            _pausedControlRemaining = -1f;
+            _isControlTimerRunning = true;
+            _controlTimerEndTime = Time.time + duration;
+
+            _hud.ShowTimer(duration, () =>
+            {
+                _isControlTimerRunning = false;
+                if (Crane.TryGetSetInstance(out Crane crane))
+                    crane.StartGrabSequence();
+            });
+        }
+
+        // 조작 상태가 끝나면 타이머와 보관 시간을 모두 정리한다
+        private void StopControlTimer()
+        {
+            _isControlTimerRunning = false;
+            _pausedControlRemaining = -1f;
+            _hud.HideTimer();
         }
 
         // 스테이지 클리어 시 호출되어 다음 스테이지의 인형 정보를 미션 클리어 패널로 표시

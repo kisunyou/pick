@@ -22,6 +22,9 @@ public class UIRenderTexture : MonoBehaviour
 
     public void Init()
     {
+        // 재초기화 시 이전 텍스처를 먼저 해제 (중복 생성 누수 방지)
+        ReleaseRenderTexture();
+
         _renderTexture = new RenderTexture(width, height, 24, format);
         _renderTexture.name = $"instanceTextrue_{transform.name}";
 
@@ -40,5 +43,39 @@ public class UIRenderTexture : MonoBehaviour
                     overlay.targetTexture = _renderTexture;
             }
         }
+    }
+
+    // 직접 new 한 RenderTexture 는 GC 로 해제되지 않아 뷰(도감 상세·클리어 패널 등)가 닫힐 때마다
+    // GPU 메모리가 누적된다 → 파괴 시 카메라/오버레이 타겟을 끊고 Release + Destroy 한다.
+    void OnDestroy()
+    {
+        ReleaseRenderTexture();
+    }
+
+    void ReleaseRenderTexture()
+    {
+        if (_renderTexture == null)
+            return;
+
+        var cam = this.GetComponent<Camera>();
+        if (cam != null)
+        {
+            if (cam.targetTexture == _renderTexture)
+                cam.targetTexture = null;
+
+            UniversalAdditionalCameraData cameraData = cam.GetUniversalAdditionalCameraData();
+            if (cameraData != null && cameraData.cameraStack != null)
+            {
+                foreach (Camera overlay in cameraData.cameraStack)
+                {
+                    if (overlay != null && overlay.targetTexture == _renderTexture)
+                        overlay.targetTexture = null;
+                }
+            }
+        }
+
+        _renderTexture.Release();
+        Destroy(_renderTexture);
+        _renderTexture = null;
     }
 }

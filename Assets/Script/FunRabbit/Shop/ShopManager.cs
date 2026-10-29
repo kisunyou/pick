@@ -253,8 +253,9 @@ namespace FunRabbit
             yield return null;
 
             UIPopup linkingPopup = UIPopup.CreateOrGet();
+            int linkingToken = 0;
             if (linkingPopup != null)
-                linkingPopup.Set(
+                linkingToken = linkingPopup.Set(
                     LanguageManager.Instance.Get(GoogleLinkingTitleKey),
                     LanguageManager.Instance.Get(GoogleLinkingBodyKey),
                     null, showCoinIcon: false, showButtons: false);
@@ -269,18 +270,21 @@ namespace FunRabbit
 
             // 완료 대기 (콜백 유실 대비 타임아웃 안전장치 - 초과 시 실패로 처리)
             float timeout = GoogleLinkingTimeoutSeconds;
+            // (기존 구글 계정 전환 경고 팝업에 사용자가 답하는 동안은 타임아웃에서 제외)
             while (!done && timeout > 0f)
             {
-                timeout -= Time.unscaledDeltaTime;
+                if (!FireBaseAuthManager.Instance.IsAwaitingSwitchConfirm)
+                    timeout -= Time.unscaledDeltaTime;
                 yield return null;
             }
 
-            // 결과 메시지를 먼저 알리고 진행 팝업을 닫는다
-            UITopMessage.ShowMessage(LanguageManager.Instance.Get(
-                linked ? "login_message_google" : GoogleLinkFailKey));
+            // 결과 메시지를 먼저 알리고 진행 팝업을 닫는다 (전환 경고에서 사용자가 취소한 경우는 실패 토스트 생략)
+            if (linked || !FireBaseAuthManager.Instance.LastSwitchCancelledByUser)
+                UITopMessage.ShowMessage(LanguageManager.Instance.Get(
+                    linked ? "login_message_google" : GoogleLinkFailKey));
 
-            if (linkingPopup != null)
-                linkingPopup.Close();
+            // 같은 UIPopup 이 그 사이 다른 내용(전환 경고 등)으로 바뀌었으면 그 새 내용은 닫지 않는다
+            UIPopup.CloseIfCurrent(linkingPopup, linkingToken);
 
             if (!linked)
                 yield break;
@@ -331,7 +335,8 @@ namespace FunRabbit
             _purchaseRequestedAt = -1;
             if (product != null && (reason == ShopPurchaseFailure.UserCancelled ||
                 reason == ShopPurchaseFailure.PaymentDeclined || reason == ShopPurchaseFailure.ProductUnavailable ||
-                reason == ShopPurchaseFailure.StoreNotReady || reason == ShopPurchaseFailure.NotSupported))
+                reason == ShopPurchaseFailure.StoreNotReady || reason == ShopPurchaseFailure.NotSupported ||
+                reason == ShopPurchaseFailure.ReceiptInvalid))
             {
                 string key = "PurchaseRequestedOwner_" + product.Key;
                 if (PlayerPrefs.GetString(key, "") == _purchaseOwner)
@@ -360,6 +365,7 @@ namespace FunRabbit
                 case ShopPurchaseFailure.InProgress: return "shop_fail_in_progress";
                 case ShopPurchaseFailure.PaymentDeclined: return "shop_fail_payment_declined";
                 case ShopPurchaseFailure.NotSupported: return "shop_fail_not_supported";
+                case ShopPurchaseFailure.ReceiptInvalid: return "shop_fail_receipt_invalid";
                 default: return "shop_fail_unknown";
             }
         }

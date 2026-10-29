@@ -114,9 +114,15 @@ namespace FunRabbit
             MoveXZ(moveValue);
         }
 
+        // pivot 은 씬 원본(84 = FreezePosY + FreezeRotX + FreezeRotZ)대로 X/Z 축 회전을 항상 고정한다.
+        // 상태별 constraints 를 통째로 대입하면 이 회전 고정이 풀려 pivot 이 기울 수 있으므로
+        // 모든 대입에 이 값을 함께 넣는다. (crane_body 자체의 회전은 CharacterJoint 가 담당 - 건드리지 않음)
+        private const RigidbodyConstraints PIVOT_ROTATION_LOCK =
+            RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+
         public void OnMoveDownStart()
         {
-            _pivotRigidbody.constraints = RigidbodyConstraints.FreezePositionX | RigidbodyConstraints.FreezePositionZ;
+            _pivotRigidbody.constraints = RigidbodyConstraints.FreezePositionX | RigidbodyConstraints.FreezePositionZ | PIVOT_ROTATION_LOCK;
         }
 
         public void OnMoveDown()
@@ -180,12 +186,12 @@ namespace FunRabbit
 
         public void OnStartMoveUp()
         {
-            _pivotRigidbody.constraints = RigidbodyConstraints.FreezePositionX | RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotationY;
+            _pivotRigidbody.constraints = RigidbodyConstraints.FreezePositionX | RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotationY | PIVOT_ROTATION_LOCK;
         }
 
         public void OnStopMoveUp()
         {
-            _pivotRigidbody.constraints = RigidbodyConstraints.FreezePosition;
+            _pivotRigidbody.constraints = RigidbodyConstraints.FreezePosition | PIVOT_ROTATION_LOCK;
         }
 
         public void OnMoveUp()
@@ -294,7 +300,7 @@ namespace FunRabbit
 
         public void MoveXZStart()
         {
-            _pivotRigidbody.constraints = RigidbodyConstraints.FreezePositionY;
+            _pivotRigidbody.constraints = RigidbodyConstraints.FreezePositionY | PIVOT_ROTATION_LOCK;
         }
 
         public bool IsMoveXZStarted()
@@ -304,7 +310,7 @@ namespace FunRabbit
 
         public void MoveXZEnd()
         {
-            _pivotRigidbody.constraints = RigidbodyConstraints.FreezePosition;
+            _pivotRigidbody.constraints = RigidbodyConstraints.FreezePosition | PIVOT_ROTATION_LOCK;
         }
 
         public void SetMoveDown()
@@ -501,7 +507,7 @@ namespace FunRabbit
 
         public void MoveUpEnd()
         {
-            _pivotRigidbody.constraints = RigidbodyConstraints.FreezePosition;
+            _pivotRigidbody.constraints = RigidbodyConstraints.FreezePosition | PIVOT_ROTATION_LOCK;
         }
 
         public bool IsArrivedUpPoision()

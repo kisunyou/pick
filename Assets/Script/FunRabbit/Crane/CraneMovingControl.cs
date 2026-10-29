@@ -157,10 +157,43 @@ namespace FunRabbit
 
         public void ManualUpdate()
         {
-            if (_crane.Status == CraneStatus.CONTROL_MOVING)
+            // 조작 가능(CONTROL_MOVING) + 뽑기 화면(INGAME)을 보고 있을 때만 입력을 받는다.
+            // 그 외에는 남은 입력값을 비운다 - 조이스틱을 기울인 채/키를 누른 채 집기·제한시간 만료가
+            // 일어나면 KeyUp/PointerUp 을 못 받아 이동값이 남고, 자동 복귀(MOVING_RETURN) 중 크레인이 표류한다.
+            if (_crane.Status == CraneStatus.CONTROL_MOVING && IsInGameScreen())
             {
                 this.UpdateControlMoving();
             }
+            else
+            {
+                ResetInput();
+            }
+        }
+
+        // 도감/로비 화면에서는 크레인을 조작하지 않는다 (상태가 아직 정해지지 않았으면 허용)
+        private static bool IsInGameScreen()
+        {
+            if (!GameMain.IsCheckInstance() || !GameMain.Instance.HasStatus)
+                return true;
+
+            return GameMain.Instance.CurrentStatus == GameStatus.INGAME;
+        }
+
+        // 키보드/DPad 입력 상태를 전부 초기화한다.
+        private void ResetInput()
+        {
+            // 아직 CONTROL_MOVING(도감 진입 등)이면 이동 중이던 pivot 도 세운다.
+            // 이미 하강 등 다음 상태로 넘어갔으면 그 상태가 constraints 를 바꿨으므로 건드리지 않는다.
+            if (_isAnyMoving && _crane.Status == CraneStatus.CONTROL_MOVING)
+                MoveXZEnd();
+
+            for (int i = 0; i < _isMovingValues.Length; i++)
+                _isMovingValues[i] = false;
+
+            _dpadDelta = Vector2.zero;
+            _inputMode = InputMode.None;
+            _isAnyMoving = false;
+            _keyboardActiveCount = 0;
         }
 
         public void ManualFixedUpdate()
@@ -168,22 +201,26 @@ namespace FunRabbit
             // Grap 스프링 램프 등 CraneTransform의 물리 스텝 갱신
             _crane.CraneTransform?.ManualFixedUpdate();
 
-            if (_isMovingValues[0]) _crane.CraneTransform.MoveFront();
-            if (_isMovingValues[1]) _crane.CraneTransform.MoveBack();
-            if (_isMovingValues[2]) _crane.CraneTransform.MoveLeft();
-            if (_isMovingValues[3]) _crane.CraneTransform.MoveRight();
-
             if (_isMovingUp) _crane.CraneTransform.OnMoveUp();
             if (_isMovingDown) _crane.CraneTransform.OnMoveDown();
 
-            // DPad 입력 - Delta.y = 앞/뒤(Z), Delta.x = 좌/우(X)
-            if (_dpadDelta != Vector2.zero)
+            // 플레이어 수동 XZ 이동은 조작 가능 상태에서만 (다른 상태의 자동 이동과 섞이지 않게)
+            if (_crane.Status == CraneStatus.CONTROL_MOVING)
             {
-                if (_dpadDelta.y > 0f) _crane.CraneTransform.MoveFront(_dpadDelta.y);
-                else if (_dpadDelta.y < 0f) _crane.CraneTransform.MoveBack(-_dpadDelta.y);
+                if (_isMovingValues[0]) _crane.CraneTransform.MoveFront();
+                if (_isMovingValues[1]) _crane.CraneTransform.MoveBack();
+                if (_isMovingValues[2]) _crane.CraneTransform.MoveLeft();
+                if (_isMovingValues[3]) _crane.CraneTransform.MoveRight();
 
-                if (_dpadDelta.x > 0f) _crane.CraneTransform.MoveRight(_dpadDelta.x);
-                else if (_dpadDelta.x < 0f) _crane.CraneTransform.MoveLeft(-_dpadDelta.x);
+                // DPad 입력 - Delta.y = 앞/뒤(Z), Delta.x = 좌/우(X)
+                if (_dpadDelta != Vector2.zero)
+                {
+                    if (_dpadDelta.y > 0f) _crane.CraneTransform.MoveFront(_dpadDelta.y);
+                    else if (_dpadDelta.y < 0f) _crane.CraneTransform.MoveBack(-_dpadDelta.y);
+
+                    if (_dpadDelta.x > 0f) _crane.CraneTransform.MoveRight(_dpadDelta.x);
+                    else if (_dpadDelta.x < 0f) _crane.CraneTransform.MoveLeft(-_dpadDelta.x);
+                }
             }
 
             UpdateMoveSound();

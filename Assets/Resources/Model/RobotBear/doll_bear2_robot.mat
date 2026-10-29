@@ -147,11 +147,13 @@ Material:
     - _SSSPower: 1.96
     - _SSSStrength: 0.159
     - _Saturation: 1.05
-    - _ShadowColorStr: 0.479
+    - _ShadowColorStr: 0.3
     - _ShadowOffset: 0.5
+    - _ShadowSaturation: 1.2
     - _ShadowSoftness: 0.466
     - _ShadowThresh1: 0.08
     - _ShadowThresh2: -0.35
+    - _ShadowValue: 0.3
     - _SheenPower: 6
     - _SheenStrength: 0
     - _SheenTint: 0.3
@@ -175,6 +177,7 @@ Material:
     - _UseOutline: 1
     - _UseRim: 1
     - _UseSSS: 0
+    - _UseSheen: 0
     - _UseSpecNoise: 0
     - _UseSpecular: 1
     - _WarmCoolBalance: 0.858

@@ -34,8 +34,17 @@ namespace FunRabbit
         public bool isPool { get; set; }
     }
 
-    public abstract class BaseUIView<T> : MonoBehaviour where T : BaseUIView<T>
+    // Android 뒤로가기(Escape) 입력을 받는 뷰. true = 입력을 소비함 (아래 뷰/상단바로 넘기지 않음)
+    public interface IUIBackKeyHandler
     {
+        bool HandleBackKey();
+    }
+
+    public abstract class BaseUIView<T> : MonoBehaviour, IUIBackKeyHandler where T : BaseUIView<T>
+    {
+        // 타입별 closeButton 필드 캐시 (뒤로가기 기본 처리용, 필드가 없으면 null)
+        static FieldInfo s_closeButtonField;
+        static bool s_closeButtonFieldResolved;
         public static T Instance { get; private set; }
 
         public bool IsShow => gameObject.activeSelf;
@@ -92,6 +101,35 @@ namespace FunRabbit
         {
             UIManager.Instance.Close(this);
         }
+
+        // 뒤로가기 기본 처리: 뷰의 closeButton 이 보이고 눌 수 있을 때만 그 버튼을 누른 것과 같게 처리한다.
+        // - 버튼에 연결된 각 뷰 고유의 닫기 로직을 그대로 탄다
+        // - 연출 중 closeButton 을 숨기거나 막아둔 동안(클리어 패널·랜덤박스 등)은 닫히지 않는다
+        // - closeButton 이 없는 뷰(확인 버튼만 있는 보상 팝업 등)는 닫지 않고 입력만 소비한다
+        // 다르게 처리해야 하는 뷰는 override 한다 (UIPopup).
+        public virtual bool HandleBackKey()
+        {
+            if (!s_closeButtonFieldResolved)
+            {
+                s_closeButtonFieldResolved = true;
+                for (Type t = GetType(); t != null && t != typeof(MonoBehaviour); t = t.BaseType)
+                {
+                    FieldInfo field = t.GetField("closeButton",
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                    if (field != null && typeof(Button).IsAssignableFrom(field.FieldType))
+                    {
+                        s_closeButtonField = field;
+                        break;
+                    }
+                }
+            }
+
+            Button closeButton = s_closeButtonField != null ? s_closeButtonField.GetValue(this) as Button : null;
+            if (closeButton != null && closeButton.isActiveAndEnabled && closeButton.interactable)
+                closeButton.onClick.Invoke();
+
+            return true;
+        }
     }
 
     public class UIManager : Singleton<UIManager>
@@ -142,6 +180,59 @@ namespace FunRabbit
         private void LateUpdate()
         {
             RefreshLayerCanvases();
+        }
+
+        // 프로젝트 입력 = 구 Input Manager (ProjectSettings activeInputHandler 0) → Android 뒤로가기는 KeyCode.Escape 로 들어온다
+        private void Update()
+        {
+            if (Input.GetKeyDown(KeyCode.Escape))
+                HandleBackKey();
+        }
+
+        // 뒤로가기로 닫을 수 있는 뷰를 찾는 레이어 (위 → 아래 순)
+        private static readonly UILayer[] BackKeyLayers = { UILayer.Popup, UILayer.Contents };
+
+        // Android 뒤로가기 처리
+        // 1) 계정 동기화/전환/삭제 오버레이(SessionOperation)·로딩 화면 중에는 무시 (필수 모달)
+        // 2) Popup → Contents 레이어에서 가장 위(마지막 형제)에 열린 뷰에 위임 (closeButton 규칙, UIPopup 은 버튼 없는 모달이면 무시)
+        // 3) 열린 뷰가 없으면 상단바 뒤로가기와 같은 동작 (컬렉션 → 이전 상태 / 인게임 → 로비 / 로비 → 종료 확인 팝업)
+        public void HandleBackKey()
+        {
+            if (SessionOperation.IsBusy)
+                return;
+            if (IsOpen<UILoading>())
+                return;
+
+            for (int l = 0; l < BackKeyLayers.Length; l++)
+            {
+                if (!_layerRoots.TryGetValue(BackKeyLayers[l], out Transform root))
+                    continue;
+
+                for (int i = root.childCount - 1; i >= 0; i--)
+                {
+                    GameObject child = root.GetChild(i).gameObject;
+                    foreach (MonoBehaviour view in _openedViews.Values)
+                    {
+                        if (view == null || view.gameObject != child)
+                            continue;
+
+                        if (view is IUIBackKeyHandler handler && handler.HandleBackKey())
+                            return;
+                    }
+                }
+            }
+
+            if (!GameMain.IsCheckInstance())
+                return;
+
+            // 크레인 플레이 도중(READY 아님)에는 인게임 → 로비 전환으로 플레이가 끊기지 않게 무시
+            if (GameMain.Instance.CurrentStatus == GameStatus.INGAME
+                && Crane.TryGetSetInstance(out Crane crane) && crane.Status != CraneStatus.READY)
+                return;
+
+            UITopbar topbar = FindFirstObjectByType<UITopbar>();
+            if (topbar != null)
+                topbar.Control.OnClickBackButton();
         }
 
         // 하위에 아무것도 붙어 있지 않은 레이어 캔버스는 꺼서 빈 캔버스의
@@ -255,6 +346,10 @@ namespace FunRabbit
                 return null;
             }
 
+            // 외부 Destroy 등으로 이미 파괴된 등록 항목은 열려있지 않은 것으로 보고 정리한다
+            if (_openedViews.TryGetValue(type, out MonoBehaviour existing) && existing == null)
+                _openedViews.Remove(type);
+
             if (attr.OpenMode == UIOpenMode.Single && _openedViews.ContainsKey(type))
             {
                 Debug.LogWarning($"[UIManager] {type.Name} 이미 열려있습니다.");
@@ -293,11 +388,19 @@ namespace FunRabbit
 
         public void Close<T>(BaseUIView<T> view) where T : BaseUIView<T>
         {
-            Type type = typeof(T);
-            view.OnClose();
+            // 이미 파괴된 뷰(자동 닫기 코루틴이 들고 있던 옛 참조 등)는 무시 - view.gameObject 접근 시 MissingReference
+            if (view == null)
+                return;
 
-            if (_openedViews.ContainsKey(type))
+            Type type = typeof(T);
+
+            // 같은 타입의 다른(새) 인스턴스 등록까지 지우지 않도록, 등록된 인스턴스가 이 뷰일 때만 제거.
+            // OnClose 보다 먼저 해제해, OnClose 안의 콜백(UIPopup 취소 콜백 등)이 CreateOrGet 하면
+            // 곧 파괴될 이 인스턴스가 아니라 새 인스턴스를 받게 한다.
+            if (_openedViews.TryGetValue(type, out MonoBehaviour registered) && (registered == view || registered == null))
                 _openedViews.Remove(type);
+
+            view.OnClose();
 
             Destroy(view.gameObject);
 

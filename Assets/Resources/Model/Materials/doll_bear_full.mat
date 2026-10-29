@@ -13,6 +13,7 @@ Material:
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - _COLORGRADING_ON
+  - _FABRIC_SHEEN
   - _RIM_ON
   - _SPECULAR_ON
   m_InvalidKeywords:
@@ -147,14 +148,16 @@ Material:
     - _SSSPower: 1.96
     - _SSSStrength: 0.159
     - _Saturation: 1.2
-    - _ShadowColorStr: 0.479
+    - _ShadowColorStr: 0.2
     - _ShadowOffset: 0.5
+    - _ShadowSaturation: 1.25
     - _ShadowSoftness: 0.466
     - _ShadowThresh1: 0.08
     - _ShadowThresh2: -0.35
-    - _SheenPower: 6
-    - _SheenStrength: 0
-    - _SheenTint: 0.3
+    - _ShadowValue: 0.32
+    - _SheenPower: 2.5
+    - _SheenStrength: 0.35
+    - _SheenTint: 0.5
     - _Shininess: 26
     - _SmoothnessTextureChannel: 0
     - _SpecAngle: -90
@@ -175,6 +178,7 @@ Material:
     - _UseOutline: 1
     - _UseRim: 1
     - _UseSSS: 0
+    - _UseSheen: 1
     - _UseSpecNoise: 0
     - _UseSpecular: 1
     - _WarmCoolBalance: 0.858
@@ -204,7 +208,7 @@ Material:
     - _SSSColor: {r: 1, g: 0.75, b: 0.6, a: 1}
     - _ShadowColor1: {r: 0.54999995, g: 0.47999996, b: 0.58, a: 1}
     - _ShadowColor2: {r: 0.27999997, g: 0.21999997, b: 0.31999996, a: 1}
-    - _SheenColor: {r: 0.85, g: 0.82, b: 1, a: 1}
+    - _SheenColor: {r: 1, g: 0.97, b: 0.92, a: 1}
     - _SkyColor: {r: 1, g: 0.8321767, b: 0.3915094, a: 1}
     - _SpecCol: {r: 0.78676474, g: 0.76649714, b: 0.052065317, a: 1}
     - _SpecColor: {r: 1, g: 1, b: 1, a: 1}

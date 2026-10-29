@@ -88,6 +88,23 @@ namespace FunRabbit
             OnDeltaChanged?.Invoke(Delta);
         }
 
+        // 드래그 도중 숨겨지면(Hide = SetActive false) OnPointerUp 이 오지 않아
+        // _isDragging/Delta 가 남고, 다음 판에 크레인이 저절로 움직인다 → 비활성화 시 드래그 상태 초기화
+        private void OnDisable()
+        {
+            if (!_isDragging && Delta == Vector2.zero)
+                return;
+
+            _isDragging = false;
+
+            if (_dpadCenter != null)
+                _dpadCenter.anchoredPosition = Vector2.zero;
+
+            Delta = Vector2.zero;
+            UpdateMoveFocuses(Delta);
+            OnDeltaChanged?.Invoke(Delta);
+        }
+
         // 디패드 방향에 따라 _moveFocuses 활성/비활성 (입력이 데드존 이하이면 전부 비활성)
         private void UpdateMoveFocuses(Vector2 delta)
         {
@@ -157,6 +174,13 @@ namespace FunRabbit
                 case GameStatus.INGAME:
                     SetVisible(false);
                     SubscribeCrane();
+                    break;
+
+                // 도감(COLLECTION) 등 뽑기 화면이 아니면 크레인 상태와 무관하게 숨긴다
+                // (INGAME 복귀 시 재구독으로 현재 크레인 상태가 다시 반영된다)
+                default:
+                    UnsubscribeCrane();
+                    SetVisible(false);
                     break;
             }
         }

@@ -24,6 +24,20 @@ namespace FunRabbit
 
         private Vector3 _iconBaseScale = Vector3.one;   // 아이콘의 원래 스케일 (복구 기준)
         private Tween _iconPunchTween;
+        private int _currentProgress, _totalProgress;
+        private bool _hasProgress;
+
+        private void OnEnable()
+        {
+            RefreshProgressDisplay();
+        }
+
+        private void OnDisable()
+        {
+            _iconPunchTween?.Kill();
+            _iconPunchTween = null;
+            if (missionIconTransform != null) missionIconTransform.localScale = _iconBaseScale;
+        }
 
         private void Awake()
         {
@@ -61,12 +75,23 @@ namespace FunRabbit
                 missionTitleText.text = title;
         }
 
-        public void UpdateMissionProgressText(int current, int total)
+        public void UpdateMissionProgressText(int current, int total, bool animate = true)
         {
-            missionSliderText.text = $"{current} / {total}";
-            missionSlider.value = total > 0 ? (float)current / total : 0f;
+            _currentProgress = current;
+            _totalProgress = total;
+            _hasProgress = true;
+            RefreshProgressDisplay();
 
-            PlayIconPunch();
+            if (animate) PlayIconPunch();
+        }
+
+        private void RefreshProgressDisplay()
+        {
+            if (!_hasProgress) return;
+            missionSliderText.text = $"{_currentProgress} / {_totalProgress}";
+            missionSlider.SetValueWithoutNotify(_totalProgress > 0 ? (float)_currentProgress / _totalProgress : 0f);
+            // Refresh the mesh too: the logical text may already match after a HUD visibility change.
+            missionSliderText.ForceMeshUpdate();
         }
 
         // 미션 진행도가 갱신될 때 아이콘을 살짝 커졌다가 원래 크기로 되돌려 강조한다.

@@ -54,6 +54,9 @@ namespace FunRabbit
         private const float MoveTimeoutSeconds = 6.0f;
         private float _moveElapsed = 0.0f;
 
+        // 상승(MOVING_UP)도 같은 안전장치. 정상 상승은 ≈3초(최대 하강 3초 × 동일 속도)라 여유를 둔다.
+        private const float MoveUpTimeoutSeconds = 8.0f;
+
         // 자동 이동 속도 배율 (기본 XZ 속도 = HorizontalSpeed × fixedDt = 10 units/s 대비)
         private const float CarryMoveSpeedRatio = 0.25f;  // 인형을 들고 출구로 이동(MOVING_RETURN)
         private const float CenterMoveSpeedRatio = 0.45f; // 놓은 뒤 중앙 복귀(DROP)
@@ -136,7 +139,9 @@ namespace FunRabbit
                     }
                     else
                     {
-                        if (_craneMovingControl.IsArriveMovingUp())
+                        // 상승이 막혀(인형·벽 끼임 등) 시작 높이에 못 닿아도 상태머신이 멈추지 않게 강제 도착
+                        _moveElapsed += Time.deltaTime;
+                        if (_craneMovingControl.IsArriveMovingUp() || _moveElapsed > MoveUpTimeoutSeconds)
                         {
                             _checkTimer = 0.5f;
                             _craneMovingControl.MovingUpStop();

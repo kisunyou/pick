@@ -110,10 +110,12 @@ Material:
     - _Shadow2Threshold: 0.861
     - _ShadowColorStr: 0.479
     - _ShadowOffset: 0.5
+    - _ShadowSaturation: 1.1
     - _ShadowSmooth: 0.298
     - _ShadowSoftness: 0.466
     - _ShadowStrength: 0.272
     - _ShadowThreshold: 0.01
+    - _ShadowValue: 0.07
     - _SmoothnessTextureChannel: 0
     - _SpecNoiseStr: 0
     - _SpecNoiseTiling: 6
@@ -131,6 +133,7 @@ Material:
     - _UseOutline: 1
     - _UseRim: 1
     - _UseSSS: 0
+    - _UseSheen: 0
     - _UseSpecNoise: 0
     - _UseSpecular: 1
     - _WarmCoolBalance: 0.858

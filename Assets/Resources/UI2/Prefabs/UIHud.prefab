@@ -1795,6 +1795,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1154705654399107358}
   - component: {fileID: 3195172965532481252}
+  - component: {fileID: 8030805476866152983}
   m_Layer: 5
   m_Name: uiTopbar
   m_TagString: Untagged
@@ -1838,6 +1839,18 @@ MonoBehaviour:
   topbarBack: {fileID: 3872651827990679879}
   topbarTitle: {fileID: 4665658736806125764}
   backButton: {fileID: 429958728248270957}
+--- !u!114 &8030805476866152983
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1392474075221748965}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2e9fb0171e9e25e4db05af969143fc22, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FunRabbit.UITopbarSafeArea
 --- !u!1 &1471555126543480495
 GameObject:
   m_ObjectHideFlags: 0

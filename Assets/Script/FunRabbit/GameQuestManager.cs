@@ -41,6 +41,32 @@ namespace FunRabbit
         private bool _checkRestoredClear = true;
         private Coroutine _clearRoutine;
 
+        // ===== PlayerPrefs 조회 캐시 =====
+        // BattleActor.CanFight 가 액터마다 매 프레임 BossHp 를 읽는데, BossHp 1회 조회가 HasKey/GetInt 7회 안팎 +
+        // CurrentStage(마이그레이션·범위 검사) 조회라 전투 중 부담이 컸다 → 검증을 마친 값을 메모리에 캐시한다.
+        // - 쓰기(SetCurrentStage / BossHp setter / ResetBossHp)는 PlayerPrefs 와 캐시를 함께 갱신한다.
+        // - PlayerPrefs 를 이 클래스 밖에서 통째로 바꾸는 경로는 반드시 InvalidateSaveCache 를 불러야 한다:
+        //   클라우드 스냅샷 적용(CloudSaveSnapshot.ApplyToPlayerPrefs), 복원 직후 bossHp 직접 기록(CloudSaveManager.ApplyAndRefresh),
+        //   로컬 데이터 삭제(계정 삭제·재시작 - CloudSaveManager.ResetLocalData).
+        //   (계정 전환은 Sync → ApplyAndRefresh 경로로 들어오므로 위 훅으로 같이 무효화된다)
+        private int _cachedStage;               // 0 = 미캐시
+        private bool _bossHpCached;
+        private int _cachedBossHp;
+
+        // 캐시를 버려 다음 조회 때 PlayerPrefs 에서 다시 읽게 한다
+        public void InvalidateSaveCache()
+        {
+            _cachedStage = 0;
+            _bossHpCached = false;
+        }
+
+        // 인스턴스가 있을 때만 무효화 (PlayerPrefs 를 바꾸는 쪽이 싱글톤 생성을 유발하지 않도록)
+        public static void InvalidateSaveCacheIfExists()
+        {
+            if (IsCheckInstance())
+                Instance.InvalidateSaveCache();
+        }
+
         public void PrepareForCloudRestore()
         {
             if (_clearRoutine != null) StopCoroutine(_clearRoutine);
@@ -69,6 +95,10 @@ namespace FunRabbit
         {
             get
             {
+                // 검증(마이그레이션·범위 보정)을 마친 값이 캐시돼 있으면 그대로 쓴다
+                if (_cachedStage > 0)
+                    return _cachedStage;
+
                 if (!PlayerPrefs.HasKey(KEY_STAGE))
                     SetCurrentStage(1);
 
@@ -95,6 +125,9 @@ namespace FunRabbit
                     stage = HardBandStartStage;
                 }
 
+                // 스테이지 데이터가 아직 없으면(범위 보정 불가) 캐시하지 않는다 - 데이터 로드 후 다시 검증되게
+                if (TotalPlayableStageCount > 0)
+                    _cachedStage = stage;
                 return stage;
             }
         }
@@ -127,6 +160,8 @@ namespace FunRabbit
         {
             PrepareForCloudRestore();
             PlayerPrefs.SetInt(KEY_STAGE, stage);
+            // 새 값은 다음 조회에서 범위 검사를 거쳐 다시 캐시된다 (보스 hp 캐시는 아래 ResetBossHp 가 갱신)
+            InvalidateSaveCache();
 
             // 새 스테이지의 보스 hp를 최대치로 채우고, battle_field(ActorBattleSystem)의 보스 모델을 갱신한다
             // (클리어로 넘어온 경우 새 보스 스폰은 미션 클리어 연출이 끝난 뒤로 미룬다)
@@ -157,6 +192,10 @@ namespace FunRabbit
         {
             get
             {
+                // 보정(밸런스 변경 비율 변환·범위 제한)을 마친 값이 캐시돼 있으면 그대로 쓴다 (CanFight 매 프레임 조회)
+                if (_bossHpCached)
+                    return _cachedBossHp;
+
                 if (!PlayerPrefs.HasKey(KEY_BOSS_HP))
                     ResetBossHp();
 
@@ -172,12 +211,35 @@ namespace FunRabbit
                     PlayerPrefs.SetInt(KEY_BOSS_HP_MAX, maxHp);
                     PlayerPrefs.Save();
                 }
-                return Mathf.Clamp(hp, 0, maxHp);
+                int clamped = Mathf.Clamp(hp, 0, maxHp);
+                // 스테이지 데이터가 없으면(maxHp 0) 캐시하지 않는다 - 데이터 로드 후 다시 보정되게
+                if (maxHp > 0)
+                {
+                    _cachedBossHp = clamped;
+                    _bossHpCached = true;
+                }
+                return clamped;
             }
             private set
             {
+                int maxHp = MaxBossHp;
                 PlayerPrefs.SetInt(KEY_BOSS_HP, value);
-                OnBossHpChanged?.Invoke(value, MaxBossHp);
+                SetBossHpCache(value, maxHp);
+                OnBossHpChanged?.Invoke(value, maxHp);
+            }
+        }
+
+        // 보스 hp 캐시를 (getter 와 같은 범위 제한으로) 갱신한다
+        private void SetBossHpCache(int hp, int maxHp)
+        {
+            if (maxHp > 0)
+            {
+                _cachedBossHp = Mathf.Clamp(hp, 0, maxHp);
+                _bossHpCached = true;
+            }
+            else
+            {
+                _bossHpCached = false;
             }
         }
 
@@ -190,6 +252,7 @@ namespace FunRabbit
                 PlayerPrefs.SetInt(KEY_BOSS_HP_MAX, maxHp);
             else
                 PlayerPrefs.DeleteKey(KEY_BOSS_HP_MAX);
+            SetBossHpCache(maxHp, maxHp);
         }
 
         // 지정 스테이지의 보스를 battle_field(ActorBattleSystem)에 반영한다. (씬에 없으면 조용히 무시 - 자체 Start()에서 로드)
@@ -248,7 +311,10 @@ namespace FunRabbit
                 return;
 
             BossHp = Mathf.Max(0, BossHp - damage);
-            PlayerPrefs.Save();
+            // 피격마다 디스크 flush 하지 않는다 - 값은 즉시 PlayerPrefs 에 쓰고 flush 는 주기/백그라운드 전환 시 1회
+            // (강제 종료 시 최대 몇 초의 보스 hp 진행만 잃음, 보상·재화와 무관).
+            // 단 hp 0(클리어 확정)은 아래 QueueStageClear 가 즉시 저장한다 - 재시작 시 클리어 복구 마커.
+            PrefsSaveScheduler.MarkDirty();
             Debug.Log($"[GameQuestManager] BossHp: {BossHp} / {MaxBossHp}");
 
             FireBaseAnalyticsManager.Instance.LogEvent("boss_damage",
@@ -307,12 +373,35 @@ namespace FunRabbit
                 if (failedPanel != null) failedPanel.Close();
                 return false;
             }
-            if (UIMissionClearPanel.Get() == null) return false;
+            UIMissionClearPanel panel = UIMissionClearPanel.Get();
+            if (panel == null) return false;
 
             // Do not silently advance a cleared boss until its popup has actually been created.
             _clearRoutine = null;
-            GoNextStage();
+
+            // 클리어 코인 보상은 스테이지 전환과 "같은 저장 단위"로 먼저 지급한다.
+            // (이전: 스테이지는 즉시 저장, 코인은 패널의 코인 연출 도착 시 지급 → 연출 중 앱 종료 시 보상 유실)
+            // 지급 없이 전환만 저장되거나, 지급 후 전환이 안 돼 재시작 시 hp=0 재클리어로 중복 지급되는
+            // 중간 상태가 남지 않도록 한 번의 PlayerPrefs.Save 로 묶는다. 패널의 코인 연출은 표시 전용.
+            long rewardCoin = GetCurrentClearCoinReward();
+            PlayerContext.RunAtomic(() =>
+            {
+                if (rewardCoin > 0)
+                    PlayerContext.AddCoinAmount(rewardCoin);
+                GoNextStage();
+            });
+
+            // 같은 프레임에 알려 하단 바 숫자가 코인 비행 도착 전에 먼저 올라가지 않게 한다
+            if (rewardCoin > 0 && panel != null)
+                panel.OnClearRewardGranted(rewardCoin);
             return true;
+        }
+
+        // 현재(방금 클리어한) 스테이지의 클리어 코인 보상 (UIMissionClearPanel 표기와 같은 출처)
+        private long GetCurrentClearCoinReward()
+        {
+            StageQuestData data = GetCurrentStageData();
+            return Mathf.Max(0, GameActorData.GetClearCoinReward(data?.animalKey));
         }
 
         // 스테이지 클리어 여부 (보스 hp가 0 이하)

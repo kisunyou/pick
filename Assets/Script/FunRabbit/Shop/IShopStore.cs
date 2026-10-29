@@ -12,6 +12,7 @@ namespace FunRabbit
         UserCancelled,       // 사용자가 결제창을 닫음 (메시지 없이 종료)
         PaymentDeclined,     // 결제 수단 거절
         NotSupported,        // 이 플랫폼에서 결제 미지원 (iOS 미구현 등)
+        ReceiptInvalid,      // 영수증 서명/상품/패키지 검증 실패 (지급·확정 안 함 - Google 이 3일 뒤 자동 환불)
         Unknown,
     }
 

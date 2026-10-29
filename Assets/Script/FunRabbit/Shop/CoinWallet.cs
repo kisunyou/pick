@@ -62,33 +62,67 @@ namespace FunRabbit
             return true;
         }
 
-        public bool GrantAdReward(string requestId, long amount, string date)
+        // 광고 보상 지급. dailyLimit > 0 이면 지급 시점에도 하루 한도를 검사한다
+        // (한도를 넘은 영수증은 처리 완료로만 기록하고 코인은 지급하지 않는다 - 재처리 방지).
+        // today: 지급 시점의 기기 날짜(yyyyMMdd, 선택). 저장 날짜보다 과거 날짜의 영수증은
+        //  - 기기 날짜도 저장 날짜보다 과거면(날짜를 앞당겼다 되돌림 의심) 저장 날짜의 횟수로 센다 - 리셋 우회 차단
+        //  - 그 외(지연 수령된 옛 영수증)는 오늘 횟수를 늘리지 않는다 (기존 규칙 유지)
+        public bool GrantAdReward(string requestId, long amount, string date, int dailyLimit = 0, string today = null)
         {
-            if (string.IsNullOrWhiteSpace(requestId) || amount <= 0 ||
-                !DateTime.TryParseExact(date, "yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture,
-                    System.Globalization.DateTimeStyles.None, out _))
+            if (string.IsNullOrWhiteSpace(requestId) || amount <= 0 || !TryParseAdDate(date, out _))
                 throw new ArgumentException("Invalid ad reward receipt.");
             if (adRewardIds.Contains(requestId)) return false;
-            long next = checked(balance + amount);
-            int nextCount = date == adRewardDate ? checked(adRewardCount + 1) : 1;
-            if (string.CompareOrdinal(date, adRewardDate) >= 0)
+
+            // 저장 날짜가 영수증 날짜보다 (허용 범위 안의) 미래면 저장 날짜를 유지한다
+            string effectiveDate = ResolveAdRewardDate(adRewardDate, date);
+            bool olderReceipt = effectiveDate != date;
+            bool clockBehindStored = olderReceipt && TryParseAdDate(today, out _) &&
+                                     ResolveAdRewardDate(adRewardDate, today) == adRewardDate && today != adRewardDate;
+            int currentCount = effectiveDate == adRewardDate ? adRewardCount : 0;
+            if (dailyLimit > 0 && currentCount >= dailyLimit)
             {
-                adRewardDate = date;
-                adRewardCount = nextCount;
+                adRewardIds.Add(requestId);
+                return false;
+            }
+            long next = checked(balance + amount);
+            if (!olderReceipt || clockBehindStored)
+            {
+                adRewardDate = effectiveDate;
+                adRewardCount = checked(currentCount + 1);
             }
             adRewardIds.Add(requestId);
             balance = next;
             return true;
         }
 
-        public void Save()
+        // 저장된 광고 집계 날짜가 기준 날짜(오늘/영수증 날짜)보다 미래면 저장 날짜를 유지하고(리셋 안 함),
+        // 과거·무효면 기준 날짜를 쓴다. 단 MaxFutureAdDays 를 넘는 먼 미래 값은 무효로 본다
+        // (구버전이 현지 달력(예: 태국 불기 2569년)으로 기록한 날짜가 영구 미래로 잠기는 것을 방지).
+        public const int MaxFutureAdDays = 366;
+
+        public static string ResolveAdRewardDate(string storedDate, string referenceDate)
+        {
+            if (!TryParseAdDate(referenceDate, out DateTime reference)) return storedDate ?? "";
+            if (!TryParseAdDate(storedDate, out DateTime stored) || stored <= reference) return referenceDate;
+            return (stored - reference).TotalDays <= MaxFutureAdDays ? storedDate : referenceDate;
+        }
+
+        public static bool TryParseAdDate(string date, out DateTime value)
+        {
+            return DateTime.TryParseExact(date, "yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out value);
+        }
+
+        // flush=false 면 PlayerPrefs 에 쓰기만 하고 디스크 반영(PlayerPrefs.Save)은 호출자에게 맡긴다.
+        // (PlayerContext.RunAtomic 이 다른 진행 상태와 한 번에 반영할 때 사용)
+        public void Save(bool flush = true)
         {
             PlayerPrefs.SetString(PrefsKey, JsonUtility.ToJson(this));
             // Legacy mirror only. V2 always reads the combined wallet.
             PlayerPrefs.SetInt("ItemAmount_1", (int)Math.Min(balance, int.MaxValue));
             PlayerPrefs.SetString("WatchAdDate", adRewardDate);
             PlayerPrefs.SetInt("WatchAdCount", adRewardCount);
-            PlayerPrefs.Save();
+            if (flush) PlayerPrefs.Save();
         }
     }
 }

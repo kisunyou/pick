@@ -8,6 +8,11 @@ Shader "Custom/URP/GhibliSoft"
     //   - normalize(mL.direction) 제거 (URP 가 이미 정규화)
     //   - mL.color 캐스트 1회로 캐시
     //   - 보간기 추가 1개 (총 6-7개, 모바일 안전 범위)
+    //  2026-10 그래픽 개선:
+    //   - 그림자 단일 경로: 하드코딩 푸른 틴트/_ColorTintShadow 이중 곱 제거 →
+    //     "같은 색 계열에서 채도↑ 명도↓"(_ShadowSaturation/_ShadowValue) + _CoolColor 를 _ShadowColorStr 만큼만
+    //   - _FABRIC_SHEEN : 봉제(벨벳) 가장자리 광택 (인형 머티리얼만 ON)
+    //   - _METALLIC_SHINE : 황금 인형 금속 하이라이트 + 가짜 반사 띠 (GameDollCreator 가 인스턴스에서 ON)
     // ============================================================
     Properties
     {
@@ -21,7 +26,9 @@ Shader "Custom/URP/GhibliSoft"
         _WarmCoolBalance    ("Warm / Cool Balance",     Range(0,1)) = 0.0
         _ShadowSoftness     ("Shadow Softness",         Range(0.01,1.0)) = 0.092
         _ShadowOffset       ("Shadow Offset",           Range(-1,1))     = 0.04
-        _ShadowColorStr     ("Shadow Color Strength",   Range(0,1)) = 0.57
+        _ShadowColorStr     ("Shadow Cool Tint Strength", Range(0,1)) = 0.57
+        _ShadowValue        ("Shadow Value",            Range(0,1)) = 0.3
+        _ShadowSaturation   ("Shadow Saturation",       Range(0.5,2)) = 1.15
         // ── Ambient ────────────────────────────────────────────────────────
         [Header(Ambient)]
         _SkyColor           ("Sky Ambient",             Color)      = (0.62, 0.76, 0.92, 1)
@@ -45,12 +52,32 @@ Shader "Custom/URP/GhibliSoft"
         _RimStrength        ("Rim Strength",            Range(0,1))      = 1.0
         _RimSoftness        ("Rim Softness",            Range(0,0.5))    = 0.18
         _RimThresh          ("Rim Threshold",           Range(0,1))      = 0.27
+        // ── Fabric Sheen (봉제 질감) ───────────────────────────────────────
+        [Header(Fabric Sheen)]
+        [Toggle(_FABRIC_SHEEN)] _UseSheen ("Enable Fabric Sheen", Float) = 0
+        _SheenColor         ("Sheen Color",             Color)      = (1.0, 0.97, 0.92, 1)
+        _SheenStrength      ("Sheen Strength",          Range(0,2))      = 0.35
+        _SheenPower         ("Sheen Power",             Range(1,8))      = 2.5
+        _SheenTint          ("Sheen Albedo Tint",       Range(0,1))      = 0.5
+        // ── Metallic Shine (황금 인형) ─────────────────────────────────────
+        [Header(Metallic Shine)]
+        [Toggle(_METALLIC_SHINE)] _UseMetallic ("Enable Metallic Shine", Float) = 0
+        _MetalDiffuse       ("Metal Diffuse Keep",      Range(0,1))      = 0.45
+        _MetalSkyColor      ("Metal Reflect Sky",       Color)      = (1.0, 0.95, 0.80, 1)
+        _MetalGroundColor   ("Metal Reflect Ground",    Color)      = (0.22, 0.13, 0.05, 1)
+        _MetalReflectStr    ("Metal Reflect Strength",  Range(0,2))      = 0.9
+        _MetalBandHeight    ("Metal Band Height",       Range(-1,1))     = 0.15
+        _MetalBandWidth     ("Metal Band Width",        Range(0.02,1))   = 0.18
+        _MetalBandStr       ("Metal Band Strength",     Range(0,3))      = 1.2
+        _MetalSpecPower     ("Metal Spec Power",        Range(4,128))    = 40
+        _MetalSpecStr       ("Metal Spec Strength",     Range(0,4))      = 1.6
         // ── Color Grading ─────────────────────────────────────────────────
         [Header(Color Grading)]
         [Toggle(_COLORGRADING_ON)] _UseColorGrading ("Enable Color Grading", Float) = 1
         _Saturation         ("Saturation",              Range(0,2)) = 1.47
         _Brightness         ("Brightness",              Range(0.5,1.5)) = 1.0
-        _ColorTintShadow    ("Shadow Tint",             Color)      = (0.60, 0.62, 0.80, 1)
+        // _ColorTintShadow 는 그림자 경로 통일로 미사용 (기존 머티리얼 호환을 위해 프로퍼티만 유지)
+        [HideInInspector] _ColorTintShadow ("Shadow Tint (unused)", Color) = (0.60, 0.62, 0.80, 1)
         _ColorTintLight     ("Light Tint",              Color)      = (1.0, 0.97, 0.88, 1)
     }
     SubShader
@@ -79,6 +106,11 @@ Shader "Custom/URP/GhibliSoft"
             half   _RimSoftness;     half   _RimThresh;
             half   _Saturation;      half   _Brightness;
             half4  _ColorTintShadow; half4  _ColorTintLight;
+            half   _ShadowValue;     half   _ShadowSaturation;
+            half4  _SheenColor;      half   _SheenStrength;   half _SheenPower;   half _SheenTint;
+            half   _MetalDiffuse;    half4  _MetalSkyColor;   half4 _MetalGroundColor;
+            half   _MetalReflectStr; half   _MetalBandHeight; half _MetalBandWidth; half _MetalBandStr;
+            half   _MetalSpecPower;  half   _MetalSpecStr;
         CBUFFER_END
         ENDHLSL
         // ══════════════════════════════════════════════════════════════════
@@ -103,6 +135,10 @@ Shader "Custom/URP/GhibliSoft"
             #pragma shader_feature_local_fragment _SPEC_NOISE_ON
             #pragma shader_feature_local_fragment _RIM_ON
             #pragma shader_feature_local_fragment _COLORGRADING_ON
+            #pragma shader_feature_local_fragment _FABRIC_SHEEN
+            // 황금 인형은 런타임에 머티리얼 인스턴스에서만 켜므로(빌드에 이 키워드를 쓴 에셋이 없음)
+            // shader_feature 면 빌드에서 변형이 제거된다 → multi_compile 로 항상 포함.
+            #pragma multi_compile_local_fragment _ _METALLIC_SHINE
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
             // ── 유틸 ───────────────────────────────────────────────────
@@ -131,14 +167,6 @@ Shader "Custom/URP/GhibliSoft"
             half SoftBand(half val, half thresh, half soft)
             {
                 return smoothstep(thresh - soft, thresh + soft, val);
-            }
-            half3 WarmCoolLight(half NdotL, half shadow,
-                                half3 warmCol, half3 coolCol,
-                                half balance, half soft, half offset)
-            {
-                half t = SoftBand(NdotL * shadow, offset, soft);
-                t = saturate(t + (balance - 0.5h) * 0.3h);
-                return lerp(coolCol, warmCol, t);
             }
             // ── 정점 ────────────────────────────────────────────────────
             struct Attributes
@@ -212,23 +240,19 @@ Shader "Custom/URP/GhibliSoft"
                 half NdotL = dot(N, L);
                 half NdotV = saturate(dot(N, V)) + (half)1e-4;
                 half lit   = NdotL * shadow;
-                half band  = SoftBand(lit, _ShadowOffset, _ShadowSoftness);
-                // Warm/Cool Soft Cel
-                half3 warmCoolDiff = WarmCoolLight(
-                    NdotL, shadow,
-                    _WarmColor.rgb * lightCol,
-                    _CoolColor.rgb,
-                    _WarmCoolBalance, _ShadowSoftness, _ShadowOffset);
-                // 그림자 영역 알베도 틴트
-                half3 shadowAlbedo  = albedo * lerp(half3(0.55, 0.58, 0.75), half3(1, 1, 1), band);
-                half3 diffuseAlbedo = lerp(shadowAlbedo, albedo, 1.0h - _ShadowColorStr);
-                half3 diffuse       = diffuseAlbedo * warmCoolDiff;
-                // Light/Shadow 컬러 틴트
+                // 명암 경계 (Soft Cel). Warm/Cool Balance 는 기존과 같이 경계를 밝은 쪽으로 민다.
+                half t = SoftBand(lit, _ShadowOffset, _ShadowSoftness);
+                t = saturate(t + (_WarmCoolBalance - 0.5h) * 0.3h);
+                // 밝은 면: 알베도 x 웜 컬러 x 광원색 (x Light Tint)
+                half3 litCol = albedo * (_WarmColor.rgb * lightCol);
             #if defined(_COLORGRADING_ON)
-                half  tintT   = SoftBand(lit, _ShadowOffset, _ShadowSoftness * 2.0h);
-                half3 tintCol = lerp(_ColorTintShadow.rgb, _ColorTintLight.rgb, tintT);
-                diffuse *= tintCol;
+                litCol *= _ColorTintLight.rgb;
             #endif
+                // 그림자 면 (단일 경로): 같은 색 계열에서 채도↑ 명도↓ (지브리풍) + 쿨 틴트는 강도만큼만.
+                // (기존: _CoolColor x 하드코딩 (0.55,0.58,0.75) x _ColorTintShadow 3중 곱 → 푸르고 탁했음)
+                half3 shadowTint = lerp(half3(1.0h, 1.0h, 1.0h), _CoolColor.rgb, _ShadowColorStr) * _ShadowValue;
+                half3 shadowCol  = max(AdjustSaturationLum(albedo, _ShadowSaturation), 0.0h) * shadowTint;
+                half3 diffuse    = lerp(shadowCol, litCol, t);
                 // Painterly Specular - H/NdotH 도 Specular OFF 면 계산 생략.
                 half3 specular = 0;
             #if defined(_SPECULAR_ON)
@@ -254,6 +278,30 @@ Shader "Custom/URP/GhibliSoft"
                 half rimScalar = rimBand * rimFace * _RimStrength;
                 rimLight       = rimScalar * (_RimColor.rgb * lightCol);
             #endif
+                // Fabric Sheen - 봉제(벨벳) 천의 가장자리 부드러운 광택. 밴드 없이 연속적으로,
+                // 빛 받는 쪽 위주(반 램버트 제곱 x 그림자). 황금(금속) 인형에서는 생략.
+                half3 sheen = 0;
+            #if defined(_FABRIC_SHEEN) && !defined(_METALLIC_SHINE)
+                half sheenEdge = exp2(log2(saturate(1.0h - NdotV) + 1e-4h) * _SheenPower);
+                half sheenFace = saturate(NdotL * 0.5h + 0.5h);
+                sheenFace *= sheenFace * lerp(0.35h, 1.0h, shadow);
+                half3 sheenCol = _SheenColor.rgb * lerp(half3(1.0h, 1.0h, 1.0h), albedo, _SheenTint);
+                sheen = (sheenEdge * sheenFace * _SheenStrength) * (sheenCol * lightCol);
+            #endif
+                // Metallic Shine - 텍스처 없이 금속 입체감: 가짜 환경 반사(하늘/바닥 + 밝은 띠) + 좁은 하이라이트.
+                // 반사색은 알베도(금색)를 곱해 금속답게, 하이라이트는 금색과 흰색의 중간.
+                half3 metal = 0;
+            #if defined(_METALLIC_SHINE)
+                half3 R = reflect(-V, N);
+                half3 env = lerp(_MetalGroundColor.rgb, _MetalSkyColor.rgb, smoothstep(-0.25h, 0.45h, R.y));
+                half bandD = (R.y - _MetalBandHeight) / _MetalBandWidth;
+                env += saturate(1.0h - bandD * bandD) * _MetalBandStr;      // 포물선 근사 띠 (exp 대신)
+                half3 Hm = normalize(L + V);
+                half  mSpec = exp2(log2(saturate(dot(N, Hm)) + 1e-4h) * _MetalSpecPower) * _MetalSpecStr * shadow;
+                metal = env * albedo * _MetalReflectStr
+                      + mSpec * (lightCol * lerp(albedo, half3(1.0h, 1.0h, 1.0h), 0.5h));
+                diffuse *= _MetalDiffuse;   // 금속은 확산 반사가 약함
+            #endif
                 // Ambient (정점에서 계산된 hemi+SH 를 픽셀에서 알베도만 곱함)
                 half3 ambient = IN.ambientColor * albedo;
                 // 추가 광원
@@ -277,7 +325,7 @@ Shader "Custom/URP/GhibliSoft"
                 diffuse *= aoF.directAmbientOcclusion;
             #endif
                 // 최종 합산
-                half3 finalColor = diffuse + specular + rimLight + ambient + addLight;
+                half3 finalColor = diffuse + specular + rimLight + sheen + metal + ambient + addLight;
                 finalColor = MixFog(finalColor, fog);
                 return half4(finalColor, 1.0h);
             }

@@ -19,10 +19,54 @@ public static class BuildScript
     // AAB (Google Play 업로드용). 사용: ... -executeMethod BuildScript.BuildAndroidAab
     public static void BuildAndroidAab() => BuildAndroid(appBundle: true);
 
+    [Serializable]
+    class BuildPairResult
+    {
+        public string status, apk, aab, error;
+        public int versionCode;
+    }
+
+    [MenuItem("Tools/Build/Release APK and AAB")]
+    public static void BuildReleasePair()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode || BuildPipeline.isBuildingPlayer)
+            throw new InvalidOperationException("Finish Play Mode or the current build before building releases.");
+        RunReleasePair();
+    }
+
+    static void RunReleasePair()
+    {
+        string resultPath = Path.Combine(Application.dataPath, "../Logs/release_pair_result.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(resultPath));
+        var result = new BuildPairResult { status = "Building APK", versionCode = PlayerSettings.Android.bundleVersionCode };
+        string buildName = "pic_" + DateTime.Now.ToString("yyMMddHHmm");
+        bool previousBundle = EditorUserBuildSettings.buildAppBundle;
+        File.WriteAllText(resultPath, JsonUtility.ToJson(result, true));
+        try
+        {
+            result.apk = BuildAndroid(false, false, buildName);
+            result.status = "Building AAB";
+            File.WriteAllText(resultPath, JsonUtility.ToJson(result, true));
+            result.aab = BuildAndroid(true, false, buildName);
+            result.status = "Succeeded";
+        }
+        catch (Exception e)
+        {
+            result.status = "Failed";
+            result.error = e.Message;
+            Debug.LogException(e);
+        }
+        finally
+        {
+            EditorUserBuildSettings.buildAppBundle = previousBundle;
+            File.WriteAllText(resultPath, JsonUtility.ToJson(result, true));
+        }
+    }
+
     // Keystore/keystore_credentials.txt(key=value 형식)에서 서명 정보를 읽어 PlayerSettings에 적용
     static void ApplyKeystoreCredentials()
     {
-        string credPath = Path.GetFullPath("Keystore/keystore_credentials.txt");
+        string credPath = Path.GetFullPath(Path.Combine(Application.dataPath, "../Keystore/keystore_credentials.txt"));
         if (!File.Exists(credPath))
         {
             Debug.LogWarning($"[BuildScript] keystore 자격증명 파일 없음: {credPath} - 기존 PlayerSettings 값으로 진행");
@@ -36,7 +80,7 @@ public static class BuildScript
 
         PlayerSettings.Android.useCustomKeystore = true;
         if (cred.TryGetValue("keystoreName", out string keystoreName))
-            PlayerSettings.Android.keystoreName = Path.GetFullPath(keystoreName);
+            PlayerSettings.Android.keystoreName = Path.GetFullPath(Path.Combine(Application.dataPath, "..", keystoreName));
         if (cred.TryGetValue("keyaliasName", out string keyaliasName))
             PlayerSettings.Android.keyaliasName = keyaliasName;
         if (cred.TryGetValue("keystorePass", out string keystorePass))
@@ -47,11 +91,11 @@ public static class BuildScript
         Debug.Log($"[BuildScript] keystore 자격증명 적용: {PlayerSettings.Android.keystoreName} (alias: {PlayerSettings.Android.keyaliasName})");
     }
 
-    static void BuildAndroid(bool appBundle)
+    static string BuildAndroid(bool appBundle, bool exitEditor = true, string buildNameOverride = null)
     {
         string ext = appBundle ? "aab" : "apk";
-        string buildName = "pick_" + DateTime.Now.ToString("yyMMddHHmm");
-        string outputPath = Path.GetFullPath($"build/{buildName}.{ext}");
+        string buildName = buildNameOverride ?? "pick_" + DateTime.Now.ToString("yyMMddHHmm");
+        string outputPath = Path.GetFullPath(Path.Combine(Application.dataPath, $"../build/{buildName}.{ext}"));
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
 
         string[] scenes = EditorBuildSettings.scenes
@@ -62,8 +106,8 @@ public static class BuildScript
         if (scenes.Length == 0)
         {
             Debug.LogError("[BuildScript] Build Settings에 활성화된 씬이 없습니다.");
-            EditorApplication.Exit(1);
-            return;
+            if (exitEditor) EditorApplication.Exit(1);
+            throw new InvalidOperationException("No enabled build scenes.");
         }
 
         // 확실히 Android 타깃으로 전환하고 APK / App Bundle 을 명시 선택
@@ -105,12 +149,14 @@ public static class BuildScript
         if (summary.result == BuildResult.Succeeded)
         {
             Debug.Log($"[BuildScript] BUILD SUCCEEDED: {summary.outputPath}");
-            EditorApplication.Exit(0);
+            if (exitEditor) EditorApplication.Exit(0);
+            return summary.outputPath;
         }
         else
         {
             Debug.LogError($"[BuildScript] BUILD FAILED: {summary.result}");
-            EditorApplication.Exit(1);
+            if (exitEditor) EditorApplication.Exit(1);
+            throw new InvalidOperationException("Android build failed: " + summary.result);
         }
     }
 }

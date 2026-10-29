@@ -22,6 +22,9 @@ namespace FunRabbit
         // 콤보 표기 다국어 키 ("{0} 콤보" / "{0} Combo" 형식 - stringData.json)
         const string ComboTextKey = "combo_text";
 
+        // 콤보 표시(2콤보 이상)마다 재생할 효과음 (Resources/Sound)
+        const string ComboSoundName = "combo_up";
+
         [Header("연출")]
         [SerializeField] float flyInDuration = 0.6f;     // 화면 밖 → 가운데 진입 시간
         [SerializeField] float springAmplitude = 1.1f;   // 스프링(OutElastic) 진폭 - 클수록 크게 튕긴다
@@ -132,6 +135,8 @@ namespace FunRabbit
         // combo 수에 맞는 이미지/텍스트로 표시 연출을 재생한다 (2 이상에서 호출)
         public void Show(int combo)
         {
+            AudioManager.Instance.PlaySfx(ComboSoundName);
+
             SetImagesActive(combo);
 
             if (comboText != null)

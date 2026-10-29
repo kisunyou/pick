@@ -16,9 +16,14 @@ namespace FunRabbit
         const float SPAWN_AREA_MARGIN = 1f;    // 플레인 가장자리 여유
 
         // 인형 터치(탭) 판정 - 카메라 드래그 패닝과 구분하기 위해 "짧고 거의 안 움직인 입력"만 탭으로 본다
-        const float TAP_MAX_MOVE_PIXELS = 20f; // 이 픽셀 이상 움직이면 드래그로 판정
-        const float TAP_MAX_DURATION = 0.35f;  // 이 시간(초) 이상 누르고 있으면 탭 아님
-        const float TOUCH_RAY_DISTANCE = 500f; // 인형 터치 레이캐스트 최대 거리
+        const float TAP_MAX_MOVE_PIXELS = 20f;  // 이 픽셀 이상 움직이면 드래그로 판정 (최소값 - 고해상도는 DPI 기준으로 넓힌다)
+        const float TAP_MAX_MOVE_INCH = 0.12f;  // 손떨림 허용 거리 (약 3mm)
+        const float TAP_MAX_DURATION = 0.5f;    // 이 시간(초) 이상 누르고 있으면 탭 아님
+        const float TOUCH_RAY_DISTANCE = 500f;  // 인형 터치 레이캐스트 최대 거리
+        const float TAP_PICK_RADIUS_PIXELS = 60f; // 콜라이더를 빗나갔을 때 화면상 이 거리 안의 가장 가까운 인형을 고른다 (최소값)
+        const float TAP_PICK_RADIUS_INCH = 0.3f;  // 위 반경의 DPI 기준 (약 7.5mm, 손가락 끝 크기)
+
+        private readonly RaycastHit[] _rayHits = new RaycastHit[16];
 
         // animalKey -> 생성된 도감 인형 (중복 생성 방지)
         private readonly Dictionary<string, CollectionActor> _spawnedDolls = new Dictionary<string, CollectionActor>();
@@ -61,8 +66,8 @@ namespace FunRabbit
                 _isPressing = true;
                 _pressStartPos = Input.mousePosition;
                 _pressStartTime = Time.unscaledTime;
-                // UI(닫기 버튼 등) 위에서 시작한 입력은 탭으로 취급하지 않는다
-                _isTapCancelled = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+                // UI(닫기 버튼 등) 위에서 시작한 입력은 탭으로 취급하지 않는다 (터치는 fingerId 기준으로 판정)
+                _isTapCancelled = CollectionCamera.IsPointerOverUI();
             }
 
             if (!_isPressing)
@@ -73,7 +78,7 @@ namespace FunRabbit
                 _isTapCancelled = true;
 
             // 이동량/시간이 탭 기준을 넘으면 드래그(패닝)로 판정
-            if (((Vector2)Input.mousePosition - _pressStartPos).magnitude > TAP_MAX_MOVE_PIXELS
+            if (((Vector2)Input.mousePosition - _pressStartPos).magnitude > ScaledByDpi(TAP_MAX_MOVE_PIXELS, TAP_MAX_MOVE_INCH)
                 || Time.unscaledTime - _pressStartTime > TAP_MAX_DURATION)
                 _isTapCancelled = true;
 
@@ -86,19 +91,21 @@ namespace FunRabbit
             }
         }
 
-        // 화면 좌표에서 레이캐스트해 컬렉션 인형이 맞으면 울음소리 재생 + 카메라 포커스 이동.
+        // 픽셀 기준값을 기기 DPI에 맞게 키운다 (DPI를 모르면 기준값 그대로)
+        private static float ScaledByDpi(float minPixels, float inches)
+        {
+            return Screen.dpi > 0f ? Mathf.Max(minPixels, Screen.dpi * inches) : minPixels;
+        }
+
+        // 화면 좌표의 컬렉션 인형을 찾아 울음소리 재생 + 카메라 포커스 이동.
         private void TryPlayTouchedDollSound(Vector2 screenPos)
         {
             Camera cam = GameCameraManager.Instance != null ? GameCameraManager.Instance.ActiveCamera : null;
             if (cam == null)
                 return;
 
-            Ray ray = cam.ScreenPointToRay(screenPos);
-            if (!Physics.Raycast(ray, out RaycastHit hit, TOUCH_RAY_DISTANCE))
-                return;
-
-            Actor actor = hit.collider.GetComponentInParent<Actor>();
-            if (actor == null || !actor.IsCollectionMode || actor.Context.Data == null)
+            Actor actor = FindTouchedDoll(cam, screenPos);
+            if (actor == null)
                 return;
 
             AudioManager.Instance.PlaySfx(GameActorData.GetSound(actor.Context.Data.animalKey));
@@ -106,6 +113,71 @@ namespace FunRabbit
             // 탭한 인형이 화면 중앙에 오도록 카메라를 부드럽게 이동
             if (GameCameraManager.Instance.ActiveGameCamera is CollectionCamera collectionCamera)
                 collectionCamera.FocusOn(actor.transform.position);
+        }
+
+        // 1) 레이에 맞은 것 중 가장 가까운 컬렉션 인형 (바닥·기계·벽이 앞에 있어도 건너뛴다)
+        // 2) 콜라이더를 빗나갔으면 화면상 탭 지점에서 가장 가까운 인형 (손가락 크기 반경 안)
+        private Actor FindTouchedDoll(Camera cam, Vector2 screenPos)
+        {
+            Ray ray = cam.ScreenPointToRay(screenPos);
+            int hitCount = Physics.RaycastNonAlloc(ray, _rayHits, TOUCH_RAY_DISTANCE, ~0, QueryTriggerInteraction.Collide);
+
+            Actor nearestHit = null;
+            float nearestHitDistance = float.MaxValue;
+            for (int i = 0; i < hitCount; i++)
+            {
+                Actor hitActor = _rayHits[i].collider.GetComponentInParent<Actor>();
+                if (!IsTappableDoll(hitActor) || _rayHits[i].distance >= nearestHitDistance)
+                    continue;
+
+                nearestHit = hitActor;
+                nearestHitDistance = _rayHits[i].distance;
+            }
+
+            if (nearestHit != null)
+                return nearestHit;
+
+            float pickRadius = ScaledByDpi(TAP_PICK_RADIUS_PIXELS, TAP_PICK_RADIUS_INCH);
+            float bestSqr = pickRadius * pickRadius;
+            Actor nearestOnScreen = null;
+
+            foreach (var pair in _spawnedDolls)
+            {
+                CollectionActor doll = pair.Value;
+                if (!IsTappableDoll(doll) || !doll.gameObject.activeInHierarchy)
+                    continue;
+
+                Vector3 viewPos = cam.WorldToScreenPoint(GetDollCenter(doll));
+                if (viewPos.z <= 0f)
+                    continue; // 카메라 뒤쪽
+
+                float sqr = ((Vector2)viewPos - screenPos).sqrMagnitude;
+                if (sqr < bestSqr)
+                {
+                    bestSqr = sqr;
+                    nearestOnScreen = doll;
+                }
+            }
+
+            return nearestOnScreen;
+        }
+
+        private static bool IsTappableDoll(Actor actor)
+        {
+            return actor != null && actor.IsCollectionMode && actor.Context.Data != null;
+        }
+
+        // 인형 렌더러 bounds 중심 (피벗이 발밑이라 화면상 몸통 중앙과 비교하기 위함)
+        private static Vector3 GetDollCenter(Actor doll)
+        {
+            Renderer[] renderers = doll.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0)
+                return doll.transform.position;
+
+            Bounds bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+                bounds.Encapsulate(renderers[i].bounds);
+            return bounds.center;
         }
 
         private void OnChangedGameStatus(GameStatus status)
@@ -199,16 +271,16 @@ namespace FunRabbit
         }
 
         // 획득한(이미 클리어한) 스테이지의 인형만 순서대로 생성한다.
-        // 현재 도전 중인 스테이지 자신은 아직 클리어 전이라 미포함 - UICollectionPanel/GameDollCreator.GetStageQuestPool과 동일 기준.
+        // Keep every earned variant after the final stage loops back to the hard band.
         private IEnumerator SpawnClearedStageDolls()
         {
             _isSpawning = true;
 
-            int currentStage = GameQuestManager.IsCheckInstance()
-                ? GameQuestManager.Instance.CurrentStage
-                : 1;
+            int maxClearedStage = GameQuestManager.IsCheckInstance()
+                ? Mathf.Min(GameQuestManager.Instance.MaxClearedStage, GameQuestData.TotalStageCount)
+                : 0;
 
-            for (int stage = 1; stage < currentStage; stage++)
+            for (int stage = 1; stage <= maxClearedStage; stage++)
             {
                 StageQuestData stageData = GameQuestData.GetStage(stage);
                 if (stageData == null || string.IsNullOrEmpty(stageData.animalKey))

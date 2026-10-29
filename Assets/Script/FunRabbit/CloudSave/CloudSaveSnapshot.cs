@@ -115,6 +115,8 @@ namespace FunRabbit
                 PlayerPrefs.SetString(e.k, e.v);
 
             PlayerPrefs.Save();
+            // PlayerPrefs 가 통째로 바뀌었다 - 스테이지/보스 hp 메모리 캐시를 버린다
+            GameQuestManager.InvalidateSaveCacheIfExists();
         }
 
         public void Validate()

@@ -47,9 +47,17 @@ namespace FunRabbit
         // 보상량 표기 텍스트 (프리팹의 Text_Value). 고정 문구 대신 실제 지급량(rewardCoin)으로 갱신한다.
         [SerializeField] TextMeshProUGUI rewardCoinText;
 
+        // 닫기 버튼 안전장치: 연출이 어떤 이유로든(코인 연출 중단 등) 끝 콜백을 못 받아도
+        // "예상 연출 길이 + 이 시간" 뒤에는 닫기 버튼을 켠다 (패널 고착 방지).
+        const float CloseButtonFallbackMargin = 3f;
+        const float CoinRewardEffectSeconds = 1.5f; // 코인 비행 연출 대략 길이(초) - 안전장치 시간 계산용
+
         Sequence _seq;
         Tween _titleTween;
         Sequence _flickerSeq;
+        Tween _closeButtonFallback;
+        // 이미 지급된 클리어 보상의 하단 바 표시 보류 (코인 비행 도착 시 풀린다)
+        UIBottomBar.CoinDisplayHold _coinHold;
         Vector3 _titleBaseScale = Vector3.one;
         string _clearedAnimalKey; // bossToNormalDelay 시점에 "변신"시킬 일반 인형을 로드하기 위해 기억해둔다.
         bool _isAllClear;         // newAnimalKey 없음 = 마지막 스테이지 클리어. 다음 보스 등장 대신 ALL CLEAR 타이틀을 띄운다.
@@ -63,7 +71,9 @@ namespace FunRabbit
         // clearedAnimalKey: 방금 클리어한 스테이지의 animalKey / newAnimalKey: 다음(새) 스테이지의 animalKey.
         // 두 쪽 다 처음엔 보스 인형을 보여준다 - 클리어 쪽은 bossToNormalDelay 후 일반 인형으로 "변신"한다.
         // newAnimalKey가 null/빈 값이면 올클리어 연출 - 변신까지는 같고, 다음 보스 등장 없이 ALL CLEAR 타이틀로 마무리한다.
-        // reward: 코인 보상량(-1이면 클리어한 스테이지의 테이블 보상 사용). 카운트 시작값은 PlayerContext.GetItemAmount(PlayerContext.COIN_ITEM_KEY)를 사용한다.
+        // reward: 코인 보상량 "표기"(-1이면 클리어한 스테이지의 테이블 보상 사용).
+        // 실제 지급은 GameQuestManager가 스테이지 전환과 함께 먼저 저장하고 OnClearRewardGranted로 알려준다 -
+        // 이 패널의 코인 연출은 표시 전용이다.
         //
         // 필요한 모델 3종(클리어 보스/클리어 일반/새 보스)을 전부 동기 로드로 미리 준비해둔 뒤에
         // 연출을 시작한다 - 비동기 로드가 아직 안 끝난 상태로 연출이 먼저 시작돼 모델이 뒤늦게
@@ -100,6 +110,25 @@ namespace FunRabbit
             }
 
             PlaySequence();
+        }
+
+        // GameQuestManager가 클리어 보상을 지급(저장)한 직후 같은 프레임에 호출한다.
+        // 하단 바 숫자는 코인 비행이 도착할 때까지 보류해 두었다가 PlayCoinReward에서 도착에 맞춰 풀어준다.
+        public void OnClearRewardGranted(long grantedAmount)
+        {
+            if (UIBottomBar.Instance != null)
+            {
+                UIBottomBar.Instance.ReleaseCoinDisplay(_coinHold);
+                // 연출 시작(PlayCoinReward)까지 걸리는 시간 + 여유만큼 보류를 유지한다
+                _coinHold = UIBottomBar.Instance.HoldCoinDisplay(grantedAmount, GetExpectedSequenceSeconds() + CloseButtonFallbackMargin);
+            }
+        }
+
+        // 클리어 연출(코인 연출 포함) 예상 길이(초)
+        float GetExpectedSequenceSeconds()
+        {
+            float slide = _isAllClear ? 0f : slideDuration * 2f;
+            return Mathf.Max(0f, showDuration) + slide + CoinRewardEffectSeconds;
         }
 
         // 보스 인형 → 일반 인형 "변신". 화면이 빠르게 flickerCount번 깜빡이다 완전히 꺼진 순간
@@ -156,6 +185,11 @@ namespace FunRabbit
             // 연출 시작 시 닫기 버튼 숨김 (모든 연출이 끝난 뒤 활성화)
             if (closeButton != null)
                 closeButton.gameObject.SetActive(false);
+
+            // 안전장치: 끝 콜백이 오지 않아도 예상 연출 길이 + 여유 뒤에는 닫기 버튼을 켠다
+            _closeButtonFallback?.Kill();
+            _closeButtonFallback = DOVirtual.DelayedCall(GetExpectedSequenceSeconds() + CloseButtonFallbackMargin,
+                ActivateCloseButton, ignoreTimeScale: true);
 
             // 타이틀 원래 크기 기억 (스케일 팝 연출 기준)
             if (titleText != null)
@@ -247,22 +281,35 @@ namespace FunRabbit
                 .SetUpdate(true);
         }
 
-        // 코인 보상 연출: UIBottomBar가 소유한 공용 연출(비행/도착 바운스/분할 지급)에 위임한다.
+        // 코인 보상 연출: UIBottomBar가 소유한 공용 연출(비행/도착 바운스/표시 반영)에 위임한다. (지급은 이미 완료)
         // 도착 지점 = UIBottomBar의 coinImage(상시 노출), 시작 지점만 이 패널의 coinFlyImage를 사용.
-        // 연출이 끝나면(또는 재생 불가 시 즉시) 닫기 버튼을 활성화한다.
+        // 연출이 끝나면(중단돼도, 재생 불가 시 즉시) 닫기 버튼을 활성화한다.
         void PlayCoinReward()
         {
-            if (rewardCoin <= 0 || coinFlyImage == null || UIBottomBar.Instance == null)
+            UIBottomBar.CoinDisplayHold hold = _coinHold;
+            _coinHold = null; // 보류 해제 책임은 연출 요청으로 넘어간다
+
+            if (UIBottomBar.Instance == null)
             {
                 ActivateCloseButton();
                 return;
             }
 
-            UIBottomBar.Instance.PlayCoinGetEffect(coinFlyImage, rewardCoin, ActivateCloseButton);
+            if (rewardCoin <= 0 || coinFlyImage == null)
+            {
+                UIBottomBar.Instance.ReleaseCoinDisplay(hold);
+                ActivateCloseButton();
+                return;
+            }
+
+            UIBottomBar.Instance.PlayCoinGetEffect(coinFlyImage, hold, ActivateCloseButton);
         }
 
         void ActivateCloseButton()
         {
+            _closeButtonFallback?.Kill();
+            _closeButtonFallback = null;
+
             if (closeButton != null)
                 closeButton.gameObject.SetActive(true);
         }
@@ -272,6 +319,12 @@ namespace FunRabbit
             _seq?.Kill();
             _titleTween?.Kill();
             _flickerSeq?.Kill();
+            _closeButtonFallback?.Kill();
+
+            // 연출 전에 패널이 닫히면 보류해 둔 표시를 바로 반영한다 (지급은 이미 완료)
+            if (_coinHold != null && UIBottomBar.Instance != null)
+                UIBottomBar.Instance.ReleaseCoinDisplay(_coinHold);
+            _coinHold = null;
 
             // 클리어 연출이 끝나(닫기 버튼 / CloseAllInLayer 등 어떤 경로든) 패널이 사라지는 순간,
             // 스폰을 미뤄둔 다음 보스를 등장시키고 대기 중인 아군을 다시 싸우게 한다.

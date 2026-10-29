@@ -19,6 +19,8 @@ namespace FunRabbit
         // 저장/로드 식별은 오브젝트 이름 끝의 suffix로 한다 (StageManager가 이름만 저장하므로).
         private const string GoldenNameSuffix = "_golden";
         private static readonly Color GoldenColor = new Color(1f, 0.75f, 0.1f, 1f);
+        // 황금 인형 그림자 틴트(GhibliSoft _CoolColor) / 외곽선 색 - 순흑 대신 같은 색 계열의 진한 호박색
+        private static readonly Color GoldenShadowColor = new Color(0.62f, 0.36f, 0.08f, 1f);
 
         // 생성된 인형 보관 리스트 (다음 로드 시 정리용)
         private readonly List<GameObject> createdDolls = new List<GameObject>();
@@ -34,6 +36,10 @@ namespace FunRabbit
         // 현재 스테이지를 저장 정보와 무관하게 새 인형으로 다시 생성한다.
         public void ResetCurrentStage()
         {
+            // 클리어 전환(GameQuestManager)과 리셋 버튼(UIHud)이 거의 동시에 들어오면 코루틴 두 개가
+            // 각각 인형을 만들어 중복 배치된다. 진행 중인 생성(리셋/로드)을 모두 멈추고 새로 시작한다.
+            // (생성된 인형은 Instantiate 직후 createdDolls 에 등록되므로 ClearCreatedDolls 로 함께 정리된다)
+            StopAllCoroutines();
             StartCoroutine(ResetAndCreateDolls());
         }
 
@@ -267,14 +273,43 @@ namespace FunRabbit
                     else if (material.HasProperty("_Color"))
                         material.SetColor("_Color", GoldenColor);
 
-                    // GhibliSoft(인형 셰이더)의 회화풍 라이팅: 밝은 면은 순백, 그림자 면은 순흑으로
-                    // 만들어 황금색 대비를 극대화한다
+                    // GhibliSoft(인형 셰이더)의 회화풍 라이팅: 밝은 면은 순백, 그림자 면은 진한 호박색으로
+                    // 만들어 황금색 대비를 살린다 (그림자 경로 통일 후에는 순흑 대신 같은 색 계열로 어둡게)
                     if (material.HasProperty("_WarmColor"))
                         material.SetColor("_WarmColor", Color.white);
                     if (material.HasProperty("_CoolColor"))
-                        material.SetColor("_CoolColor", Color.black);
+                        material.SetColor("_CoolColor", GoldenShadowColor);
+
+                    ApplyGoldenMetal(material);
                 }
             }
+        }
+
+        // GhibliSoft 의 금속 광택 옵션(_METALLIC_SHINE)을 켜고 황금용 값을 넣는다 (다른 셰이더면 무시).
+        // 텍스처가 없어도 하늘/바닥 가짜 반사 + 밝은 반사 띠 + 좁은 하이라이트로 입체적인 금색이 나온다.
+        // 키워드는 셰이더에서 multi_compile 이라 빌드에서 변형이 빠지지 않는다. 벨벳 광택은 셰이더가 자동 생략.
+        private static void ApplyGoldenMetal(Material material)
+        {
+            if (!material.HasProperty("_UseMetallic"))
+                return;
+
+            material.EnableKeyword("_METALLIC_SHINE");
+            material.SetFloat("_UseMetallic", 1f);
+            material.SetFloat("_MetalDiffuse", 0.3f);
+            material.SetFloat("_MetalReflectStr", 0.9f);
+            material.SetFloat("_MetalBandHeight", 0.15f);
+            material.SetFloat("_MetalBandWidth", 0.18f);
+            material.SetFloat("_MetalBandStr", 1.2f);
+            material.SetFloat("_MetalSpecPower", 40f);
+            material.SetFloat("_MetalSpecStr", 1.6f);
+            material.SetColor("_MetalSkyColor", new Color(1f, 0.95f, 0.8f, 1f));
+            material.SetColor("_MetalGroundColor", new Color(0.14f, 0.07f, 0.02f, 1f));
+
+            // 그림자: 금색 그대로 채도↑ 명도↓ (단일 그림자 경로)
+            material.SetFloat("_ShadowValue", 0.3f);
+            material.SetFloat("_ShadowSaturation", 1.2f);
+            material.SetFloat("_ShadowColorStr", 0.5f);
+
         }
 
         // position 위치에 랜덤박스(doll_random_prefab) 인형을 생성한다. animalKey가 없어 actor.json과 무관하다.

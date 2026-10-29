@@ -25,6 +25,45 @@ namespace FunRabbit
         // PlayerContext에 저장된 현재 진행 중 미션 (없으면 null)
         private MissionData CurrentMission => GameMissionData.Get(PlayerContext.GetMissionKey());
 
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && PICK_MISSION_DEBUG
+        private float _nextDebugMissionTime;
+
+        private bool CanDebugCompleteMission =>
+            _hud != null && _hud.isActiveAndEnabled &&
+            GameMain.IsCheckInstance() && GameMain.Instance.CurrentStatus == GameStatus.INGAME &&
+            !SessionOperation.IsBusy &&
+            (!CloudSaveManager.IsCheckInstance() || CloudSaveManager.Instance.GameplayStarted) &&
+            Time.unscaledTime >= _nextDebugMissionTime;
+
+        private void OnGUI()
+        {
+            if (!GameMain.IsCheckInstance() || GameMain.Instance.CurrentStatus != GameStatus.INGAME)
+                return;
+
+            Rect safe = Screen.safeArea;
+            if (safe.width <= 0 || safe.height <= 0) safe = new Rect(0, 0, Screen.width, Screen.height);
+            float width = Mathf.Min(240f, safe.width - 24f);
+            if (width <= 0) return;
+            var rect = new Rect(safe.xMax - width - 12f, Screen.height - safe.yMax + 160f, width, 48f);
+            bool wasEnabled = GUI.enabled;
+            GUI.enabled = wasEnabled && CanDebugCompleteMission;
+            if (GUI.Button(rect, "수집 미션 완료 (테스트)")) DebugCompleteCurrentMission();
+            GUI.enabled = wasEnabled;
+        }
+
+        public void DebugCompleteCurrentMission()
+        {
+            if (!CanDebugCompleteMission) return;
+            EnsureMission();
+            MissionData mission = CurrentMission;
+            if (mission == null || mission.collection_count <= 0) return;
+
+            // Exercise the real completion path, including reward delivery and the next mission.
+            _nextDebugMissionTime = Time.unscaledTime + 3f;
+            AddProgress(mission, Mathf.Max(0, mission.collection_count - PlayerContext.GetMissionProgress()));
+        }
+#endif
+
         // ── HUD 연결 ─────────────────────────────────────────────────
 
         public void AttachHud(UIMissionHud hud)
@@ -53,7 +92,11 @@ namespace FunRabbit
                 return;
 
             if (IsMissionPlayable(mission))
+            {
+                // Stage changes must redraw saved progress even when the mission is retained.
+                RefreshHud();
                 return;
+            }
 
             Debug.Log($"[MissionSystem] 스테이지 {stage} 전환으로 미션 대상({PlayerContext.GetMissionAnimalKey()})이 " +
                       "뽑기 풀에서 벗어남 - 미션 재추첨");
@@ -185,39 +228,72 @@ namespace FunRabbit
         {
             // 목표를 넘겨도 표기가 "4 / 3"처럼 되지 않게 목표치로 잘라 저장한다 (완료 판정에는 영향 없음)
             int progress = Mathf.Min(PlayerContext.GetMissionProgress() + amount, mission.collection_count);
-            PlayerContext.SetMissionProgress(progress);
 
-            if (_hud != null)
-                _hud.UpdateMissionProgressText(progress, mission.collection_count);
-
-            if (progress >= mission.collection_count)
-                CompleteMission(mission);
-        }
-
-        // ── 미션 성공: 보상 트레일 + 지급 + 다음 미션 ─────────────────
-
-        private void CompleteMission(MissionData mission)
-        {
+            // 진행도 저장 · 보상 지급 · 다음 미션 추첨을 한 번의 저장으로 묶는다
+            // (이전: 다음 미션은 즉시 저장, 보상은 트레일 도착 시 지급 → 연출 중 종료 시 보상 유실)
+            bool completed = progress >= mission.collection_count;
+            PlayerContext.PendingAllyReward allyReward = default;
             string targetAnimalKey = PlayerContext.GetMissionAnimalKey();
-            Debug.Log($"[MissionSystem] 미션 성공: key={mission.key} type={mission.mission_type} " +
-                      $"target={targetAnimalKey} 보상={mission.reward_count}");
+            PlayerContext.RunAtomic(() =>
+            {
+                PlayerContext.SetMissionProgress(progress);
+                if (completed)
+                    allyReward = CompleteMission(mission, targetAnimalKey);
+            });
 
-            PlayTrailAndGrantReward(mission, targetAnimalKey);
+            if (!completed)
+            {
+                if (_hud != null)
+                    _hud.UpdateMissionProgressText(progress, mission.collection_count);
+                return;
+            }
 
-            // 다음 미션을 바로 추첨해 HUD를 새 미션으로 갱신한다 (보상 트레일은 그와 별개로 날아간다)
-            AssignNewMission();
+            // 보상은 이미 확정됐다 - 여기부터는 연출(트레일/메시지)과 HUD 갱신만 한다
+            PlayRewardTrail(mission, targetAnimalKey, allyReward);
+            UIMissionCompleteMessage.ShowMessage();
             RefreshHud();
         }
 
-        // UIMissionHud 아이콘 위치 → (actor: 아군 스택 / randombox: HUD 랜덤박스 버튼) 트레일 후 도착 시 지급.
-        // 연출을 재생할 수 없는 상황에서도 보상 지급은 보장한다.
-        private void PlayTrailAndGrantReward(MissionData mission, string targetAnimalKey)
+        // ── 미션 성공: 보상 확정 + 다음 미션 (연출은 PlayRewardTrail) ─────────
+        // PlayerContext.RunAtomic 안에서 호출된다.
+        //  - actor     : 아군 보상을 지급 대기 목록(PendingAllyRewards)에 먼저 기록 → 트레일 도착 시 합류
+        //                (도착 전 앱 종료 시 재시작하면 ActorBattleSystem 이 연출 없이 지급)
+        //  - randombox : 랜덤박스 개수를 즉시 지급 (트레일은 표시 전용)
+        private PlayerContext.PendingAllyReward CompleteMission(MissionData mission, string targetAnimalKey)
         {
+            Debug.Log($"[MissionSystem] 미션 성공: key={mission.key} type={mission.mission_type} " +
+                      $"target={targetAnimalKey} 보상={mission.reward_count}");
+
+            PlayerContext.PendingAllyReward allyReward = default;
+            if (mission.IsActorType)
+            {
+                if (GameActorData.Get(targetAnimalKey) == null)
+                    Debug.LogError($"[MissionSystem] 보상 지급 실패 - 액터 없음: {targetAnimalKey}");
+                else
+                    allyReward = PlayerContext.AddPendingAllyReward(targetAnimalKey, mission.reward_count);
+            }
+            else if (mission.reward_count > 0)
+            {
+                PlayerContext.AddRandomBox(mission.reward_count);
+            }
+
+            // 다음 미션을 바로 추첨한다 (보상 트레일은 그와 별개로 날아간다)
+            AssignNewMission();
+            return allyReward;
+        }
+
+        // UIMissionHud 아이콘 위치 → (actor: 아군 스택 / randombox: HUD 랜덤박스 버튼) 트레일.
+        // actor 보상은 도착 시 지급 대기 항목을 꺼내 합류시키고, 연출할 수 없으면 바로 합류시킨다.
+        private void PlayRewardTrail(MissionData mission, string targetAnimalKey, PlayerContext.PendingAllyReward allyReward)
+        {
+            bool hasAllyReward = mission.IsActorType && !string.IsNullOrEmpty(allyReward.id);
+
             UIHud hud = UIHud.CreateOrGet();
             UIGetDollTrailHud trailHud = hud != null ? hud.GetDollTrailHud : null;
             if (trailHud == null)
             {
-                GrantReward(mission, targetAnimalKey);
+                if (hasAllyReward)
+                    PlayerContext.DeliverPendingAllyReward(allyReward);
                 return;
             }
 
@@ -225,51 +301,29 @@ namespace FunRabbit
 
             if (mission.IsActorType)
             {
+                if (!hasAllyReward)
+                    return;
+
                 Transform allyTarget = hud.AllyStackActors != null ? hud.AllyStackActors.transform : null;
                 if (allyTarget == null)
                 {
-                    GrantReward(mission, targetAnimalKey);
+                    PlayerContext.DeliverPendingAllyReward(allyReward);
                     return;
                 }
 
+                PlayerContext.MarkPendingAllyRewardInFlight(allyReward.id);
                 trailHud.PlayTrail(start, allyTarget.position,
                     GameCommon.GetIconPrefabFullPath(targetAnimalKey),
-                    () => GrantReward(mission, targetAnimalKey));
+                    () => PlayerContext.DeliverPendingAllyReward(allyReward));
             }
             else
             {
                 Transform boxTarget = trailHud.GetRandomBoxTargetTransform;
                 if (boxTarget == null)
-                {
-                    GrantReward(mission, targetAnimalKey);
-                    return;
-                }
-
-                trailHud.PlayTrail(start, boxTarget.position, RandomBoxTrailIconPrefabPath,
-                    () => GrantReward(mission, targetAnimalKey));
-            }
-        }
-
-        private static void GrantReward(MissionData mission, string targetAnimalKey)
-        {
-            if (mission.IsActorType)
-            {
-                ActorData actorData = GameActorData.Get(targetAnimalKey);
-                if (actorData == null)
-                {
-                    Debug.LogError($"[MissionSystem] 보상 지급 실패 - 액터 없음: {targetAnimalKey}");
-                    return;
-                }
-
-                if (!ActorBattleSystem.TryGetSetInstance(out ActorBattleSystem battleSystem))
                     return;
 
-                for (int i = 0; i < mission.reward_count; i++)
-                    battleSystem.AddAllyActor(actorData);
-            }
-            else
-            {
-                PlayerContext.AddRandomBox(mission.reward_count);
+                // 랜덤박스는 이미 지급됨 - 표시 전용 트레일
+                trailHud.PlayTrail(start, boxTarget.position, RandomBoxTrailIconPrefabPath, null);
             }
         }
 
@@ -295,7 +349,7 @@ namespace FunRabbit
                 _hud.SetMissionIconSprite(SpriteCache.Get(RandomBoxIconSpritePath));
             }
 
-            _hud.UpdateMissionProgressText(PlayerContext.GetMissionProgress(), mission.collection_count);
+            _hud.UpdateMissionProgressText(PlayerContext.GetMissionProgress(), mission.collection_count, false);
         }
     }
 }

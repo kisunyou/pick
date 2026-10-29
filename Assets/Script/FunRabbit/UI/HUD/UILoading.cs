@@ -28,6 +28,11 @@ namespace FunRabbit
 
         Coroutine _loadingDotCoroutine;
         Tween _touchToStartTween;
+        Tween _startDelayTween;
+        UILogoIntroAnimation _logoIntro;
+        UILoadingStartInput _startInput;
+        bool _introRequested;
+        bool _startInputReady;
         bool _isTouchToStartBtnClicked = false;
 
         public UILoadingControl Control { get; private set; } = new UILoadingControl();
@@ -35,6 +40,7 @@ namespace FunRabbit
         protected override void Awake()
         {
             base.Awake();
+            ResetStartPresentation();
         }
 
         public override void OnOpen()
@@ -42,9 +48,14 @@ namespace FunRabbit
             _touchToStart.SetActive(false);
             HideLoginButtons();
             _isTouchToStartBtnClicked = false;
-            _touchToStartBtn.onClick.AddListener(() => { OnTouchToStartBtn(); });
-            _guestLoginBtn.onClick.AddListener(() => { OnGuestLogin?.Invoke(); });
-            _googleLoginBtn.onClick.AddListener(() => { OnGoogleLogin?.Invoke(); });
+            _touchToStartBtn.onClick.RemoveListener(OnTouchToStartBtn);
+            _guestLoginBtn.onClick.RemoveListener(OnGuestLoginBtn);
+            _googleLoginBtn.onClick.RemoveListener(OnGoogleLoginBtn);
+            if (_startInput == null) _startInput = _touchToStartBtn.GetComponent<UILoadingStartInput>();
+            if (_startInput == null) _startInput = _touchToStartBtn.gameObject.AddComponent<UILoadingStartInput>();
+            _startInput.Bind(OnTouchToStartBtn);
+            _guestLoginBtn.onClick.AddListener(OnGuestLoginBtn);
+            _googleLoginBtn.onClick.AddListener(OnGoogleLoginBtn);
 
             // 열리면 로딩 표시를 시작하고, 게임 흐름 연동은 Control에 위임
             ShowLoadingText();
@@ -54,30 +65,70 @@ namespace FunRabbit
         public override void OnClose()
         {
             StopLoadingDotAnim();
-            _touchToStartTween?.Kill();
+            ResetStartPresentation();
 
             Control.Deinitialize();
         }
 
+        private void OnDisable()
+        {
+            StopLoadingDotAnim();
+            ResetStartPresentation();
+        }
+
+        private void OnGuestLoginBtn() => OnGuestLogin?.Invoke();
+        private void OnGoogleLoginBtn() => OnGoogleLogin?.Invoke();
+
+        private void ResetStartPresentation()
+        {
+            _startInputReady = false;
+            _introRequested = false;
+            if (_startInput != null) _startInput.SetReady(false);
+            _isTouchToStartBtnClicked = false;
+            _startDelayTween?.Kill();
+            _startDelayTween = null;
+            _touchToStartTween?.Kill();
+            _touchToStartTween = null;
+            if (_touchToStartBtn != null) _touchToStartBtn.interactable = false;
+            if (_touchToStart != null) _touchToStart.SetActive(false);
+            if (_logoIntro == null) _logoIntro = GetComponentInChildren<UILogoIntroAnimation>(true);
+            if (_logoIntro != null) _logoIntro.Hide();
+        }
+
         public void ShowLoadingText()
         {
+            ResetStartPresentation();
             _loadText.gameObject.SetActive(true);
             StartLoadingDotAnim();
         }
 
         public void ShowTouchToStartBtn()
         {
+            if (_introRequested || !isActiveAndEnabled) return;
+            ResetStartPresentation();
+            _introRequested = true;
             StopLoadingDotAnim();
             _loadText.gameObject.SetActive(false);
             HideLoginButtons();
-            _touchToStart.SetActive(true);
+            // Loading/auth readiness starts the intro, not gameplay or the start prompt.
+            if (_logoIntro != null) _logoIntro.Play(EnableStartInput);
+            else EnableStartInput();
+        }
 
+        private void EnableStartInput()
+        {
+            if (!_introRequested || !isActiveAndEnabled) return;
+            _touchToStart.SetActive(true);
+            _startInputReady = true;
+            _touchToStartBtn.interactable = true;
+            if (_startInput != null) _startInput.SetReady(true);
             PlayTouchToStartBlink(0.8f);
         }
 
         // 미로그인 상태 - 게스트/Google 로그인 버튼을 노출한다 (touchToStart 대신)
         public void ShowLoginButtons()
         {
+            ResetStartPresentation();
             StopLoadingDotAnim();
             _loadText.gameObject.SetActive(false);
             _touchToStart.SetActive(false);
@@ -100,12 +151,20 @@ namespace FunRabbit
             _googleLoginBtn.interactable = interactable;
         }
 
+        private bool TryAcceptStartInput()
+        {
+            if (!_startInputReady || _isTouchToStartBtnClicked || !isActiveAndEnabled)
+                return false;
+            _startInputReady = false;
+            _isTouchToStartBtnClicked = true;
+            _touchToStartBtn.interactable = false;
+            if (_startInput != null) _startInput.SetReady(false);
+            return true;
+        }
+
         private void OnTouchToStartBtn()
         {
-            if (_isTouchToStartBtnClicked)
-                return;
-
-            _isTouchToStartBtnClicked = true;
+            if (!TryAcceptStartInput()) return;
 
             FireBaseAnalyticsManager.Instance.LogEventOnce("touch_start");
 
@@ -114,8 +173,10 @@ namespace FunRabbit
             PlayTouchToStartBlink(0.15f);
 
             // 1.5초 후 콜백 호출
-            DOVirtual.DelayedCall(1.5f, () =>
+            _startDelayTween = DOVirtual.DelayedCall(1.5f, () =>
             {
+                _startDelayTween = null;
+                if (!_isTouchToStartBtnClicked || !isActiveAndEnabled) return;
                 _touchToStartTween?.Kill();
                 OnTouchToStart?.Invoke();
             });

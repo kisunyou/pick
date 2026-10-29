@@ -29,6 +29,9 @@ public static class HudLabelChecks
         Check(rows.Select(r => r.key).Distinct().Count() == rows.Count, "Duplicate localization keys.");
         var start = rows.Single(r => r.key == "hud_start");
         var mission = rows.Single(r => r.key == "hud_mission_title");
+        var copyright = rows.Single(r => r.key == "loading_copyright");
+        Check(new[] { copyright.kor, copyright.eng, copyright.jpn, copyright.tha }
+            .All(text => text.StartsWith("\u00a9 2026. FunRabbit ")), "Copyright year or owner changed.");
         Check(start.kor == "\uC2DC\uC791" && mission.kor == "\uBBF8\uC158", "Korean labels do not match the request.");
         var scene = EditorSceneManager.NewPreviewScene();
         try
@@ -44,12 +47,17 @@ public static class HudLabelChecks
             var button = Field<Button>(hud, "enterStageButton");
             var startText = button.transform.Find("Text_Stage").GetComponent<TMP_Text>();
             var missionText = Field<TextMeshProUGUI>(root.GetComponentInChildren<UIMissionHud>(true), "missionTitleText");
-            var labels = new[] { startText, missionText };
-            var keys = new[] { "hud_start", "hud_mission_title" };
+            var loading = (GameObject)PrefabUtility.InstantiatePrefab(
+                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Resources/UI2/Prefabs/UILoading.prefab"), scene);
+            loading.transform.SetParent(canvasGo.transform, false);
+            var copyrightText = loading.transform.Find("copyrightText").GetComponent<TMP_Text>();
+            var labels = new[] { startText, missionText, copyrightText };
+            var keys = new[] { "hud_start", "hud_mission_title", "loading_copyright" };
             var translations = new[]
             {
                 new[] { start.kor, start.eng, start.jpn, start.tha },
-                new[] { mission.kor, mission.eng, mission.jpn, mission.tha }
+                new[] { mission.kor, mission.eng, mission.jpn, mission.tha },
+                new[] { copyright.kor, copyright.eng, copyright.jpn, copyright.tha }
             };
             Canvas.ForceUpdateCanvases();
             for (int i = 0; i < labels.Length; i++)

@@ -281,27 +281,34 @@ namespace FunRabbit
             FireBaseAnalyticsManager.Instance.LogEvent("watch_ad_complete");
 
             UIPopup rewardPopup = UIPopup.CreateOrGet();
-            rewardPopup.Set(
+            int popupToken = rewardPopup.Set(
                 LanguageManager.Instance.Get("popup_reward_title"),
                 LanguageManager.Instance.Get("popup_reward_body", coinAmount),
                 null, showCoinIcon: true, showButtons: false);
 
-            StartCoroutine(PlayCoinRewardSequence(rewardPopup, coinAmount));
+            // 지급은 이미 끝났으므로(같은 프레임) 하단 바 숫자는 코인이 날아와 도착할 때까지 보류한다
+            UIBottomBar.CoinDisplayHold hold = UIBottomBar.Instance != null
+                ? UIBottomBar.Instance.HoldCoinDisplay(coinAmount)
+                : null;
+
+            StartCoroutine(PlayCoinRewardSequence(rewardPopup, hold, popupToken));
         }
 
         void OnApplicationQuit() => GameplayAnalytics.EndAttempt(true);
 
-        private IEnumerator PlayCoinRewardSequence(UIPopup rewardPopup, long coinAmount)
+        private IEnumerator PlayCoinRewardSequence(UIPopup rewardPopup, UIBottomBar.CoinDisplayHold hold, int popupToken)
         {
             yield return new WaitForSeconds(CoinRewardFlyDelay);
 
-            RectTransform coinIconTransform = rewardPopup.CoinIconTransform;
-            if (coinIconTransform != null && UIBottomBar.Instance != null)
-                UIBottomBar.Instance.PlayCoinGetEffect(coinIconTransform);
+            // 보류는 연출이 도착하며 풀거나, 연출할 수 없으면 바로 푼다 (표시가 실제 잔액보다 낮게 남지 않도록)
+            RectTransform coinIconTransform = rewardPopup != null ? rewardPopup.CoinIconTransform : null;
+            if (UIBottomBar.Instance != null)
+                UIBottomBar.Instance.PlayCoinGetEffect(coinIconTransform, hold);
 
             yield return new WaitForSeconds(CoinRewardCloseDelay);
 
-            rewardPopup.Close();
+            // 그 사이 같은 팝업에 다른 내용이 떴으면 그 내용은 닫지 않는다
+            UIPopup.CloseIfCurrent(rewardPopup, popupToken);
         }
 
         //private void OnGUI()

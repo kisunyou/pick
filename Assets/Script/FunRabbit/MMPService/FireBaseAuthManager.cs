@@ -37,6 +37,20 @@ namespace FunRabbit
         FirebaseAuth _auth;
         bool _isSigningIn;
 
+        // 게스트 → 기존 구글 계정 전환 경고 팝업에 사용자 응답을 기다리는 중 (ShopManager 연동 타임아웃 일시정지용)
+        public bool IsAwaitingSwitchConfirm { get; private set; }
+
+        // 마지막 UpgradeGuestToGoogle 실패가 사용자의 전환 취소였는지 (실패 토스트 생략용)
+        public bool LastSwitchCancelledByUser { get; private set; }
+
+        // 계정 삭제 결과
+        public enum DeleteUserResult
+        {
+            Success,
+            RequiresRecentLogin,   // 최근 로그인 필요 (재인증 실패/취소)
+            Failed,
+        }
+
         // Firebase 의존성 체크(FireBaseAnalyticsManager 담당) 완료 대기 한도(초)
         const float DependencyWaitTimeout = 15f;
 
@@ -175,6 +189,7 @@ namespace FunRabbit
         //   클라우드 세이브를 새 계정 기준으로 다시 동기화한다 (그 계정의 저장 데이터를 불러옴)
         public void UpgradeGuestToGoogle(Action<bool> onComplete)
         {
+            LastSwitchCancelledByUser = false;
             if (SessionOperation.IsBusy || (ShopManager.IsCheckInstance() && ShopManager.Instance.IsAccountChangeBlocked))
             {
                 onComplete?.Invoke(false);
@@ -232,20 +247,35 @@ namespace FunRabbit
                     if (IsCredentialAlreadyInUse(task.Exception))
                     {
                         // 이미 다른 Firebase 계정에 연결된 구글 계정 - 그 계정으로 로그인 전환.
-                        // uid가 바뀌므로, 전환이 끝날 때까지 클라우드 자동 저장을 멈춰
-                        // 게스트 데이터가 그 계정의 클라우드 세이브를 덮어쓰지 않게 한다.
-                        Debug.LogWarning("[FireBaseAuthManager] 이미 사용 중인 구글 계정 - 해당 계정으로 로그인 전환합니다.");
-                        if (CloudSaveManager.IsCheckInstance())
-                            CloudSaveManager.Instance.PrepareAccountSwitch();
-
-                        Credential switchCredential = GoogleAuthProvider.GetCredential(idToken, null);
-                        SignInInternal(_auth.SignInAndRetrieveDataWithCredentialAsync(switchCredential), "google_switch", success =>
+                        // 전환하면 게스트 진행은 버려지고 그 계정의 데이터(없으면 초기 상태)로 바뀌므로
+                        // 진행 전에 경고 팝업으로 확인을 받는다 (취소 = 게스트 유지, 실패로 콜백).
+                        Debug.LogWarning("[FireBaseAuthManager] 이미 사용 중인 구글 계정 - 전환 확인 팝업을 띄웁니다.");
+                        ConfirmGuestDataDiscard(confirmed =>
                         {
-                            _isSigningIn = true;
-                            CloudSaveManager.Instance.ResyncAfterAccountSwitch(restored =>
+                            if (!confirmed)
                             {
+                                Debug.Log("[FireBaseAuthManager] 사용자가 기존 구글 계정 전환을 취소 - 게스트 유지");
+                                LastSwitchCancelledByUser = true;
                                 _isSigningIn = false;
-                                onComplete?.Invoke(success && restored);
+                                onComplete?.Invoke(false);
+                                return;
+                            }
+
+                            // uid가 바뀌므로, 전환이 끝날 때까지 클라우드 자동 저장을 멈춰
+                            // 게스트 데이터가 그 계정의 클라우드 세이브를 덮어쓰지 않게 한다.
+                            Debug.LogWarning("[FireBaseAuthManager] 사용자 확인 - 해당 구글 계정으로 로그인 전환합니다.");
+                            if (CloudSaveManager.IsCheckInstance())
+                                CloudSaveManager.Instance.PrepareAccountSwitch();
+
+                            Credential switchCredential = GoogleAuthProvider.GetCredential(idToken, null);
+                            SignInInternal(_auth.SignInAndRetrieveDataWithCredentialAsync(switchCredential), "google_switch", success =>
+                            {
+                                _isSigningIn = true;
+                                CloudSaveManager.Instance.ResyncAfterAccountSwitch(restored =>
+                                {
+                                    _isSigningIn = false;
+                                    onComplete?.Invoke(success && restored);
+                                });
                             });
                         });
                         return;
@@ -283,6 +313,127 @@ namespace FunRabbit
                 // SDK 버전에 따라 예외 타입이 또 다를 수 있어 메시지로도 폴백 판정한다
                 if (inner.Message != null
                     && inner.Message.Contains("already associated with a different user"))
+                    return true;
+            }
+
+            return false;
+        }
+
+        // "현재 게스트 진행은 사라지고 구글 계정 데이터로 바뀝니다" 경고 (확인/취소).
+        // 확인 = true, 취소/X/딤/뒤로가기/다른 팝업으로 덮임 = false. 응답은 정확히 1회 전달된다.
+        private void ConfirmGuestDataDiscard(Action<bool> onAnswer)
+        {
+            UIPopup popup = UIManager.IsCheckInstance() ? UIPopup.CreateOrGet() : null;
+            if (popup == null)
+            {
+                // 팝업을 띄울 수 없으면 데이터 소실 위험이 있는 전환을 진행하지 않는다
+                onAnswer?.Invoke(false);
+                return;
+            }
+
+            bool answered = false;
+            Action<bool> answer = result =>
+            {
+                if (answered) return;
+                answered = true;
+                IsAwaitingSwitchConfirm = false;
+                onAnswer?.Invoke(result);
+            };
+
+            IsAwaitingSwitchConfirm = true;
+            popup.Set(
+                LanguageManager.Instance.Get("popup_google_switch_title"),
+                LanguageManager.Instance.Get("popup_google_switch_body"),
+                () => answer(true));
+            popup.SetOnCancel(() => answer(false));
+        }
+
+        // 현재 Firebase 유저 삭제 (설정 > 계정 삭제). 게스트/구글 모두 가능.
+        // 최근 로그인이 필요하다는 오류(RequiresRecentLogin)면 Android 구글 계정은 계정 선택으로 재인증 후 1회 재시도한다.
+        // 성공 시 SDK 가 로그인 상태를 지우고, 로그인 이력 플래그도 함께 지운다.
+        public void DeleteCurrentUser(Action<DeleteUserResult> onComplete)
+        {
+            if (!IsInitialized || _auth.CurrentUser == null)
+            {
+                onComplete?.Invoke(DeleteUserResult.Success);   // 지울 로그인 유저가 없음
+                return;
+            }
+
+            FirebaseUser user = _auth.CurrentUser;
+            user.DeleteAsync().ContinueWithOnMainThread(task =>
+            {
+                if (!task.IsCanceled && !task.IsFaulted)
+                {
+                    OnUserDeleted(onComplete);
+                    return;
+                }
+
+                if (!HasAuthError(task.Exception, AuthError.RequiresRecentLogin))
+                {
+                    Debug.LogWarning($"[FireBaseAuthManager] 계정 삭제 실패: {task.Exception?.GetBaseException().Message}");
+                    onComplete?.Invoke(DeleteUserResult.Failed);
+                    return;
+                }
+
+                Debug.LogWarning("[FireBaseAuthManager] 계정 삭제 - 최근 로그인 필요, 재인증 시도");
+#if UNITY_ANDROID && !UNITY_EDITOR
+                if (!user.IsAnonymous)
+                {
+                    GoogleCredentialHelper.RequestIdToken((idToken, error) =>
+                    {
+                        if (string.IsNullOrEmpty(idToken))
+                        {
+                            Debug.LogWarning($"[FireBaseAuthManager] 재인증용 ID 토큰 획득 실패: {error}");
+                            onComplete?.Invoke(DeleteUserResult.RequiresRecentLogin);
+                            return;
+                        }
+
+                        Credential credential = GoogleAuthProvider.GetCredential(idToken, null);
+                        user.ReauthenticateAsync(credential).ContinueWithOnMainThread(reauth =>
+                        {
+                            if (reauth.IsCanceled || reauth.IsFaulted)
+                            {
+                                Debug.LogWarning($"[FireBaseAuthManager] 재인증 실패: {reauth.Exception?.GetBaseException().Message}");
+                                onComplete?.Invoke(DeleteUserResult.RequiresRecentLogin);
+                                return;
+                            }
+
+                            user.DeleteAsync().ContinueWithOnMainThread(retry =>
+                            {
+                                if (!retry.IsCanceled && !retry.IsFaulted)
+                                    OnUserDeleted(onComplete);
+                                else
+                                {
+                                    Debug.LogWarning($"[FireBaseAuthManager] 재인증 후 계정 삭제 실패: {retry.Exception?.GetBaseException().Message}");
+                                    onComplete?.Invoke(DeleteUserResult.RequiresRecentLogin);
+                                }
+                            });
+                        });
+                    });
+                    return;
+                }
+#endif
+                onComplete?.Invoke(DeleteUserResult.RequiresRecentLogin);
+            });
+        }
+
+        private void OnUserDeleted(Action<DeleteUserResult> onComplete)
+        {
+            Debug.Log("[FireBaseAuthManager] 계정 삭제 완료");
+            FireBaseAnalyticsManager.Instance.LogEvent("account_delete", "result", "success");
+            PlayerPrefs.DeleteKey(HasEverLoggedInKey);
+            PlayerPrefs.Save();
+            onComplete?.Invoke(DeleteUserResult.Success);
+        }
+
+        private static bool HasAuthError(AggregateException exception, AuthError error)
+        {
+            if (exception == null)
+                return false;
+
+            foreach (Exception inner in exception.Flatten().InnerExceptions)
+            {
+                if (inner is FirebaseException firebaseException && (AuthError)firebaseException.ErrorCode == error)
                     return true;
             }
 

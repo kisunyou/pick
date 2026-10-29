@@ -97,6 +97,13 @@ namespace FunRabbit
             text.text = LanguageManager.Instance.Get(buttonKey);
         }
 
+        // 진행 중 안내 문구(예: 계정 삭제 중)를 오버레이 가운데에 표시한다. Begin() 이후에만 유효.
+        public static void SetStatusText(string text)
+        {
+            if (_screen != null)
+                _screen.GetComponentInChildren<TextMeshProUGUI>().text = text ?? string.Empty;
+        }
+
         public static void HideRetry()
         {
             if (_retry != null) UnityEngine.Object.Destroy(_retry);

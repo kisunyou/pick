@@ -21,6 +21,7 @@ namespace FunRabbit
         private readonly Dictionary<string, Queue<GameObject>> _pool = new Dictionary<string, Queue<GameObject>>();
         // 재생 중인 트윈 (파괴 시 정리용)
         private readonly List<Tween> _activeTweens = new List<Tween>();
+        private bool _destroying;
 
         public Transform GetRandomBoxTargetTransform => getRandomBoxTargetTransform;
 
@@ -162,7 +163,7 @@ namespace FunRabbit
         // 사용이 끝난 인스턴스를 비활성화하고 prefabName별 풀에 넣는다.
         private void ReturnToPool(string prefabName, GameObject instance)
         {
-            if (instance == null)
+            if (instance == null || _destroying)
                 return;
 
             instance.SetActive(false);
@@ -192,10 +193,29 @@ namespace FunRabbit
             return prefab;
         }
 
+        // 파괴 시 비행 중인 트레일을 즉시 도착 처리해 도착 콜백을 보장한다 (이전: Kill 만 해 콜백 미실행).
+        // 보상 자체는 호출자가 트레일 전에 이미 저장(지급 확정/지급 대기 기록)하므로, 콜백은 합류 처리만 하며
+        // 전투 시스템이 이미 사라졌으면 지급 대기 항목이 남아 재시작 시 지급된다.
         private void OnDestroy()
         {
-            foreach (var tween in _activeTweens)
-                tween?.Kill();
+            _destroying = true; // 파괴 중에는 인스턴스를 풀로 되돌리지 않는다 (함께 파괴됨)
+            foreach (Tween tween in _activeTweens.ToArray())
+            {
+                if (tween == null || !tween.IsActive())
+                    continue;
+
+                try
+                {
+                    tween.Complete(true);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogException(e);
+                }
+
+                if (tween.IsActive())
+                    tween.Kill();
+            }
             _activeTweens.Clear();
         }
     }

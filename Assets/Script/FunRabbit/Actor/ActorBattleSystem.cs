@@ -144,8 +144,10 @@ namespace FunRabbit
             if (currentHp != _slotSavedHp[index])
             {
                 _slotSavedHp[index] = currentHp;
+                // 값은 즉시 쓰고 디스크 flush 만 모은다 (피격마다 PlayerPrefs.Save 하던 것 → 주기/백그라운드 전환 시 1회).
+                // 강제 종료 시 최대 몇 초의 아군 hp 진행만 잃는다 - 보상·재화와 무관 (PrefsSaveScheduler 주석 참고)
                 PlayerPrefs.SetInt(SlotHpKey(index), currentHp);
-                PlayerPrefs.Save();
+                PrefsSaveScheduler.MarkDirty();
             }
         }
 
