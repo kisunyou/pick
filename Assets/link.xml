@@ -1,0 +1,51 @@
+<!--
+  Managed Stripping Level 상향(Minimal → Low) 대비 보존 목록.
+  - 게임 코드(리플렉션: UIManager 어트리뷰트 경로, JsonUtility 데이터 클래스, AndroidJavaProxy 콜백)
+  - Java → C# 콜백을 이름으로 호출하는 SDK(LevelPlay, Notifications, Firebase, Google Sign-In)
+  - 리플렉션 기반 등록을 쓰는 Unity Services / IAP
+  어셈블리 전체를 보존하므로 이 SDK 들의 코드는 줄지 않지만 런타임 누락 위험이 없다.
+  (스트리핑 이득은 .NET/엔진/URP/TMP/UGUI 등 나머지 어셈블리와 IL2CPP OptimizeSize 에서 얻는다)
+-->
+<linker>
+  <assembly fullname="Assembly-CSharp" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Assembly-CSharp-firstpass" preserve="all" ignoreIfMissing="1"/>
+
+  <assembly fullname="Firebase.App" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Firebase.App.Internal" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Firebase.Platform" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Firebase.TaskExtension" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Firebase.Auth" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Firebase.Analytics" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Google.MiniJson" preserve="all" ignoreIfMissing="1"/>
+
+  <assembly fullname="Unity.LevelPlay" preserve="all" ignoreIfMissing="1"/>
+
+  <assembly fullname="Unity.Notifications" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Notifications.Android" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Notifications.Unified" preserve="all" ignoreIfMissing="1"/>
+
+  <assembly fullname="Unity.Purchasing" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Purchasing.Stores" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Purchasing.SecurityCore" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Purchasing.Utilities" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Purchasing.Codeless" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Purchasing.PaymentProviderService" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Purchasing.LiveContentAdapterService" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Purchasing.WebshopService" preserve="all" ignoreIfMissing="1"/>
+
+  <assembly fullname="Unity.Services.Core" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Services.Core.Internal" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Services.Core.Analytics" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Services.Core.Components" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Services.Core.Configuration" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Services.Core.Device" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Services.Core.Environments" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Services.Core.Environments.Internal" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Services.Core.Networking" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Services.Core.Registration" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Services.Core.Scheduler" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Services.Core.Telemetry" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.Services.Core.Threading" preserve="all" ignoreIfMissing="1"/>
+
+  <assembly fullname="Newtonsoft.Json" preserve="all" ignoreIfMissing="1"/>
+</linker>

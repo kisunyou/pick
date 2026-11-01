@@ -15,6 +15,9 @@ namespace FunRabbit
             public bool overrideAnchors;
             public Vector2 anchorMin;
             public Vector2 anchorMax;
+            // true 면 anchorMin 한 점에 붙이고 size 크기(UI 단위)로 고정한다 - 배경 크기에 따라 늘어나지 않음
+            public bool fixedSize;
+            public Vector2 size;
         }
 
         [SerializeField] private Variant[] variants;
@@ -49,7 +52,13 @@ namespace FunRabbit
             if (selected == null) return false;
             if (_image == null) _image = GetComponent<Image>();
             _image.sprite = selected.sprite;
-            if (selected.overrideAnchors)
+            if (selected.overrideAnchors && selected.fixedSize)
+            {
+                _image.rectTransform.anchorMin = _image.rectTransform.anchorMax = selected.anchorMin;
+                _image.rectTransform.anchoredPosition = Vector2.zero;
+                _image.rectTransform.sizeDelta = selected.size;
+            }
+            else if (selected.overrideAnchors)
             {
                 _image.rectTransform.anchorMin = selected.anchorMin;
                 _image.rectTransform.anchorMax = selected.anchorMax;

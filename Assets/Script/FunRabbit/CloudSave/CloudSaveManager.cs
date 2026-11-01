@@ -569,7 +569,8 @@ namespace FunRabbit
                 }
             }
             if (json == _lastUploaded) { _uploading = false; done?.Invoke(true); yield break; }
-            var doc = new FsDoc { fields = new FsFields {
+            // 업로드는 fields 만 보낸다 (FsDoc 의 updateTime 은 출력 전용 - 빈 값을 보내면 Firestore 가 400 으로 거부)
+            var doc = new FsWriteDoc { fields = new FsFields {
                 save = new FsString { stringValue = json },
                 saveVersion = new FsInt { integerValue = "2" },
                 updatedAt = new FsInt { integerValue = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString() }
@@ -638,6 +639,7 @@ namespace FunRabbit
         }
 
         [Serializable] class FsDoc { public FsFields fields; public string updateTime; }
+        [Serializable] class FsWriteDoc { public FsFields fields; }
         [Serializable] class FsFields { public FsString save; public FsInt updatedAt; public FsInt saveVersion; }
         [Serializable] class FsString { public string stringValue; }
         [Serializable] class FsInt { public string integerValue; }

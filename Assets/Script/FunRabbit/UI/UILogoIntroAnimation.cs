@@ -6,6 +6,8 @@ namespace FunRabbit
     public sealed class UILogoIntroAnimation : MonoBehaviour
     {
         [SerializeField, Min(.01f)] private float duration = .95f;
+        // 로딩 중에는 이 크기로 미리 보여 주고, 로딩이 끝나면 여기서부터 등장 애니를 재생한다.
+        public const float IdleScale = .8f;
         private Vector3 _baseScale;
         private bool _capturedBaseScale;
         private bool _playing;
@@ -16,10 +18,24 @@ namespace FunRabbit
         private void OnEnable() => Hide();
         private void OnDisable() => Hide();
 
+        // 등장 애니 전 대기 상태: 숨기지 않고 IdleScale 크기로 보여 준다.
+        // (에디터 편집 중에는 프리팹에 축소된 크기가 저장되지 않도록 크기를 건드리지 않는다)
         public void Hide()
         {
             Stop();
-            SetVisible(false);
+            if (Application.isPlaying)
+            {
+                CaptureBaseScale();
+                transform.localScale = _baseScale * IdleScale;
+            }
+            SetVisible(true);
+        }
+
+        private void CaptureBaseScale()
+        {
+            if (_capturedBaseScale) return;
+            _baseScale = transform.localScale;
+            _capturedBaseScale = true;
         }
 
         private void SetVisible(bool visible)
@@ -36,11 +52,7 @@ namespace FunRabbit
 
         public void Play(System.Action onComplete = null)
         {
-            if (!_capturedBaseScale)
-            {
-                _baseScale = transform.localScale;
-                _capturedBaseScale = true;
-            }
+            CaptureBaseScale();
             _elapsed = 0f;
             _onComplete = onComplete;
             _playing = true;
@@ -73,7 +85,7 @@ namespace FunRabbit
         {
             float t = Mathf.Clamp01(progress);
             if (t <= .30f)
-                return Vector3.LerpUnclamped(Vector3.one * .7f, Vector3.one * 1.4f,
+                return Vector3.LerpUnclamped(Vector3.one * IdleScale, Vector3.one * 1.4f,
                     1f - Mathf.Pow(1f - t / .30f, 3f));
             if (t <= .53f)
                 return Blend(Vector3.one * 1.4f, new Vector3(1.10f, .89f, 1f), (t - .30f) / .23f);
