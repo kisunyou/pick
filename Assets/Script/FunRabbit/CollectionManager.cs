@@ -386,20 +386,52 @@ namespace FunRabbit
             return false;
         }
 
-        // 인형 렌더러 bounds의 최하단이 플레인 표면에 닿도록 y를 보정한다. (모델별 피벗 차이 흡수)
+        // 인형 메시의 실제 최저점(발바닥)이 플레인 표면에 닿도록 y를 보정한다. (모델별 피벗 차이 흡수)
+        // Renderer.bounds 는 저장된 범위 상자라 실제 메시보다 크게 잡힌 모델(사자·여우·호랑이·너구리 등)이 최대 1m 넘게 떠 보였다 -
+        // 켜진 렌더러의 메시 정점으로 직접 잰다. (꺼진 충돌 확인용 MeshRenderer 는 제외)
+        private static Mesh _groundBakeMesh;
+
         private void GroundToFloor(GameObject doll)
         {
-            Renderer[] renderers = doll.GetComponentsInChildren<Renderer>();
-            if (renderers.Length == 0)
-                return;
-
             float minY = float.MaxValue;
-            foreach (var dollRenderer in renderers)
-                minY = Mathf.Min(minY, dollRenderer.bounds.min.y);
+            foreach (var skin in doll.GetComponentsInChildren<SkinnedMeshRenderer>())
+            {
+                if (!skin.enabled || skin.sharedMesh == null)
+                    continue;
+                if (_groundBakeMesh == null)
+                    _groundBakeMesh = new Mesh();
+                // useScale=true + localToWorld 가 실제 월드 위치 (false 는 스케일이 두 번 들어감 - 2026-11-05 Unity 6 실측, 충돌 헐과 1cm 이내 일치)
+                skin.BakeMesh(_groundBakeMesh, true);
+                minY = Mathf.Min(minY, LowestWorldY(_groundBakeMesh, skin.transform));
+            }
+            foreach (var meshRenderer in doll.GetComponentsInChildren<MeshRenderer>())
+            {
+                if (meshRenderer.enabled && meshRenderer.TryGetComponent(out MeshFilter filter) && filter.sharedMesh != null && filter.sharedMesh.isReadable)
+                    minY = Mathf.Min(minY, LowestWorldY(filter.sharedMesh, meshRenderer.transform));
+            }
+
+            // 메시를 못 읽은 경우만 예전 방식(렌더러 범위 상자)
+            if (minY == float.MaxValue)
+            {
+                Renderer[] renderers = doll.GetComponentsInChildren<Renderer>();
+                if (renderers.Length == 0)
+                    return;
+                foreach (var dollRenderer in renderers)
+                    minY = Mathf.Min(minY, dollRenderer.bounds.min.y);
+            }
 
             Vector3 pos = doll.transform.position;
             pos.y += _floorY - minY;
             doll.transform.position = pos;
+        }
+
+        private static float LowestWorldY(Mesh mesh, Transform space)
+        {
+            Matrix4x4 toWorld = space.localToWorldMatrix;
+            float minY = float.MaxValue;
+            foreach (Vector3 vertex in mesh.vertices)
+                minY = Mathf.Min(minY, toWorld.MultiplyPoint3x4(vertex).y);
+            return minY;
         }
     }
 }

@@ -14,8 +14,9 @@ namespace FunRabbit
         {
             public BossBattleActorContext(Actor actor) : base(actor) { }
 
-            protected override int GetHpValue(string animalKey) => GameActorData.GetBossHp(animalKey);
-            protected override int GetAttackPowerValue(string animalKey) => GameActorData.GetBossAttackPower(animalKey);
+            // 회차 배수(28판 반복마다 1 -> 3 -> 6 ...)를 곱한다 - GameQuestManager.MaxBossHp 와 같은 기준
+            protected override int GetHpValue(string animalKey) => GameQuestManager.ApplyBossMultiplier(GameActorData.GetBossHp(animalKey));
+            protected override int GetAttackPowerValue(string animalKey) => GameQuestManager.ApplyBossMultiplier(GameActorData.GetBossAttackPower(animalKey));
             protected override float GetAttackSpeedValue(string animalKey) => GameActorData.GetBossAttackSpeed(animalKey);
         }
 

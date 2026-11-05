@@ -7,10 +7,10 @@ namespace FunRabbit
     public struct UICollectionItemData
     {
         public string title;      // 다국어 동물 이름
-        public string iconPath;   // 썸네일 스프라이트 경로 (미클리어 = 보스 아이콘)
-        public string modelPath;  // 상세 팝업 3D 모델 경로 (미클리어 = 보스 프리팹)
-        public string animalKey;  // 모델 텍스처에 적용할 actor.json 행 키 (변형 등급 반영, 예: bear_b)
-        public int grade;         // 클리어 변형 등급: 0=원본, 1=_b(노멀 구간 클리어), 2=_r(하드 구간 클리어)
+        public string iconPath;   // 썸네일 스프라이트 경로 (미클리어도 일반 아이콘 - 그림자로 표시)
+        public string modelPath;  // 상세 팝업 3D 모델 경로 (미클리어도 일반 프리팹 - 실루엣으로 표시)
+        public string animalKey;  // 상세 팝업 모델에 적용할 actor.json 행 키
+        public int grade;         // 이름 색 등급 (변형 _b/_r 은 신규 동물로 대체돼 현재 항상 0)
         public bool active;       // 획득(해당 원본 스테이지 클리어) 여부
     }
 
@@ -37,6 +37,20 @@ namespace FunRabbit
 
         public void SetCollectionItems(UICollectionItemData[] items)
         {
+            // 프리팹 칸(12)보다 동물(28)이 많으면 마지막 칸을 복제해 채운다 (Content 의 GridLayout·ContentSizeFitter 가 배치·스크롤 길이를 맞춤)
+            if (uICollectionItems.Length > 0 && uICollectionItems.Length < items.Length)
+            {
+                var list = new System.Collections.Generic.List<UICollectionItem>(uICollectionItems);
+                UICollectionItem template = uICollectionItems[uICollectionItems.Length - 1];
+                while (list.Count < items.Length)
+                {
+                    UICollectionItem copy = Instantiate(template, template.transform.parent);
+                    copy.name = template.name;
+                    list.Add(copy);
+                }
+                uICollectionItems = list.ToArray();
+            }
+
             int count = Mathf.Min(uICollectionItems.Length, items.Length);
             for (int i = 0; i < count; i++)
             {
@@ -48,51 +62,43 @@ namespace FunRabbit
 
     public class UICollectionControl
     {
-        // 도감은 원본 동물(1~StagesPerBand=12) 한 칸씩만 보여주고, 변형(_b/_r) 스테이지 클리어는
-        // 이름 색(파랑/빨강)과 상세 팝업 모델의 변형 텍스처로 표현한다.
+        // 미획득 동물 이름 표기
+        const string UnknownTitle = "???";
+
+        // 신규 동물과 아직 교체하지 않은 색 변형을 스테이지 순서대로 한 칸씩 보여준다.
         public void OnStart()
         {
             var view = UICollectionPanel.Get();
             if (view == null)
                 return;
 
-            int baseCount = GameQuestManager.StagesPerBand;   // 원본 동물 수 (12)
+            int slotCount = GameQuestManager.TotalPlayableStageCount;   // 28
 
-            // 등급/획득 판정은 "최고 클리어 스테이지" 기준 - 하드 순환(36→25) 후에도 36 클리어 기록이 유지된다
+            // 획득 판정은 "최고 클리어 스테이지" 기준 - 반복(28→1) 후에도 28 클리어 기록이 유지된다
             int maxCleared = GameQuestManager.IsCheckInstance()
                 ? GameQuestManager.Instance.MaxClearedStage
                 : 0;
 
-            var items = new UICollectionItemData[baseCount];
-            for (int stage = 1; stage <= baseCount; stage++)
+            var items = new UICollectionItemData[slotCount];
+            for (int stage = 1; stage <= slotCount; stage++)
             {
-                StageQuestData baseData = GameQuestData.GetStage(stage);
-                if (baseData == null)
+                StageQuestData stageData = GameQuestData.GetStage(stage);
+                if (stageData == null)
                     continue;
 
-                // 이 동물의 최고 클리어 변형 등급: 하드(_r) 스테이지 클리어 > 노멀(_b) 클리어 > 원본
-                // 예) 13(bear_b) 클리어 → 곰 등급 1(파랑) / 36(elephant_r)까지 클리어 → 전 동물 등급 2(빨강)
-                int grade = maxCleared >= stage + baseCount * 2 ? 2
-                          : maxCleared >= stage + baseCount ? 1 : 0;
-
-                // 등급에 해당하는 actor.json 행 키 (예: bear_b). 변형은 모델 프리팹을 원본과 공유하므로
-                // 경로는 원본 그대로 쓰고, 상세 팝업에서 이 키의 행 texture만 덧입힌다.
-                StageQuestData gradeData = grade > 0 ? GameQuestData.GetStage(stage + baseCount * grade) : baseData;
-                string animalKey = gradeData != null ? gradeData.animalKey : baseData.animalKey;
-
-                // 원본 스테이지를 클리어했으면 획득(active) 처리 (현재 도전 중인 스테이지 자신은 미포함)
+                // 그 스테이지를 클리어했으면 획득(active) 처리 (현재 도전 중인 스테이지 자신은 미포함)
                 bool active = maxCleared >= stage;
 
                 items[stage - 1] = new UICollectionItemData
                 {
                     // animalKey 원문 대신 stringData의 다국어 이름으로 표시 (상세 팝업 타이틀에도 그대로 전달됨)
-                    title = LanguageManager.Instance.Get(baseData.Doll.GetNameStringKey()),
-                    // 클리어(획득)한 동물은 일반 인형, 미클리어는 보스 버전을 보여준다
-                    // (썸네일 = _boss 아이콘, 상세 팝업 3D 모델 = _mon_prefab 보스 프리팹)
-                    iconPath = active ? baseData.Doll.GetIconFullPath() : baseData.Doll.GetBossIconFullPath(),
-                    modelPath = active ? baseData.Doll.GetModelPrefabFullPath() : baseData.Doll.GetBossModelPrefabFullPath(),
-                    animalKey = animalKey,
-                    grade = grade,
+                    // 아직 뽑지 않은 동물은 이름을 가린다 (언어 무관 "???")
+                    title = active ? LanguageManager.Instance.Get(stageData.Doll.GetNameStringKey()) : UnknownTitle,
+                    // 썸네일·상세 팝업 3D 모델 모두 항상 일반 인형 - 미클리어는 검은 그림자(실루엣)로 표시한다
+                    iconPath = stageData.Doll.GetIconFullPath(),
+                    modelPath = stageData.Doll.GetModelPrefabFullPath(),
+                    animalKey = stageData.animalKey,
+                    grade = 0,
                     active = active,
                 };
             }

@@ -4,18 +4,19 @@ using UnityEngine;
 namespace FunRabbit
 {
     // 액터 속성 (JSON table/actor 한 행 = 스테이지 하나의 액터).
-    // 연속 36스테이지 = 원본 12종(1~12) + _b 변형(13~24) + _r 변형(25~36).
-    // 변형 행은 animalKey에 suffix(bear_b 등)가 붙고 model은 원본 프리팹, texture로 색만 바꾼다.
+    // 연속 28스테이지(2026-11-05 8종 제외, 28판 후 1판부터 반복): 원본 12종과 색 변형. 제작을 마친 변형 행부터 신규 동물로 교체한다.
+    // 교체된 행의 구 세이브 키는 legacyKey 로 신규 동물에 연결된다.
     // 스테이지 목록(GameQuestData)도 이 테이블에서 구성된다 - actor.json이 스테이지 구성의 단일 정본.
     [System.Serializable]
     public class ActorData
     {
-        public int stage;                    // 이 액터가 보스로 등장하는 스테이지 번호 (1~36)
-        public string animalKey;             // 고유 키 (변형은 bear_b / bear_r 형식)
+        public int stage;                    // 이 액터가 보스로 등장하는 스테이지 번호 (1~28)
+        public string animalKey;             // 고유 키 (동물 이름, 예: bear / sheep / deer)
         public string nameKey;               // 표시 이름의 stringData 키 (변형 행도 원본 이름 키를 기입, 예: doll_name_bear)
         public string model;                 // 모델 프리팹 경로 (Resources 기준). 비어있으면 기존 이름 규칙 사용
         public string texture;               // 교체 텍스처 경로 (Resources 기준). 비어있으면 모델 원본 텍스처 유지
         public string sound;                 // 획득 시 울음소리 (Resources/Sound 기준 경로)
+        public string legacyKey;             // 이 행이 대체한 예전 키 (예: cow_b, cow_r). 구 세이브의 키를 이 행으로 연결
         public float inGameScale = 1f;       // 인게임(뽑기 기계) 인형 스케일
         public float collectionScale = 1.5f; // 컬렉션(도감) 배회 인형 스케일
 
@@ -71,11 +72,32 @@ namespace FunRabbit
             Debug.Log($"[GameActorData] Loaded {_dataList.actors.Count} actors.");
         }
 
+        // 2026-11-05 스테이지에서 뺀 동물(햄스터·토끼·악어, 펭귄·거북이·부엉이, 오징어·해파리)과 그 자리의 구 변형 키 -> 같은 계열 원본 동물 (구 세이브의 아군·배치·미션 보존)
+        static readonly Dictionary<string, string> RetiredKeys = new Dictionary<string, string>
+        {
+            { "hamster", "koala" }, { "rabbit", "koala" }, { "crocodile", "frog" },
+            { "koala_b", "koala" }, { "koala_r", "koala" }, { "frog_r", "frog" },
+            { "penguin", "duck" }, { "owl", "duck" }, { "turtle", "frog" },
+            { "duck_b", "duck" }, { "duck_r", "duck" }, { "frog_b", "frog" },
+            { "squid", "octopus" }, { "jellyfish", "octopus" }, { "octopus_b", "octopus" }, { "octopus_r", "octopus" },
+        };
+
         // Older local/cloud saves still contain the retired green-variant keys.
         public static string ResolveAnimalKey(string animalKey)
         {
             if (!string.IsNullOrEmpty(animalKey) && animalKey.EndsWith("_g", System.StringComparison.Ordinal))
-                return animalKey.Substring(0, animalKey.Length - 2) + "_b";
+                animalKey = animalKey.Substring(0, animalKey.Length - 2) + "_b";
+            if (!string.IsNullOrEmpty(animalKey) && RetiredKeys.TryGetValue(animalKey, out string retiredTo))
+                return retiredTo;
+            // 구 변형 키(cow_b / cow_r 등) -> 그 자리를 대체한 신규 동물 키
+            if (!string.IsNullOrEmpty(animalKey) && (animalKey.EndsWith("_b", System.StringComparison.Ordinal) || animalKey.EndsWith("_r", System.StringComparison.Ordinal)))
+            {
+                if (_dataList == null)
+                    Load();
+                var row = _dataList?.actors.Find(a => a.legacyKey == animalKey);
+                if (row != null)
+                    return row.animalKey;
+            }
             return animalKey;
         }
 

@@ -137,6 +137,17 @@ namespace FunRabbit
                 _sfxSource.PlayOneShot(clip);
         }
 
+        // 효과음 1회 재생 - 볼륨 배율 지정 (1 = 기본 볼륨, SFX 볼륨 설정에 곱해진다)
+        public void PlaySfxScaled(string clipName, float volumeScale)
+        {
+            if (string.IsNullOrEmpty(clipName))
+                return;
+
+            AudioClip clip = LoadClip(clipName);
+            if (clip != null)
+                _sfxSource.PlayOneShot(clip, volumeScale);
+        }
+
         // 루프 효과음(크레인 이동음 등)을 재생한다. 같은 클립이 이미 재생 중이면 무시.
         // (BGM/일반 효과음과 별도 소스라 서로 간섭 없음)
         public void PlayLoopSfx(string clipName)

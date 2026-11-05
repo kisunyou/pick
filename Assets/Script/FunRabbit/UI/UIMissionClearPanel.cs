@@ -80,7 +80,7 @@ namespace FunRabbit
         // 나타나 보이는 문제를 없애기 위함이다.
         public void SetData(string clearedAnimalKey, string newAnimalKey, int reward = -1)
         {
-            rewardCoin = reward >= 0 ? reward : GameActorData.GetClearCoinReward(clearedAnimalKey);
+            rewardCoin = reward >= 0 ? reward : GameQuestManager.GetClearCoinRewardForLoop(clearedAnimalKey);
 
             // 표기 = 실제 지급량 (PlayCoinReward가 쓰는 rewardCoin과 항상 일치)
             if (rewardCoinText != null)

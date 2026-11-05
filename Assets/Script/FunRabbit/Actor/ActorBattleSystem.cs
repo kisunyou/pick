@@ -178,6 +178,9 @@ namespace FunRabbit
             }
 
             SpawnBoss(actorData);
+            // 즉시 교체(디버그 스테이지 전환·클라우드 복원 등)에도 아군을 새 보스 사거리 기준으로 다시 세운다 -
+            // 안 하면 이전 보스 크기로 잡힌 위치에 남아, 사거리가 짧은 새 보스가 아군에 닿지 못해 공격하지 않는다
+            ResumeAllies();
         }
 
         // 미션 클리어 연출이 끝났을 때(UIMissionClearPanel 파괴) 호출된다. 대기 중인 새 보스를 스폰하고
@@ -224,6 +227,8 @@ namespace FunRabbit
             if (_bossInstance == null)
                 return;
 
+            // Destroy 는 프레임 끝에 처리된다 - 같은 프레임에 아군이 GetComponentInChildren 으로 옛 보스를 찾지 않도록 먼저 끈다
+            _bossInstance.SetActive(false);
             Destroy(_bossInstance);
             _bossInstance = null;
             BossGeneration++;

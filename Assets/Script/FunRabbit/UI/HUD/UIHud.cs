@@ -141,6 +141,8 @@ namespace FunRabbit
             questManager.OnBossHpChanged += OnBossHpChanged;
             questManager.OnStageChanged += OnStageChangedRefreshBossHPGage;
             RefreshBossHPGage();
+            if (LanguageManager.IsCheckInstance())
+                LanguageManager.Instance.OnLanguageChanged += RefreshLoopLabel;
         }
 
         private void OnBossHpChanged(int current, int max) => SetBossHPGage(current, max);
@@ -154,6 +156,44 @@ namespace FunRabbit
         {
             GameQuestManager questManager = GameQuestManager.Instance;
             SetBossHPGage(questManager.BossHp, questManager.MaxBossHp);
+            RefreshLoopLabel();
+        }
+
+        // 2026-11-05 회차 표시: 28판을 한 번 이상 깨면(2회차부터) 보스 hp 게이지 위에 "N회차" 를 띄운다.
+        // 프리팹 수정 없이 게이지 자식으로 런타임 생성 (글꼴·재질은 리셋 횟수 글자와 같은 것)
+        TextMeshProUGUI _loopLabel;
+
+        private void RefreshLoopLabel()
+        {
+            int cycle = GameQuestManager.IsCheckInstance() ? GameQuestManager.Instance.CurrentCycle : 1;
+            if (cycle <= 1)
+            {
+                if (_loopLabel != null) _loopLabel.gameObject.SetActive(false);
+                return;
+            }
+            if (_loopLabel == null)
+            {
+                if (bossHPGage == null) return;
+                var go = new GameObject("loopLabel", typeof(RectTransform));
+                var rect = (RectTransform)go.transform;
+                rect.SetParent(bossHPGage.transform, false);
+                rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
+                rect.pivot = new Vector2(0f, 0f);
+                rect.anchoredPosition = new Vector2(8f, 4f);
+                rect.sizeDelta = new Vector2(320f, 44f);
+                _loopLabel = go.AddComponent<TextMeshProUGUI>();
+                if (resetCountText != null)
+                {
+                    _loopLabel.font = resetCountText.font;
+                    _loopLabel.fontSharedMaterial = resetCountText.fontSharedMaterial;
+                }
+                _loopLabel.fontSize = 30f;
+                _loopLabel.alignment = TextAlignmentOptions.BottomLeft;
+                _loopLabel.color = Color.white;
+                _loopLabel.raycastTarget = false;
+            }
+            _loopLabel.gameObject.SetActive(true);
+            _loopLabel.text = LanguageManager.IsCheckInstance() ? LanguageManager.Instance.Get("hud_loop_round", cycle) : cycle.ToString();
         }
 
         private void SetBossHPGage(int current, int max)
@@ -411,6 +451,8 @@ namespace FunRabbit
                 questManager.OnBossHpChanged -= OnBossHpChanged;
                 questManager.OnStageChanged -= OnStageChangedRefreshBossHPGage;
             }
+            if (LanguageManager.IsCheckInstance())
+                LanguageManager.Instance.OnLanguageChanged -= RefreshLoopLabel;
 
             _timerIconTween?.Kill();
             _timerTextTween?.Kill();

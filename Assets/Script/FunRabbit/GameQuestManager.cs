@@ -4,28 +4,37 @@ using UnityEngine;
 namespace FunRabbit
 {
     // 스테이지 진행 관리. 스테이지 구성은 actor.json(GameActorData → GameQuestData 파사드)이 정본이다:
-    // 연속 36스테이지 = 원본 12종(1~12) + _g 변형(13~24) + _r 변형(25~36).
-    // 변형의 외형(model/texture)과 스탯(allyHp/bossHp 등)은 전부 actor.json 행 값을 그대로 쓴다.
-    // 마지막(36)을 깨면 하드 구간 시작(25)으로 돌아가 하드를 무한 반복한다.
+    // 연속 28스테이지 (2026-11-05 판 재배치 + 8종 제외, 판 수는 actor.json 행 수에서 계산).
+    // 외형(model/texture)과 스탯(allyHp/bossHp 등)은 전부 actor.json 행 값을 쓴다.
+    // 마지막(28)을 깨면 1판으로 돌아가 무한 반복한다. 반복할 때마다 보스 능력치(체력·공격력) 배수가 오른다:
+    // 1회차 x1 -> 2회차 x3 -> 3회차 x6 -> 4회차 x9 ... (회차 n>=2 면 3 x (n-1)). 아군(뽑은 인형) 능력치는 그대로.
     public class GameQuestManager : Singleton<GameQuestManager>
     {
         private const string KEY_STAGE = "currentStage";
         private const string KEY_BOSS_HP = "bossHp";
         private const string KEY_BOSS_HP_MAX = "bossHpMax";
         private const string KEY_CYCLE_LEGACY = "currentCycle"; // 구버전 회차 키 (마이그레이션 후 제거)
-        private const string KEY_MAX_CLEARED_STAGE = "maxClearedStage"; // 지금까지 클리어한 최고 스테이지 (하드 순환에도 유지)
+        private const string KEY_MAX_CLEARED_STAGE = "maxClearedStage"; // 지금까지 클리어한 최고 스테이지 (반복해도 유지)
+        private const string KEY_LOOP = "stageLoop"; // 28판을 끝까지 깬 횟수 (0 = 첫 회차) - 보스 능력치 배수 기준
 
-        // 난이도 구간 수 (1=원본, 2=_g, 3=_r) - 하드 시작/마이그레이션 계산과 로그 표기에 쓴다
-        public const int MaxCycle = 3;
+        // 반복마다 더해지는 보스 능력치 배수
+        public const int LoopBossMultiplierStep = 3;
 
-        // 전체 플레이 스테이지 수 (actor.json 행 수 = 36)
+        // 전체 플레이 스테이지 수 (actor.json 행 수 = 28)
         public static int TotalPlayableStageCount => GameQuestData.TotalStageCount;
 
-        // 구간당 스테이지 수 (36 / 3 = 12)
-        public static int StagesPerBand => MaxCycle > 0 ? TotalPlayableStageCount / MaxCycle : 0;
+        // 28판을 끝까지 깬 횟수 (0 = 첫 회차)
+        public static int LoopCount => Mathf.Max(0, PlayerPrefs.GetInt(KEY_LOOP, 0));
 
-        // 하드(_r) 구간 시작 스테이지 (25) - 마지막 클리어 후 여기로 돌아가 무한 반복
-        public static int HardBandStartStage => TotalPlayableStageCount - StagesPerBand + 1;
+        // 보스 능력치 배수: 첫 회차 1, 이후 3 x 반복 횟수 (1 -> 3 -> 6 -> 9 ...)
+        public static int BossStatMultiplier => LoopCount <= 0 ? 1 : LoopBossMultiplierStep * LoopCount;
+
+        // 표의 보스 값에 회차 배수를 곱한다 (int 범위를 넘지 않게 제한)
+        public static int ApplyBossMultiplier(int value) => (int)System.Math.Min(int.MaxValue, (long)value * BossStatMultiplier);
+
+        // 클리어 코인 보상 = 표 값 x 회차 배수 (보스가 강해진 만큼 보상도 함께). 지급(FireStageClear)과 표기(UIMissionClearPanel)가 같은 값을 쓴다.
+        // 28판 클리어도 회차를 올리기 전(GoNextStage 이전)에 계산되므로 '방금 깬 회차' 배수가 적용된다.
+        public static int GetClearCoinRewardForLoop(string animalKey) => ApplyBossMultiplier(Mathf.Max(0, GameActorData.GetClearCoinReward(animalKey)));
 
         // 보스 hp가 변경될 때 발생하는 이벤트 (current, max)
         public event System.Action<int, int> OnBossHpChanged;
@@ -39,6 +48,9 @@ namespace FunRabbit
         // 플레이 도중 처리하면 집고 있던 인형이 사라지고 그 플레이가 날아간다.
         private bool _pendingStageClear;
         private bool _checkRestoredClear = true;
+        // boss_damage 를 기록한 스테이지 (0 = 현재 보스 미기록) - 피격마다가 아니라 보스당 첫 피격 1회만 남긴다.
+        // 하드 순환으로 같은 스테이지 번호의 보스가 다시 나오면 ResetBossHp 가 0 으로 되돌린다.
+        private int _bossDamageLoggedStage;
         private Coroutine _clearRoutine;
 
         // ===== PlayerPrefs 조회 캐시 =====
@@ -104,25 +116,21 @@ namespace FunRabbit
 
                 int stage = PlayerPrefs.GetInt(KEY_STAGE, 1);
 
-                // (마이그레이션) 구버전 회차 키(currentCycle) 저장분을 연속 스테이지 번호로 접는다
-                if (PlayerPrefs.HasKey(KEY_CYCLE_LEGACY) && StagesPerBand > 0)
+                // (마이그레이션) 구버전 회차 키(currentCycle)는 판 번호를 유지한 채 반복 횟수로 옮긴다
+                if (PlayerPrefs.HasKey(KEY_CYCLE_LEGACY) && TotalPlayableStageCount > 0)
                 {
-                    int cycle = Mathf.Clamp(PlayerPrefs.GetInt(KEY_CYCLE_LEGACY, 1), 1, MaxCycle);
+                    int cycle = Mathf.Max(1, PlayerPrefs.GetInt(KEY_CYCLE_LEGACY, 1));
                     PlayerPrefs.DeleteKey(KEY_CYCLE_LEGACY);
-
-                    if (cycle > 1 && stage <= StagesPerBand)
-                    {
-                        stage = (cycle - 1) * StagesPerBand + stage;
-                        PlayerPrefs.SetInt(KEY_STAGE, stage);
-                    }
+                    if (cycle > 1 && !PlayerPrefs.HasKey(KEY_LOOP))
+                        PlayerPrefs.SetInt(KEY_LOOP, cycle - 1);
                     PlayerPrefs.Save();
                 }
 
-                // 범위 초과(구버전 "올클리어" 저장 등) - 하드 구간 시작으로 보정
+                // 범위 초과(판 수가 줄기 전 저장 등) - 마지막 판으로 보정
                 if (stage > TotalPlayableStageCount && TotalPlayableStageCount > 0)
                 {
-                    SetCurrentStage(HardBandStartStage);
-                    stage = HardBandStartStage;
+                    SetCurrentStage(TotalPlayableStageCount);
+                    stage = TotalPlayableStageCount;
                 }
 
                 // 스테이지 데이터가 아직 없으면(범위 보정 불가) 캐시하지 않는다 - 데이터 로드 후 다시 검증되게
@@ -132,20 +140,13 @@ namespace FunRabbit
             }
         }
 
-        // 현재 난이도 구간 (1~MaxCycle) - 로그/디버그 표기용 (외형·스탯은 actor.json 행이 결정)
-        public int CurrentCycle
-        {
-            get
-            {
-                int perBand = StagesPerBand;
-                return perBand > 0 ? Mathf.Clamp((CurrentStage - 1) / perBand + 1, 1, MaxCycle) : 1;
-            }
-        }
+        // 현재 회차 (1 = 첫 회차) - 로그/디버그 표기용
+        public int CurrentCycle => LoopCount + 1;
 
-        // 모든 스테이지 클리어 상태. 하드 무한 반복 구조라 정상 플레이에서는 true가 되지 않는다 (가드 용도).
+        // 모든 스테이지 클리어 상태. 무한 반복 구조라 정상 플레이에서는 true가 되지 않는다 (가드 용도).
         public bool IsAllCleared => CurrentStage > TotalPlayableStageCount;
 
-        // 지금까지 클리어한 최고 스테이지. 하드 구간 순환(36→25)으로 CurrentStage가 되돌아가도 유지된다 -
+        // 지금까지 클리어한 최고 스테이지. 반복(28→1)으로 CurrentStage가 되돌아가도 유지된다 -
         // 도감(UICollectionPanel)의 변형(_g/_r) 등급 판정 기준. 기록이 없는 구버전 저장은
         // "현재 스테이지 - 1"(자연 진행과 동일)로 본다.
         public int MaxClearedStage => Mathf.Max(PlayerPrefs.GetInt(KEY_MAX_CLEARED_STAGE, 0), CurrentStage - 1);
@@ -177,13 +178,13 @@ namespace FunRabbit
                 GameDollCreator.Instance.ResetCurrentStage();
         }
 
-        // 현재 스테이지 보스 몬스터의 최대 hp (actor.json의 스테이지별 난이도 곡선).
+        // 현재 스테이지 보스 몬스터의 최대 hp (actor.json의 스테이지별 난이도 곡선 x 회차 배수).
         public int MaxBossHp
         {
             get
             {
                 StageQuestData data = GetCurrentStageData();
-                return data != null ? GameActorData.GetBossHp(data.animalKey) : 0;
+                return data != null ? ApplyBossMultiplier(GameActorData.GetBossHp(data.animalKey)) : 0;
             }
         }
 
@@ -247,6 +248,7 @@ namespace FunRabbit
         private void ResetBossHp()
         {
             int maxHp = MaxBossHp;
+            _bossDamageLoggedStage = 0;
             PlayerPrefs.SetInt(KEY_BOSS_HP, maxHp);
             if (maxHp > 0)
                 PlayerPrefs.SetInt(KEY_BOSS_HP_MAX, maxHp);
@@ -266,7 +268,7 @@ namespace FunRabbit
             battleSystem.SetBoss(stageData != null ? GameActorData.Get(stageData.animalKey) : null, deferSpawn);
         }
 
-        // 지정 스테이지의 스테이지 데이터 (actor.json 기반 1~36행)
+        // 지정 스테이지의 스테이지 데이터 (actor.json 기반 1~28행)
         public StageQuestData GetStageData(int stage)
         {
             if (stage < 1 || stage > TotalPlayableStageCount)
@@ -317,9 +319,14 @@ namespace FunRabbit
             PrefsSaveScheduler.MarkDirty();
             Debug.Log($"[GameQuestManager] BossHp: {BossHp} / {MaxBossHp}");
 
-            FireBaseAnalyticsManager.Instance.LogEvent("boss_damage",
-                new Parameter("stage", CurrentStage),
-                new Parameter("boss_hp", BossHp));
+            if (_bossDamageLoggedStage != CurrentStage)
+            {
+                _bossDamageLoggedStage = CurrentStage;
+                FireBaseAnalyticsManager.Instance.LogEvent("boss_damage",
+                    new Parameter("stage", CurrentStage),
+                    new Parameter("boss_hp", BossHp),
+                    new Parameter("boss_hp_max", MaxBossHp));
+            }
 
             if (IsStageClear())
             {
@@ -363,7 +370,7 @@ namespace FunRabbit
         // 클리어 이벤트 발행(미션 클리어 패널 표시) + 다음 스테이지로 전환
         private bool FireStageClear()
         {
-            // 클리어한 스테이지의 다음 스테이지 데이터 (마지막(36) 클리어면 하드 구간 시작(25) 데이터)
+            // 클리어한 스테이지의 다음 스테이지 데이터 (마지막(28) 클리어면 1판 데이터)
             StageQuestData nextStageData = GetStageData(GetNextStage());
             try { OnStageClear?.Invoke(nextStageData); }
             catch (System.Exception e)
@@ -401,7 +408,7 @@ namespace FunRabbit
         private long GetCurrentClearCoinReward()
         {
             StageQuestData data = GetCurrentStageData();
-            return Mathf.Max(0, GameActorData.GetClearCoinReward(data?.animalKey));
+            return GetClearCoinRewardForLoop(data?.animalKey);
         }
 
         // 스테이지 클리어 여부 (보스 hp가 0 이하)
@@ -410,21 +417,24 @@ namespace FunRabbit
             return BossHp <= 0;
         }
 
-        // 현재 스테이지 다음에 진행할 스테이지 번호 (마지막(36) 이후는 하드 구간 시작(25)으로 순환)
+        // 현재 스테이지 다음에 진행할 스테이지 번호 (마지막(28) 이후는 1판으로 순환)
         private int GetNextStage()
         {
             int next = CurrentStage + 1;
-            return next > TotalPlayableStageCount ? HardBandStartStage : next;
+            return next > TotalPlayableStageCount ? 1 : next;
         }
 
-        // 다음 스테이지로 이동. 마지막(36)을 깨면 하드 구간 시작(25)으로 돌아가 무한 반복한다.
+        // 다음 스테이지로 이동. 마지막(28)을 깨면 반복 횟수를 올리고 1판으로 돌아간다 (보스 배수는 새 회차 기준).
         public void GoNextStage()
         {
             int next = GetNextStage();
+            // 반복 횟수를 먼저 올려야 SetCurrentStage 의 보스 hp 초기화가 새 회차 배수로 채워진다
+            if (next == 1 && CurrentStage >= TotalPlayableStageCount)
+                PlayerPrefs.SetInt(KEY_LOOP, LoopCount + 1);
 
             SetCurrentStage(next, true);
             PlayerPrefs.Save();
-            Debug.Log($"[GameQuestManager] Move to Stage {CurrentStage} (구간 {CurrentCycle}, 보스 {GetCurrentStageData()?.animalKey})");
+            Debug.Log($"[GameQuestManager] Move to Stage {CurrentStage} ({CurrentCycle}회차, 보스 배수 x{BossStatMultiplier}, 보스 {GetCurrentStageData()?.animalKey})");
         }
 
         // 데이터 초기화 (구버전 회차 키/최고 클리어 기록 포함)
@@ -432,6 +442,7 @@ namespace FunRabbit
         {
             PlayerPrefs.DeleteKey(KEY_CYCLE_LEGACY);
             PlayerPrefs.DeleteKey(KEY_MAX_CLEARED_STAGE);
+            PlayerPrefs.DeleteKey(KEY_LOOP);
             SetCurrentStage(1);
             PlayerPrefs.Save();
         }

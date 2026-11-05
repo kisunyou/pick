@@ -110,6 +110,7 @@ namespace FunRabbit
             StopLoadingDotAnim();
             _loadText.gameObject.SetActive(false);
             HideLoginButtons();
+            FireBaseAnalyticsManager.Instance.LogEvent("loading_touch_shown");
             // Loading/auth readiness starts the intro, not gameplay or the start prompt.
             if (_logoIntro != null) _logoIntro.Play(EnableStartInput);
             else EnableStartInput();
@@ -136,6 +137,7 @@ namespace FunRabbit
             _guestLoginBtn.gameObject.SetActive(true);
             _googleLoginBtn.gameObject.SetActive(true);
             SetLoginButtonsInteractable(true);
+            FireBaseAnalyticsManager.Instance.LogEvent("loading_login_shown");
         }
 
         public void HideLoginButtons()
@@ -300,6 +302,8 @@ namespace FunRabbit
                     yield break;
 
                 Debug.LogWarning("[UILoadingControl] Firebase Auth 초기화 실패/지연 - 로그인 없이 진행합니다.");
+                FireBaseAnalyticsManager.Instance.LogEvent("auth_init_fail", "reason",
+                    auth != null && auth.IsInitializeDone ? "error" : "timeout");
                 _loading.ShowTouchToStartBtn();
                 yield break;
             }
@@ -358,6 +362,7 @@ namespace FunRabbit
             {
                 cloud.CancelLoginSync();
                 Debug.LogWarning("[UILoadingControl] 클라우드 동기화 지연 - 로컬 데이터로 진행합니다.");
+                FireBaseAnalyticsManager.Instance.LogEvent("cloud_sync_timeout");
             }
         }
 
@@ -367,6 +372,7 @@ namespace FunRabbit
                 return;
 
             _loading.SetLoginButtonsInteractable(false);
+            FireBaseAnalyticsManager.Instance.LogEvent("login_try", "method", "guest");
             FireBaseAuthManager.Instance.SignInAnonymously(
                 success => OnLoginResult(success, "login_message_guest"));
         }
@@ -377,6 +383,7 @@ namespace FunRabbit
                 return;
 
             _loading.SetLoginButtonsInteractable(false);
+            FireBaseAnalyticsManager.Instance.LogEvent("login_try", "method", "google");
             FireBaseAuthManager.Instance.SignInWithGoogle(
                 success => OnLoginResult(success, "login_message_google"));
         }
@@ -396,6 +403,9 @@ namespace FunRabbit
             }
             else
             {
+                // 실패를 알리지 않으면 "눌러도 반응 없는 버튼"으로 보여 이탈한다 - 사용자 취소만 조용히 넘긴다
+                if (!FireBaseAuthManager.Instance.LastSignInCancelledByUser)
+                    UITopMessage.ShowMessage(LanguageManager.Instance.Get("message_login_fail"));
                 _loading.SetLoginButtonsInteractable(true);
             }
         }

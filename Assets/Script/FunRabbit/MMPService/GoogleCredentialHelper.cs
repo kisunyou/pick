@@ -129,7 +129,12 @@ namespace FunRabbit
                 try { message = exception.Call<string>("getMessage"); }
                 catch (Exception) { message = "알 수 없는 오류"; }
 
-                _report(null, message);
+                // 사유 분류(사용자 취소/계정 없음/설정 오류 등)는 메시지가 아니라 getType()으로 한다
+                string type;
+                try { type = exception.Call<string>("getType"); }
+                catch (Exception) { type = null; }
+
+                _report(null, string.IsNullOrEmpty(type) ? message : $"{type}: {message}");
             }
         }
     }

@@ -14,6 +14,9 @@ namespace FunRabbit
             if (string.IsNullOrEmpty(animalKey))
                 return animalKey;
 
+            // 구 세이브의 변형 키(cow_b / cow_r 등)는 그 자리를 대체한 신규 동물(sheep / deer 등)로 먼저 바꾼다
+            animalKey = GameActorData.ResolveAnimalKey(animalKey);
+
             if (animalKey.EndsWith("_b") || animalKey.EndsWith("_r") || animalKey.EndsWith("_g"))
                 return animalKey.Substring(0, animalKey.Length - 2);
 

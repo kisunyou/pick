@@ -9,7 +9,7 @@ namespace FunRabbit
     //   빈손 플레이면 다음 플레이 시작 시 리셋
     // - 2콤보부터 표시: 콤보 수에 맞는 이미지(combo_Double/Triple/Quadra/Penta) + "n Combo" 텍스트
     // - 연출: 매 콤보마다 화면 밖 오른쪽 → 가운데로 스프링(OutElastic) 진입, 도착 시 텍스트 스케일 1.0 → 1.5 → 1.0 펀치
-    // - 아군 추가 소환: 3콤보 +1 / 4콤보 +2 / 5콤보 이상 +3 (Basket이 AllyBonusCount를 더한다)
+    // - 아군 추가 소환: 4콤보 +1 / 5콤보 이상 +2 (Basket이 AllyBonusCount를 더한다)
     public class UIComboHud : MonoBehaviour
     {
         [SerializeField] TextMeshProUGUI comboText;
@@ -24,6 +24,7 @@ namespace FunRabbit
 
         // 콤보 표시(2콤보 이상)마다 재생할 효과음 (Resources/Sound)
         const string ComboSoundName = "combo_up";
+        const float ComboSoundVolume = 0.7f;   // 기본 효과음 볼륨 대비 배율 (30% 감소)
 
         [Header("연출")]
         [SerializeField] float flyInDuration = 0.6f;     // 화면 밖 → 가운데 진입 시간
@@ -46,11 +47,10 @@ namespace FunRabbit
 
         Sequence _seq;
 
-        // 현재 콤보의 아군 추가 소환 수 (3콤보 +1 / 4콤보 +2 / 5콤보 이상 +3)
+        // 현재 콤보의 아군 추가 소환 수 (4콤보 +1 / 5콤보 이상 +2)
         public int AllyBonusCount =>
-            _combo >= 5 ? 3 :
-            _combo == 4 ? 2 :
-            _combo == 3 ? 1 : 0;
+            _combo >= 5 ? 2 :
+            _combo == 4 ? 1 : 0;
 
         void Awake()
         {
@@ -135,7 +135,7 @@ namespace FunRabbit
         // combo 수에 맞는 이미지/텍스트로 표시 연출을 재생한다 (2 이상에서 호출)
         public void Show(int combo)
         {
-            AudioManager.Instance.PlaySfx(ComboSoundName);
+            AudioManager.Instance.PlaySfxScaled(ComboSoundName, ComboSoundVolume);
 
             SetImagesActive(combo);
 

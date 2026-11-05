@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Threading.Tasks;
 using Firebase;
+using Firebase.Analytics;
 using Firebase.Auth;
 using Firebase.Extensions;
 using UnityEngine;
@@ -42,6 +43,12 @@ namespace FunRabbit
 
         // 마지막 UpgradeGuestToGoogle 실패가 사용자의 전환 취소였는지 (실패 토스트 생략용)
         public bool LastSwitchCancelledByUser { get; private set; }
+
+        // 마지막 SignInAnonymously/SignInWithGoogle 실패가 사용자의 계정 선택 취소였는지 (실패 토스트 생략용)
+        public bool LastSignInCancelledByUser { get; private set; }
+
+        // GA 이벤트 파라미터 문자열 최대 길이
+        const int AnalyticsParamMaxLength = 100;
 
         // 계정 삭제 결과
         public enum DeleteUserResult
@@ -136,6 +143,7 @@ namespace FunRabbit
         // 게스트(익명) 로그인
         public void SignInAnonymously(Action<bool> onComplete)
         {
+            LastSignInCancelledByUser = false;
             if (!CheckCanSignIn(onComplete))
                 return;
 
@@ -149,6 +157,7 @@ namespace FunRabbit
         // - iOS 등: Firebase 제공 웹 플로우(FederatedOAuthProvider)
         public void SignInWithGoogle(Action<bool> onComplete)
         {
+            LastSignInCancelledByUser = false;
             if (!CheckCanSignIn(onComplete))
                 return;
 
@@ -165,6 +174,7 @@ namespace FunRabbit
                 if (string.IsNullOrEmpty(idToken))
                 {
                     Debug.LogWarning($"[FireBaseAuthManager] google ID 토큰 획득 실패: {error}");
+                    ReportSignInFail("google", "token", error);
                     onComplete?.Invoke(false);
                     return;
                 }
@@ -510,6 +520,23 @@ namespace FunRabbit
             return true;
         }
 
+        // 로그인 실패를 GA 에 남긴다 (stage: token = Google ID 토큰 획득 단계 / firebase = Firebase 로그인 단계).
+        // 사용자 취소(계정 선택 창 닫기)는 cancelled=1 로 구분하고, 로딩 화면의 실패 토스트도 생략된다.
+        private void ReportSignInFail(string method, string stage, string reason)
+        {
+            reason = string.IsNullOrEmpty(reason) ? "unknown" : reason;
+            LastSignInCancelledByUser = reason.IndexOf("CANCEL", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            if (reason.Length > AnalyticsParamMaxLength)
+                reason = reason.Substring(0, AnalyticsParamMaxLength);
+
+            FireBaseAnalyticsManager.Instance.LogEvent("login_fail",
+                new Parameter("method", method),
+                new Parameter("stage", stage),
+                new Parameter("reason", reason),
+                new Parameter("cancelled", LastSignInCancelledByUser ? 1L : 0L));
+        }
+
         private void SignInInternal(Task<AuthResult> signInTask, string method, Action<bool> onComplete)
         {
             _isSigningIn = true;
@@ -522,6 +549,7 @@ namespace FunRabbit
                 {
                     string reason = task.Exception != null ? task.Exception.GetBaseException().Message : "취소됨";
                     Debug.LogWarning($"[FireBaseAuthManager] {method} 로그인 실패: {reason}");
+                    ReportSignInFail(method, "firebase", task.IsCanceled ? "canceled" : reason);
                     onComplete?.Invoke(false);
                     return;
                 }

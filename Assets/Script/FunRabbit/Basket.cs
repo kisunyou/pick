@@ -98,7 +98,7 @@ namespace FunRabbit
             // 울음소리에 뒤이어 획득 효과음을 재생한다
             AudioManager.Instance.PlaySfxDelayed(AllyUpSoundName, AllyUpSoundDelay);
 
-            // 황금 인형은 한 번에 아군 3마리가 합류하고, 콤보 보너스(3콤보 +1 / 4콤보 +2 / 5콤보 이상 +3)가 더해진다
+            // 황금 인형은 한 번에 아군 3마리가 합류하고, 콤보 보너스(4콤보 +1 / 5콤보 이상 +2)가 더해진다
             UIHud hud = UIHud.CreateOrGet();
             int comboBonus = hud.ComboHud != null ? hud.ComboHud.AllyBonusCount : 0;
             int allyCount = (actor is GoldenDollBoxActor ? GoldenDollAllyCount : 1) + comboBonus;

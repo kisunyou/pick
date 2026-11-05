@@ -18,10 +18,14 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
     private string _title;
     private string _modelFullPath;
     private string _animalKey;   // 상세 팝업 모델에 적용할 actor.json 행 키 (변형 등급 반영, 예: bear_b)
+    private bool _active;        // 획득 여부 (미획득이면 상세 팝업 모델을 검은 실루엣으로)
 
     // active일 때 alpha 255(1.0), 비활성일 때 alpha 120(약 0.47)
     private const float ActiveAlpha = 255f / 255f;
     private const float InactiveAlpha = 120f / 255f;
+
+    // 미획득 썸네일 그림자 색 - Image 색은 스프라이트에 곱해지므로 검정이면 모양만 남은 실루엣이 된다
+    private static readonly Color SilhouetteColor = new Color(0f, 0f, 0f, 0.6f);
 
     // 변형(_b/_r) 클리어 등급 이름 색: _b 클리어 = 파랑, _r 클리어 = 빨강 (등급 0은 프리팹 기본색 유지)
     private static readonly Color GradeBlueColor = new Color(0.30f, 0.65f, 1.00f);
@@ -42,14 +46,9 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
             titleName.color = c;
         }
 
-        // 미획득(미클리어) 인형은 보스 버전 썸네일({animalKey}_boss)이 대신 표시되므로
-        // 검은 실루엣 처리 없이 알파만 낮춰 미획득 상태를 표현한다.
+        // 미획득(미클리어) 인형은 검은 그림자(실루엣)로 보여준다
         if (thumbnailIcon != null)
-        {
-            Color c = Color.white;
-            c.a = alpha;
-            thumbnailIcon.color = c;
-        }
+            thumbnailIcon.color = active ? Color.white : SilhouetteColor;
     }
 
     public void Set(UICollectionItemData data)
@@ -57,6 +56,7 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
         _title = data.title;
         _modelFullPath = data.modelPath;
         _animalKey = data.animalKey;
+        _active = data.active;
 
         if (titleName != null)
         {
@@ -89,7 +89,7 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
         _ = LoadThumbnailAsync(data.iconPath, _loadCts.Token);
     }
 
-    // 클릭(터치 다운 후 제자리에서 업) 시: 상세 팝업을 열고 모델을 로드한다. (미클리어 아이템은 보스 모델 경로가 전달돼 있음)
+    // 클릭(터치 다운 후 제자리에서 업) 시: 상세 팝업을 열고 모델을 로드한다. (미클리어 아이템은 검은 실루엣으로 표시됨)
     // 도감 리스트는 ScrollRect 안에 있으므로, 스크롤 제스처로 끝난 터치는 클릭으로 취급하지 않는다 -
     // 아니면 스크롤하려고 손을 대기만 해도 팝업이 떠서 스크롤이 불가능해진다.
     public void OnPointerClick(PointerEventData eventData)
@@ -115,7 +115,7 @@ public class UICollectionItem : MonoBehaviour, IPointerClickHandler
 
         var popup = UICollectionDetailPopup.CreateOrGet();
         if (popup != null)
-            popup.SetData(_title, _modelFullPath, _animalKey);
+            popup.SetData(_title, _modelFullPath, _animalKey, _active);
     }
 
     private async Awaitable LoadThumbnailAsync(string fullPath, CancellationToken token)

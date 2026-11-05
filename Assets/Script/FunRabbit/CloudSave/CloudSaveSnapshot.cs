@@ -24,7 +24,7 @@ namespace FunRabbit
         //              게이지/랜덤박스, 일일 광고 시청 횟수
         static readonly string[] IntKeys =
         {
-            "currentStage", "bossHp", "bossHpMax", "maxClearedStage",
+            "currentStage", "bossHp", "bossHpMax", "maxClearedStage", "stageLoop",
             "ItemAmount_1", "ItemAmount_8", "ItemAmount_9", "ItemAmount_10",
             "DollCountGage", "RandomBoxCount",
             "WatchAdCount",

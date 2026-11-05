@@ -22,17 +22,16 @@ namespace FunRabbit
         }
 
         // 타이틀 설정 + 모델 비동기 로드.
-        // 미클리어(미획득) 여부는 호출부가 모델 경로로 표현한다(미클리어 = 보스 프리팹 경로 전달) -
-        // 여기서는 검은 실루엣 처리 없이 항상 원색으로 보여준다.
+        // 미획득(active = false) 인형은 렌더 결과(RawImage)를 검정으로 곱해 검은 실루엣만 보여준다.
         // animalKey를 주면 로드 완료 후 그 actor.json 행의 texture(_g/_r 변형색)를 적용한다.
-        public void SetData(string title, string modelFullPath, string animalKey = null)
+        public void SetData(string title, string modelFullPath, string animalKey = null, bool active = true)
         {
             if (titleText != null)
                 titleText.text = title;
 
             if (uIModelViewPanel != null)
             {
-                uIModelViewPanel.SetImageColor(Color.white);
+                uIModelViewPanel.SetImageColor(active ? Color.white : Color.black);
                 _ = LoadModelWithTexture(modelFullPath, animalKey);
             }
         }
