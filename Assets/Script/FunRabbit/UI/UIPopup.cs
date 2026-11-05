@@ -34,6 +34,12 @@ namespace FunRabbit
         // 버튼 없는 모달(showButtons=false - 연동 중/보상 연출)인지. 뒤로가기로 닫히지 않는다.
         public bool IsButtonless { get; private set; }
 
+        // 닫을 수 없는 필수 모달(강제 업데이트)인지. 확인 버튼을 눌러도 닫히지 않고, 이후 다른 호출부의 Set 은 무시한다.
+        public bool IsForced { get; private set; }
+
+        // 강제 모달은 로딩 화면(System 레이어 700) 위에 보여야 한다
+        const int ForcedSortingOrder = 800;
+
         // popup 이 아직 살아 있고 token 내용을 그대로 보여주고 있을 때만 닫는다 (다른 호출부가 덮어쓴 새 내용은 유지)
         public static bool CloseIfCurrent(UIPopup popup, int token)
         {
@@ -69,6 +75,10 @@ namespace FunRabbit
         // 반환값 = 이번 내용의 토큰 (CloseIfCurrent 에 사용)
         public int Set(string titleText, string descriptionText, System.Action onClickOkButtonEvent, bool showCoinIcon = false, bool showButtons = true)
         {
+            // 강제 모달이 떠 있으면 다른 내용으로 덮어쓰지 않는다
+            if (IsForced)
+                return ContentToken;
+
             // 이전 내용이 응답 대기 중(취소 콜백 보유)이었다면 덮어쓰기 = 취소로 처리 (새 내용을 다 세팅한 뒤 호출)
             System.Action supersededCancel = _onCancel;
             _onCancel = null;
@@ -98,6 +108,39 @@ namespace FunRabbit
             return token;
         }
 
+        // 닫을 수 없는 필수 모달 (강제 업데이트). 확인 버튼 하나만 남기고 라벨을 바꾼다 - 눌러도 닫히지 않는다.
+        // 로딩 화면 위에 보이도록 자체 Canvas 로 정렬 순서를 올린다.
+        public void SetForced(string titleText, string descriptionText, string buttonLabel, System.Action onClickOkButtonEvent)
+        {
+            Set(titleText, descriptionText, onClickOkButtonEvent);
+            IsForced = true;
+
+            if (cancelButton != null)
+                cancelButton.gameObject.SetActive(false);
+            if (closeButton != null)
+                closeButton.gameObject.SetActive(false);
+            if (dimedButton != null)
+                dimedButton.interactable = false;
+
+            TMP_Text label = okButton != null ? okButton.GetComponentInChildren<TMP_Text>(true) : null;
+            if (label != null && !string.IsNullOrEmpty(buttonLabel))
+            {
+                // 프리팹의 "확인" 다국어 라벨이 언어 변경 때 되돌리지 않게 끈다
+                LocalizedText localized = label.GetComponent<LocalizedText>();
+                if (localized != null)
+                    localized.enabled = false;
+                label.text = buttonLabel;
+            }
+
+            Canvas canvas = GetComponent<Canvas>();
+            if (canvas == null)
+                canvas = gameObject.AddComponent<Canvas>();
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = ForcedSortingOrder;
+            if (GetComponent<GraphicRaycaster>() == null)
+                gameObject.AddComponent<GraphicRaycaster>();
+        }
+
         // 확인 외의 방법(취소/X/딤/뒤로가기, 다른 내용으로 덮어씀, 파괴)으로 끝났을 때의 콜백. Set 이후에 호출할 것.
         public void SetOnCancel(System.Action onCancel)
         {
@@ -107,6 +150,8 @@ namespace FunRabbit
         // 뒤로가기: 버튼 없는 모달은 닫지 않고 입력만 소비, 그 외는 취소와 동일하게 닫는다
         public override bool HandleBackKey()
         {
+            if (IsForced)
+                return true;
             if (!IsButtonless)
                 Close();
             return true;
@@ -175,6 +220,13 @@ namespace FunRabbit
         // 콜백이 같은 팝업에 다음 단계 내용을 다시 Set 했다면(2단계 확인 등) 그 새 내용은 닫지 않는다.
         private void OnClickOk()
         {
+            // 강제 모달: 동작만 하고 닫지 않는다 (스토어에서 돌아와도 계속 막는다)
+            if (IsForced)
+            {
+                _onClickOk?.Invoke();
+                return;
+            }
+
             int token = ContentToken;
             System.Action ok = _onClickOk;
             _onClickOk = null;

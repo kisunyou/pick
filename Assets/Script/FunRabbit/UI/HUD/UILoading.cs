@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
 using System.Collections;
+using Firebase.Analytics;
 
 namespace FunRabbit
 {
@@ -140,6 +141,27 @@ namespace FunRabbit
             FireBaseAnalyticsManager.Instance.LogEvent("loading_login_shown");
         }
 
+        // 강제 업데이트 - 로딩 표시·로그인 버튼을 숨기고 닫을 수 없는 업데이트 팝업을 띄운다 (게임 진입 차단)
+        public void ShowForceUpdate()
+        {
+            ResetStartPresentation();
+            StopLoadingDotAnim();
+            _loadText.gameObject.SetActive(false);
+            HideLoginButtons();
+
+            FireBaseAnalyticsManager.Instance.LogEvent("force_update_shown",
+                new Parameter("version_code", AppVersionGate.CurrentVersionCode),
+                new Parameter("min_version_code", AppVersionGate.MinVersionCode));
+
+            UIPopup popup = UIPopup.CreateOrGet();
+            if (popup != null)
+                popup.SetForced(
+                    LanguageManager.Instance.Get("popup_force_update_title"),
+                    LanguageManager.Instance.Get("popup_force_update_body"),
+                    LanguageManager.Instance.Get("button_update"),
+                    AppVersionGate.OpenStore);
+        }
+
         public void HideLoginButtons()
         {
             _guestLoginBtn.gameObject.SetActive(false);
@@ -263,6 +285,9 @@ namespace FunRabbit
             _loading.SetOnLoginButtons(OnGuestLoginBtn, OnGoogleLoginBtn);
 
             GameMain.SubscribeStageLoaded(OnStageLoadComplete);
+
+            // 강제 업데이트 판정은 스테이지 로드와 동시에 시작해 둔다 (결과는 AuthGateCoroutine 이 기다린다)
+            _loading.StartCoroutine(AppVersionGate.Check());
         }
 
         public void Deinitialize()
@@ -289,6 +314,16 @@ namespace FunRabbit
         // - 초기화 실패/타임아웃이면 → 게임 진입을 막지 않도록 터치 투 스타트로 진행
         private IEnumerator AuthGateCoroutine()
         {
+            // 강제 업데이트 판정이 먼저 - 업데이트가 필요하면 로그인으로 넘어가지 않는다 (판정 실패는 통과)
+            yield return AppVersionGate.Check();
+            if (AppVersionGate.IsUpdateRequired)
+            {
+                _authGateCoroutine = null;
+                if (_loading != null)
+                    _loading.ShowForceUpdate();
+                yield break;
+            }
+
             var auth = FireBaseAuthManager.Instance;
 
             float deadline = Time.realtimeSinceStartup + AuthInitTimeout;
